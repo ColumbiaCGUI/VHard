@@ -29,6 +29,9 @@ def estimate_normals(files):
             search_param=o3d.geometry.KDTreeSearchParamHybrid(
             radius=0.1, max_nn=30)
         )
+        if not pcd.has_normals():
+            print(f"Warning: Normal estimation failed for {file}")
+            continue
         pcd.orient_normals_consistent_tangent_plane(100)
         
         # Remove outliers
@@ -95,11 +98,13 @@ def ball_pivoting(clouds):
 if __name__ == '__main__':
     
     # files = os.listdir('holds')
-    files = [os.path.join('holds', f) for f in ('H1.ply', 'D2.ply', 'B8.ply')]
+    holds = ['A5', 'D5', 'G8', 'G10', 'H11', 'J13', 'F18', 'H15', 'C13', 
+             'F12', 'B8', 'E4', 'I2', 'F13', 'E11', 'D9', 'G36']
+    files = [os.path.join('holds', f'{h}.ply') for h in holds]
     
     clouds = estimate_normals(files)
     
     poisson(clouds)
-    ball_pivoting(clouds)
+    # ball_pivoting(clouds)
     
     
