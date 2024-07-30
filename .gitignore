@@ -77,3 +77,6 @@ crashlytics-build.properties
 *.blend
 *.blend1
 /Processing/ns
+
+# Unused scripts
+/Processing/meshing/texture_baking.py
