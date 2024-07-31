@@ -1,14 +1,9 @@
 fileFormatVersion: 2
-guid: 84033e5be05c7cb4f96db3b455b338c0
+guid: 50c4c60acb545a34f9e22cd9022f790f
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects:
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: VertexColors
-    second: {fileID: 2100000, guid: 6886b4cb44f4c1740b7e83bc83372450, type: 2}
+  externalObjects: {}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -35,7 +30,7 @@ ModelImporter:
     extraExposedTransformPaths: []
     extraUserProperties: []
     clipAnimations: []
-    isReadable: 1
+    isReadable: 0
   meshes:
     lODScreenPercentages: []
     globalScale: 1
