@@ -106,14 +106,14 @@ Material:
     - Vector1_E4F360DA: 0.249
     - Vector1_F5EC765B: 1.33
     - _AlphaClip: 0
-    - _Amplitude: 0.16
+    - _Amplitude: 0.03
     - _Blend: 0
     - _BumpScale: 1
     - _Cull: 2
     - _Cutoff: 0.5
     - _DstBlend: 0
     - _EdgeBlend: 0.16
-    - _EffectRadius: 10.4
+    - _EffectRadius: 1.1
     - _EnvironmentReflections: 1
     - _Frequency: 1
     - _GlossMapScale: 0
@@ -124,7 +124,7 @@ Material:
     - _QueueControl: 0
     - _QueueOffset: 0
     - _ReceiveShadows: 1
-    - _RippleDensity: 3.1
+    - _RippleDensity: 6.4
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
