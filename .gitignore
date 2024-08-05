@@ -75,6 +75,8 @@ crashlytics-build.properties
 # Mesh stuff
 *.pyc
 /Assets/Resources/Moonboard/holds.fbx
+/Assets/Resources/Moonboard/newholds.fbx
+/Assets/Resources/Moonboard/newestholds.fbx
 *.blend
 *.blend1
 /Processing/
