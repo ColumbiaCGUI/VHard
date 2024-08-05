@@ -80,6 +80,4 @@ crashlytics-build.properties
 *.blend
 *.blend1
 /Processing/
-
-# Unused scripts
-/Processing/meshing/texture_baking.py
+/Media/
