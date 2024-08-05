@@ -113,7 +113,7 @@ Material:
     - _Cutoff: 0.5
     - _DstBlend: 0
     - _EdgeBlend: 0.16
-    - _EffectRadius: 1.1
+    - _EffectRadius: 1
     - _EnvironmentReflections: 1
     - _Frequency: 1
     - _GlossMapScale: 0

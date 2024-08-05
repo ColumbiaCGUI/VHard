@@ -77,7 +77,7 @@ crashlytics-build.properties
 /Assets/Resources/Moonboard/holds.fbx
 *.blend
 *.blend1
-/Processing/ns
+/Processing/
 
 # Unused scripts
 /Processing/meshing/texture_baking.py
