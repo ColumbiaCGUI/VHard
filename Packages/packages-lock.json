@@ -278,6 +278,13 @@
       },
       "url": "https://packages.unity.com"
     },
+    "info.flandre.coacd": {
+      "version": "https://github.com/SarahWeiii/CoACD.git?path=/Packages/info.flandre.coacd#unity",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "fb9b7f6238a6cfd7338c289fa104bf954c7b0a4b"
+    },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",
       "depth": 0,
