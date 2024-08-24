@@ -14,6 +14,7 @@ public class SceneConfiguror : MonoBehaviour
     public GameObject rightHand;
     public GameObject rightHandNearFarInteractor;
     public float hoverRadiusOverride = 0.1f;
+    public float interactionColorMaxDistanceOverride = 0.1f;
     public GameObject leftHandInteractingClimbingHold;
     public GameObject rightHandInteractingClimbingHold;
 
@@ -24,6 +25,10 @@ public class SceneConfiguror : MonoBehaviour
 
     void Start()
     {
+    }
+
+    void Update()
+    {
         // Override hover radius
         foreach (var nearFarInteractor in new GameObject[] { leftHandNearFarInteractor, rightHandNearFarInteractor })
         {
@@ -33,23 +38,20 @@ public class SceneConfiguror : MonoBehaviour
                 sphereInteractionCaster.castRadius = hoverRadiusOverride;
             }
         }
-    }
 
-    void Update()
-    {
         if (leftHandInteractingClimbingHold != null)
         {
             MeshRenderer meshRenderer = leftHandInteractingClimbingHold.GetComponent<MeshRenderer>();
             meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", hoverRadiusOverride);
+            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
             meshRenderer.material.SetVector("_InteractingHandPosition", leftHand.transform.position);
         }
         if (rightHandInteractingClimbingHold != null)
         {
             MeshRenderer meshRenderer = rightHandInteractingClimbingHold.GetComponent<MeshRenderer>();
             meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", hoverRadiusOverride);
-            meshRenderer.material.SetVector("_InteractingHandPosition", leftHand.transform.position);
+            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
+            meshRenderer.material.SetVector("_InteractingHandPosition", rightHand.transform.position);
         }
     }
 
