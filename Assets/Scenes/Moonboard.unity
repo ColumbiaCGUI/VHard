@@ -321,12 +321,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5277d625dcf91984a816732c89a04546, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  leftHand: {fileID: 567544311}
+  leftHand: {fileID: 728455912}
   leftHandNearFarInteractor: {fileID: 97624285}
   leftHandSkinnedMeshRenderer: {fileID: 1674833377}
   leftHandRootBone: {fileID: 658150467}
   leftHandBones: []
-  rightHand: {fileID: 433750784}
+  rightHand: {fileID: 1414976208}
   rightHandNearFarInteractor: {fileID: 1855279304}
   rightHandSkinnedMeshRenderer: {fileID: 1391230147}
   rightHandRootBone: {fileID: 1417394665}
@@ -337,16 +337,6 @@ MonoBehaviour:
   rightHandInteractingClimbingHold: {fileID: 0}
   distanceToClosestBoneComputeShader: {fileID: 7200000, guid: 6ed06c8889d75984d822e528a5ac38b9, type: 3}
   kernelHandle: 0
---- !u!1 &433750784 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4688344666360182470, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
-  m_PrefabInstance: {fileID: 1557298105}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &567544311 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 779817685824897560, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
-  m_PrefabInstance: {fileID: 1557298105}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &648463495 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 657184242118504722, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
@@ -399,6 +389,11 @@ MonoBehaviour:
 --- !u!1 &658150467 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4743647466011135546, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
+  m_PrefabInstance: {fileID: 1557298105}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &728455912 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6355494128053973299, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
   m_PrefabInstance: {fileID: 1557298105}
   m_PrefabAsset: {fileID: 0}
 --- !u!137 &1391230147 stripped
@@ -543,6 +538,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 6026211738972010291}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1414976208 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1800725127586568702, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
+  m_PrefabInstance: {fileID: 1557298105}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1417394665 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4213253056565931907, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
@@ -907,7 +907,7 @@ GameObject:
   - component: {fileID: 5009831656632376246}
   m_Layer: 0
   m_Name: E8.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1063,7 +1063,7 @@ GameObject:
   - component: {fileID: 5715254297076426227}
   m_Layer: 0
   m_Name: B18.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1083,7 +1083,7 @@ GameObject:
   - component: {fileID: 6112936335336486459}
   m_Layer: 0
   m_Name: J12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1193,7 +1193,7 @@ GameObject:
   - component: {fileID: 8556019958582991202}
   m_Layer: 0
   m_Name: C2.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1213,7 +1213,7 @@ GameObject:
   - component: {fileID: 7887034066466667331}
   m_Layer: 0
   m_Name: I2.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1233,7 +1233,7 @@ GameObject:
   - component: {fileID: 8174764376868087187}
   m_Layer: 0
   m_Name: G6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1306,7 +1306,7 @@ GameObject:
   - component: {fileID: 7789478510041598534}
   m_Layer: 0
   m_Name: I17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1326,7 +1326,7 @@ GameObject:
   - component: {fileID: 7596204755772946679}
   m_Layer: 0
   m_Name: J15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1400,7 +1400,7 @@ GameObject:
   - component: {fileID: 4971181771047907020}
   m_Layer: 0
   m_Name: A9.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1420,7 +1420,7 @@ GameObject:
   - component: {fileID: 6152284209339830604}
   m_Layer: 0
   m_Name: B7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1539,7 +1539,7 @@ GameObject:
   - component: {fileID: 7550415451560231243}
   m_Layer: 0
   m_Name: J2.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1923,7 +1923,7 @@ GameObject:
   - component: {fileID: 6303103137287727295}
   m_Layer: 0
   m_Name: K14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2132,7 +2132,7 @@ GameObject:
   - component: {fileID: 7485167948189546699}
   m_Layer: 0
   m_Name: K16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2242,7 +2242,7 @@ GameObject:
   - component: {fileID: 8782225370872903292}
   m_Layer: 0
   m_Name: K11.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2557,7 +2557,7 @@ GameObject:
   - component: {fileID: 6664815571667070202}
   m_Layer: 0
   m_Name: C1.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2622,7 +2622,7 @@ GameObject:
   - component: {fileID: 5804567016890121084}
   m_Layer: 0
   m_Name: F3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2680,7 +2680,7 @@ GameObject:
   - component: {fileID: 2762256213443743441}
   m_Layer: 0
   m_Name: F13.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2708,7 +2708,7 @@ GameObject:
   - component: {fileID: 8297407444283740351}
   m_Layer: 0
   m_Name: B17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2837,7 +2837,7 @@ GameObject:
   - component: {fileID: 9143590150370435715}
   m_Layer: 0
   m_Name: K2.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2857,7 +2857,7 @@ GameObject:
   - component: {fileID: 8318007048405415052}
   m_Layer: 0
   m_Name: A12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3035,7 +3035,7 @@ GameObject:
   - component: {fileID: 7086453064778888421}
   m_Layer: 0
   m_Name: I16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3055,7 +3055,7 @@ GameObject:
   - component: {fileID: 4943957182441393384}
   m_Layer: 0
   m_Name: B16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3210,7 +3210,7 @@ GameObject:
   - component: {fileID: 8680553912672938977}
   m_Layer: 0
   m_Name: K13.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3283,7 +3283,7 @@ GameObject:
   - component: {fileID: 7445570633719657861}
   m_Layer: 0
   m_Name: A2.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3408,7 +3408,7 @@ GameObject:
   - component: {fileID: 4010963630656827201}
   m_Layer: 0
   m_Name: I4.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3813,7 +3813,7 @@ GameObject:
   - component: {fileID: 6355078390124824333}
   m_Layer: 0
   m_Name: E7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3848,7 +3848,7 @@ GameObject:
   - component: {fileID: 7256778734584732544}
   m_Layer: 0
   m_Name: D14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3868,7 +3868,7 @@ GameObject:
   - component: {fileID: 5482467028700086610}
   m_Layer: 0
   m_Name: H7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3888,7 +3888,7 @@ GameObject:
   - component: {fileID: 8512009924689651550}
   m_Layer: 0
   m_Name: G15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3908,7 +3908,7 @@ GameObject:
   - component: {fileID: 7336134953760630083}
   m_Layer: 0
   m_Name: F5.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4232,7 +4232,7 @@ GameObject:
   - component: {fileID: 9019194147841019696}
   m_Layer: 0
   m_Name: B4.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4291,7 +4291,7 @@ GameObject:
   - component: {fileID: 8691803571362473135}
   m_Layer: 0
   m_Name: B9.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4311,7 +4311,7 @@ GameObject:
   - component: {fileID: 7192177463371124060}
   m_Layer: 0
   m_Name: F1.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4376,7 +4376,7 @@ GameObject:
   - component: {fileID: 6040057490763911670}
   m_Layer: 0
   m_Name: A8.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4427,7 +4427,7 @@ GameObject:
   - component: {fileID: 4907415985614899877}
   m_Layer: 0
   m_Name: H18.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4507,7 +4507,7 @@ GameObject:
   - component: {fileID: 8620819177155794126}
   m_Layer: 0
   m_Name: K18.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4633,7 +4633,7 @@ GameObject:
   - component: {fileID: 7901181757435088117}
   m_Layer: 0
   m_Name: C12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4653,7 +4653,7 @@ GameObject:
   - component: {fileID: 9103353240315549758}
   m_Layer: 0
   m_Name: E9.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4688,7 +4688,7 @@ GameObject:
   - component: {fileID: 8347804287267743730}
   m_Layer: 0
   m_Name: H17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4746,7 +4746,7 @@ GameObject:
   - component: {fileID: 7011144946598504601}
   m_Layer: 0
   m_Name: G4.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4887,7 +4887,7 @@ GameObject:
   - component: {fileID: 5444361197055656264}
   m_Layer: 0
   m_Name: G12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5120,7 +5120,7 @@ GameObject:
   - component: {fileID: 4707877450091950293}
   m_Layer: 0
   m_Name: B11.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5321,7 +5321,7 @@ GameObject:
   - component: {fileID: 8427896363020891600}
   m_Layer: 0
   m_Name: D10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5341,7 +5341,7 @@ GameObject:
   - component: {fileID: 5373881013133204068}
   m_Layer: 0
   m_Name: H14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5466,7 +5466,7 @@ GameObject:
   - component: {fileID: 2515326408364098236}
   m_Layer: 0
   m_Name: C13.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5635,7 +5635,7 @@ GameObject:
   - component: {fileID: 6911224615374327481}
   m_Layer: 0
   m_Name: J18.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5700,7 +5700,7 @@ GameObject:
   - component: {fileID: 9125750719522667721}
   m_Layer: 0
   m_Name: A10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5780,7 +5780,7 @@ GameObject:
   - component: {fileID: 4431025481839299514}
   m_Layer: 0
   m_Name: I11.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5800,7 +5800,7 @@ GameObject:
   - component: {fileID: 8996757958990822069}
   m_Layer: 0
   m_Name: I10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5828,7 +5828,7 @@ GameObject:
   - component: {fileID: 5497472357284398505}
   m_Layer: 0
   m_Name: E17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5931,7 +5931,7 @@ GameObject:
   - component: {fileID: 6106931083253114928}
   m_Layer: 0
   m_Name: F17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6140,7 +6140,7 @@ GameObject:
   - component: {fileID: 7114796182725186756}
   m_Layer: 0
   m_Name: G3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6490,7 +6490,7 @@ GameObject:
   - component: {fileID: 3806787596382096713}
   m_Layer: 0
   m_Name: A13.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6541,7 +6541,7 @@ GameObject:
   - component: {fileID: 5697312642097702226}
   m_Layer: 0
   m_Name: E11.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6621,7 +6621,7 @@ GameObject:
   - component: {fileID: 7931775172678080002}
   m_Layer: 0
   m_Name: A17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6702,7 +6702,7 @@ GameObject:
   - component: {fileID: 9181181954318616171}
   m_Layer: 0
   m_Name: A7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6820,7 +6820,7 @@ GameObject:
   - component: {fileID: 2955417001822724053}
   m_Layer: 0
   m_Name: I9.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7053,7 +7053,7 @@ GameObject:
   - component: {fileID: 8360714840386816716}
   m_Layer: 0
   m_Name: H10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7148,7 +7148,7 @@ GameObject:
   - component: {fileID: 7936697463599695484}
   m_Layer: 0
   m_Name: C3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7335,7 +7335,7 @@ GameObject:
   - component: {fileID: 7555499984496255913}
   m_Layer: 0
   m_Name: H15.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7477,7 +7477,7 @@ GameObject:
   - component: {fileID: 7802842366387091418}
   m_Layer: 0
   m_Name: C17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7580,7 +7580,7 @@ GameObject:
   - component: {fileID: 4415460249607463280}
   m_Layer: 0
   m_Name: C18.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7600,7 +7600,7 @@ GameObject:
   - component: {fileID: 7297998478623937495}
   m_Layer: 0
   m_Name: E16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7635,7 +7635,7 @@ GameObject:
   - component: {fileID: 8030313772728314626}
   m_Layer: 0
   m_Name: G2.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7655,7 +7655,7 @@ GameObject:
   - component: {fileID: 8773663637565088616}
   m_Layer: 0
   m_Name: H9.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7675,7 +7675,7 @@ GameObject:
   - component: {fileID: 9087246692899220663}
   m_Layer: 0
   m_Name: J11.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7748,7 +7748,7 @@ GameObject:
   - component: {fileID: 7439703229425088443}
   m_Layer: 0
   m_Name: E3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7768,7 +7768,7 @@ GameObject:
   - component: {fileID: 9187571346480809602}
   m_Layer: 0
   m_Name: G14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7863,7 +7863,7 @@ GameObject:
   - component: {fileID: 6616696930161700173}
   m_Layer: 0
   m_Name: C4.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7883,7 +7883,7 @@ GameObject:
   - component: {fileID: 7970906799915397646}
   m_Layer: 0
   m_Name: F18.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8069,7 +8069,7 @@ GameObject:
   - component: {fileID: 7252327242748130793}
   m_Layer: 0
   m_Name: D12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8104,7 +8104,7 @@ GameObject:
   - component: {fileID: 6185504371654676400}
   m_Layer: 0
   m_Name: C6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8170,7 +8170,7 @@ GameObject:
   - component: {fileID: 7177239409534781492}
   m_Layer: 0
   m_Name: F12.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8198,7 +8198,7 @@ GameObject:
   - component: {fileID: 6835239065425379027}
   m_Layer: 0
   m_Name: K9.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8308,7 +8308,7 @@ GameObject:
   - component: {fileID: 7747109812608688087}
   m_Layer: 0
   m_Name: K1.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8494,7 +8494,7 @@ GameObject:
   - component: {fileID: 7076396548259405725}
   m_Layer: 0
   m_Name: J7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8514,7 +8514,7 @@ GameObject:
   - component: {fileID: 5449884050809315534}
   m_Layer: 0
   m_Name: D18.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8624,7 +8624,7 @@ GameObject:
   - component: {fileID: 5107925449034090691}
   m_Layer: 0
   m_Name: B14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8652,7 +8652,7 @@ GameObject:
   - component: {fileID: 7710230249725755018}
   m_Layer: 0
   m_Name: G18.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8733,7 +8733,7 @@ GameObject:
   - component: {fileID: 3768016202899002287}
   m_Layer: 0
   m_Name: H8.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -9323,7 +9323,7 @@ GameObject:
   - component: {fileID: 3942086211160851703}
   m_Layer: 0
   m_Name: E2.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -9492,7 +9492,7 @@ GameObject:
   - component: {fileID: 7909318794463888052}
   m_Layer: 0
   m_Name: E10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -9527,7 +9527,7 @@ GameObject:
   - component: {fileID: 7321026837485029906}
   m_Layer: 0
   m_Name: H2.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -9637,7 +9637,7 @@ GameObject:
   - component: {fileID: 7008055700132807984}
   m_Layer: 0
   m_Name: I1.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -9881,7 +9881,7 @@ GameObject:
   - component: {fileID: 7585470845117008054}
   m_Layer: 0
   m_Name: B3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -10075,7 +10075,7 @@ GameObject:
   - component: {fileID: 8530828950628157995}
   m_Layer: 0
   m_Name: C15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -10155,7 +10155,7 @@ GameObject:
   - component: {fileID: 8826040452283384979}
   m_Layer: 0
   m_Name: D17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -10280,7 +10280,7 @@ GameObject:
   - component: {fileID: 4394059057308518571}
   m_Layer: 0
   m_Name: G1.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -10839,7 +10839,7 @@ GameObject:
   - component: {fileID: 7708838779746549427}
   m_Layer: 0
   m_Name: J14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -10859,7 +10859,7 @@ GameObject:
   - component: {fileID: 7603538773557795370}
   m_Layer: 0
   m_Name: B12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -11085,7 +11085,7 @@ GameObject:
   - component: {fileID: 9038491023309946557}
   m_Layer: 0
   m_Name: F8.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -11120,7 +11120,7 @@ GameObject:
   - component: {fileID: 7575049190942241768}
   m_Layer: 0
   m_Name: B2.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -11140,7 +11140,7 @@ GameObject:
   - component: {fileID: 6095767075349415148}
   m_Layer: 0
   m_Name: F4.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -11392,7 +11392,7 @@ GameObject:
   - component: {fileID: 5714302396727700163}
   m_Layer: 0
   m_Name: K5.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -11472,7 +11472,7 @@ GameObject:
   - component: {fileID: 7747374166110727987}
   m_Layer: 0
   m_Name: I15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -11537,7 +11537,7 @@ GameObject:
   - component: {fileID: 6193714856020812319}
   m_Layer: 0
   m_Name: I5.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -12366,7 +12366,7 @@ GameObject:
   - component: {fileID: 8816558019844439908}
   m_Layer: 0
   m_Name: D2.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -12447,7 +12447,7 @@ GameObject:
   - component: {fileID: 5134559485786354949}
   m_Layer: 0
   m_Name: F14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -12467,7 +12467,7 @@ GameObject:
   - component: {fileID: 7131214015935528988}
   m_Layer: 0
   m_Name: J16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -12502,7 +12502,7 @@ GameObject:
   - component: {fileID: 5101175875299971502}
   m_Layer: 0
   m_Name: K6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -12865,7 +12865,7 @@ GameObject:
   - component: {fileID: 6267525994475329227}
   m_Layer: 0
   m_Name: G10.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13064,7 +13064,7 @@ GameObject:
   - component: {fileID: 6224523675975522271}
   m_Layer: 0
   m_Name: J9.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13137,7 +13137,7 @@ GameObject:
   - component: {fileID: 7772075904375081972}
   m_Layer: 0
   m_Name: H12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13263,7 +13263,7 @@ GameObject:
   - component: {fileID: 9121095187558320310}
   m_Layer: 0
   m_Name: J10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13291,7 +13291,7 @@ GameObject:
   - component: {fileID: 8854548194589230735}
   m_Layer: 0
   m_Name: E13.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13387,7 +13387,7 @@ GameObject:
   - component: {fileID: 7243511232652420824}
   m_Layer: 0
   m_Name: D6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13407,7 +13407,7 @@ GameObject:
   - component: {fileID: 7198457172551083048}
   m_Layer: 0
   m_Name: G8.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13443,7 +13443,7 @@ GameObject:
   - component: {fileID: 8483549678014935458}
   m_Layer: 0
   m_Name: D9.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13576,7 +13576,7 @@ GameObject:
   - component: {fileID: 8412596606120072350}
   m_Layer: 0
   m_Name: A4.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -13604,7 +13604,7 @@ GameObject:
   - component: {fileID: 8780996015495297413}
   m_Layer: 0
   m_Name: B10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -14132,7 +14132,7 @@ GameObject:
   - component: {fileID: 8503910264407314514}
   m_Layer: 0
   m_Name: H13.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -14857,7 +14857,7 @@ GameObject:
   - component: {fileID: 8499710825244652276}
   m_Layer: 0
   m_Name: C10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -14885,7 +14885,7 @@ GameObject:
   - component: {fileID: 6600227709278379194}
   m_Layer: 0
   m_Name: I13.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -14950,7 +14950,7 @@ GameObject:
   - component: {fileID: 5668177345151949528}
   m_Layer: 0
   m_Name: I7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -15709,7 +15709,7 @@ GameObject:
   - component: {fileID: 8307416592689792018}
   m_Layer: 0
   m_Name: G13.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -15729,7 +15729,7 @@ GameObject:
   - component: {fileID: 5773947849613485479}
   m_Layer: 0
   m_Name: J17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -15943,7 +15943,7 @@ GameObject:
   - component: {fileID: 8445118898983291344}
   m_Layer: 0
   m_Name: G7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -16120,7 +16120,7 @@ GameObject:
   - component: {fileID: 6364754471938439722}
   m_Layer: 0
   m_Name: H6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -16253,7 +16253,7 @@ GameObject:
   - component: {fileID: 6486555317182215999}
   m_Layer: 0
   m_Name: F11.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -16273,7 +16273,7 @@ GameObject:
   - component: {fileID: 8266741244908095441}
   m_Layer: 0
   m_Name: B5.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -16376,7 +16376,7 @@ GameObject:
   - component: {fileID: 5940146198946902278}
   m_Layer: 0
   m_Name: I6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -16545,7 +16545,7 @@ GameObject:
   - component: {fileID: 7637063551480448612}
   m_Layer: 0
   m_Name: G11.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -16580,7 +16580,7 @@ GameObject:
   - component: {fileID: 8493727121605041357}
   m_Layer: 0
   m_Name: C8.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -16600,7 +16600,7 @@ GameObject:
   - component: {fileID: 8024592096931015964}
   m_Layer: 0
   m_Name: H5.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -17042,7 +17042,7 @@ GameObject:
   - component: {fileID: 6062675567186315283}
   m_Layer: 0
   m_Name: H3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -17383,7 +17383,7 @@ GameObject:
   - component: {fileID: 7891177557420140260}
   m_Layer: 0
   m_Name: J1.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -18270,7 +18270,7 @@ GameObject:
   - component: {fileID: 7809209026720791899}
   m_Layer: 0
   m_Name: F15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -18462,7 +18462,7 @@ GameObject:
   - component: {fileID: 6196605107881043812}
   m_Layer: 0
   m_Name: D8.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -18676,7 +18676,7 @@ GameObject:
   - component: {fileID: 7198676316819462243}
   m_Layer: 0
   m_Name: F2.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -18696,7 +18696,7 @@ GameObject:
   - component: {fileID: 7543672637918966234}
   m_Layer: 0
   m_Name: E14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -18716,7 +18716,7 @@ GameObject:
   - component: {fileID: 6222681026131547751}
   m_Layer: 0
   m_Name: I8.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -19408,7 +19408,7 @@ GameObject:
   - component: {fileID: 8718480218910900386}
   m_Layer: 0
   m_Name: C9.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -19428,7 +19428,7 @@ GameObject:
   - component: {fileID: 7161410287975140863}
   m_Layer: 0
   m_Name: J6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -19620,7 +19620,7 @@ GameObject:
   - component: {fileID: 8256196336763594475}
   m_Layer: 0
   m_Name: D7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -20045,7 +20045,7 @@ GameObject:
   - component: {fileID: 7190153657120164484}
   m_Layer: 0
   m_Name: H16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -20065,7 +20065,7 @@ GameObject:
   - component: {fileID: 9045086745851152444}
   m_Layer: 0
   m_Name: B13.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -20332,7 +20332,7 @@ GameObject:
   - component: {fileID: 6724475843827750071}
   m_Layer: 0
   m_Name: D15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -20412,7 +20412,7 @@ GameObject:
   - component: {fileID: 6523917865959150735}
   m_Layer: 0
   m_Name: B6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -21030,7 +21030,7 @@ GameObject:
   - component: {fileID: 6660106301000145130}
   m_Layer: 0
   m_Name: K17.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -21408,7 +21408,7 @@ GameObject:
   - component: {fileID: 6680820972403762372}
   m_Layer: 0
   m_Name: A5.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -21622,7 +21622,7 @@ GameObject:
   - component: {fileID: 7214375378127085259}
   m_Layer: 0
   m_Name: A11.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -21814,7 +21814,7 @@ GameObject:
   - component: {fileID: 8152586892650727895}
   m_Layer: 0
   m_Name: K12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -21887,7 +21887,7 @@ GameObject:
   - component: {fileID: 8121740815571886564}
   m_Layer: 0
   m_Name: K4.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -22086,7 +22086,7 @@ GameObject:
   - component: {fileID: 7944606297991753243}
   m_Layer: 0
   m_Name: J5.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -22121,7 +22121,7 @@ GameObject:
   - component: {fileID: 6859244205598950127}
   m_Layer: 0
   m_Name: C11.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -22290,7 +22290,7 @@ GameObject:
   - component: {fileID: 9003925780344717809}
   m_Layer: 0
   m_Name: E4.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -22573,7 +22573,7 @@ GameObject:
   - component: {fileID: 8948026602956766127}
   m_Layer: 0
   m_Name: H1.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -22989,7 +22989,7 @@ GameObject:
   - component: {fileID: 7023596470459087482}
   m_Layer: 0
   m_Name: G16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -23158,7 +23158,7 @@ GameObject:
   - component: {fileID: 7468999808860587756}
   m_Layer: 0
   m_Name: J13.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -23178,7 +23178,7 @@ GameObject:
   - component: {fileID: 7039792660839582603}
   m_Layer: 0
   m_Name: C7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -23841,7 +23841,7 @@ GameObject:
   - component: {fileID: 8699090773321468968}
   m_Layer: 0
   m_Name: A14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -24055,7 +24055,7 @@ GameObject:
   - component: {fileID: 8559388260953184009}
   m_Layer: 0
   m_Name: A1.003
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -24561,7 +24561,7 @@ GameObject:
   - component: {fileID: 7430572053724215101}
   m_Layer: 0
   m_Name: B15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -25820,7 +25820,7 @@ GameObject:
   - component: {fileID: 7581298463107086883}
   m_Layer: 0
   m_Name: C16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -26214,7 +26214,7 @@ GameObject:
   - component: {fileID: 7318028940724455594}
   m_Layer: 0
   m_Name: D1.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -26622,7 +26622,7 @@ GameObject:
   - component: {fileID: 9187973708367079218}
   m_Layer: 0
   m_Name: G5.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -26799,7 +26799,7 @@ GameObject:
   - component: {fileID: 7358083916289835946}
   m_Layer: 0
   m_Name: F10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -27021,7 +27021,7 @@ GameObject:
   - component: {fileID: 7401287460277792234}
   m_Layer: 0
   m_Name: J4.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -27675,7 +27675,7 @@ GameObject:
   - component: {fileID: 7622506458762266314}
   m_Layer: 0
   m_Name: K15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -28032,7 +28032,7 @@ GameObject:
   - component: {fileID: 7485415916825490520}
   m_Layer: 0
   m_Name: K7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -28806,7 +28806,7 @@ GameObject:
   - component: {fileID: 7557611912426258847}
   m_Layer: 0
   m_Name: A16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -28975,7 +28975,7 @@ GameObject:
   - component: {fileID: 7563348117391691584}
   m_Layer: 0
   m_Name: D16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -29144,7 +29144,7 @@ GameObject:
   - component: {fileID: 7563514169551165941}
   m_Layer: 0
   m_Name: I3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -29313,7 +29313,7 @@ GameObject:
   - component: {fileID: 7567694294907099395}
   m_Layer: 0
   m_Name: F7.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -29863,7 +29863,7 @@ GameObject:
   - component: {fileID: 9077842591865606647}
   m_Layer: 0
   m_Name: D3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -30047,7 +30047,7 @@ GameObject:
   - component: {fileID: 7590818362678645569}
   m_Layer: 0
   m_Name: F6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -30545,7 +30545,7 @@ GameObject:
   - component: {fileID: 7621248384619911030}
   m_Layer: 0
   m_Name: H11.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -31849,7 +31849,7 @@ GameObject:
   - component: {fileID: 7771826928699755231}
   m_Layer: 0
   m_Name: D11.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -32431,7 +32431,7 @@ GameObject:
   - component: {fileID: 8005758470462719660}
   m_Layer: 0
   m_Name: C14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -32996,7 +32996,7 @@ GameObject:
   - component: {fileID: 7842534824058912239}
   m_Layer: 0
   m_Name: J3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -34069,7 +34069,7 @@ GameObject:
   - component: {fileID: 7934187275767572484}
   m_Layer: 0
   m_Name: D5.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -35343,7 +35343,7 @@ GameObject:
   - component: {fileID: 8316253308713973468}
   m_Layer: 0
   m_Name: A15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -35580,7 +35580,7 @@ GameObject:
   - component: {fileID: 8129659389025544652}
   m_Layer: 0
   m_Name: I12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -35749,7 +35749,7 @@ GameObject:
   - component: {fileID: 8469251647847809891}
   m_Layer: 0
   m_Name: I18.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -35933,7 +35933,7 @@ GameObject:
   - component: {fileID: 8158346713882088103}
   m_Layer: 0
   m_Name: G17.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -36329,7 +36329,7 @@ GameObject:
   - component: {fileID: 8238872094993260838}
   m_Layer: 0
   m_Name: A3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -36498,7 +36498,7 @@ GameObject:
   - component: {fileID: 8247811472940705830}
   m_Layer: 0
   m_Name: E12.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -37376,7 +37376,7 @@ GameObject:
   - component: {fileID: 8519033972883670697}
   m_Layer: 0
   m_Name: K10.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -39751,7 +39751,7 @@ GameObject:
   - component: {fileID: 8755407623956399675}
   m_Layer: 0
   m_Name: J8.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -41310,7 +41310,7 @@ GameObject:
   - component: {fileID: 8531096552792205150}
   m_Layer: 0
   m_Name: G9.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -41837,7 +41837,7 @@ GameObject:
   - component: {fileID: 8597348607527117510}
   m_Layer: 0
   m_Name: A6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -42455,7 +42455,7 @@ GameObject:
   - component: {fileID: 8682846615250499709}
   m_Layer: 0
   m_Name: E6.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -42945,7 +42945,7 @@ GameObject:
   - component: {fileID: 8701896007740961854}
   m_Layer: 0
   m_Name: E5.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -43293,7 +43293,7 @@ GameObject:
   - component: {fileID: 8737674887299873718}
   m_Layer: 0
   m_Name: K3.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -43462,7 +43462,7 @@ GameObject:
   - component: {fileID: 8936512795633116461}
   m_Layer: 0
   m_Name: E15.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -43646,7 +43646,7 @@ GameObject:
   - component: {fileID: 8760870768407862563}
   m_Layer: 0
   m_Name: B8.001
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -43815,7 +43815,7 @@ GameObject:
   - component: {fileID: 8761175181841871751}
   m_Layer: 0
   m_Name: D4.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -44148,7 +44148,7 @@ GameObject:
   - component: {fileID: 8999604084838944895}
   m_Layer: 0
   m_Name: B1.003
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -44824,7 +44824,7 @@ GameObject:
   - component: {fileID: 8954622588332293568}
   m_Layer: 0
   m_Name: E1.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -45553,7 +45553,7 @@ GameObject:
   - component: {fileID: 8959162028930782826}
   m_Layer: 0
   m_Name: C5.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -45722,7 +45722,7 @@ GameObject:
   - component: {fileID: 8963129631036294353}
   m_Layer: 0
   m_Name: H4.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -46928,7 +46928,7 @@ GameObject:
   - component: {fileID: 9060465797073164672}
   m_Layer: 0
   m_Name: K8.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -47097,7 +47097,7 @@ GameObject:
   - component: {fileID: 9075616985450442316}
   m_Layer: 0
   m_Name: F9.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -47423,7 +47423,7 @@ GameObject:
   - component: {fileID: 9080110927780396454}
   m_Layer: 0
   m_Name: D13.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -47756,7 +47756,7 @@ GameObject:
   - component: {fileID: 9094685657754914645}
   m_Layer: 0
   m_Name: I14.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -48649,7 +48649,7 @@ GameObject:
   - component: {fileID: 9169419818727844538}
   m_Layer: 0
   m_Name: F16.002
-  m_TagString: Untagged
+  m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
