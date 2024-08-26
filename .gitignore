@@ -80,4 +80,6 @@ crashlytics-build.properties
 *.blend
 *.blend1
 /Processing/
-/Media/
+
+# Media
+/Media/local/
