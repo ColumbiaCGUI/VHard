@@ -81,11 +81,13 @@ public class SceneConfiguror : MonoBehaviour
         if (leftHandInteractingClimbingHold != null)
         {
             MeshRenderer leftHandMeshRenderer = leftHandInteractingClimbingHold.GetComponent<MeshRenderer>();
+            leftHandMeshRenderer.material.SetInt("_IsBeingInteracted", 1);
             leftHandMeshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
         }
         if (rightHandInteractingClimbingHold != null)
         {
             MeshRenderer rightHandMeshRenderer = rightHandInteractingClimbingHold.GetComponent<MeshRenderer>();
+            rightHandMeshRenderer.material.SetInt("_IsBeingInteracted", 1);
             rightHandMeshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
         }
 
