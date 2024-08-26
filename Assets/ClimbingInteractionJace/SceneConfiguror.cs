@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -8,23 +9,55 @@ using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
 
 public class SceneConfiguror : MonoBehaviour
 {
-    [Header("Hands")]
+    [Header("Hands References")]
     public GameObject leftHand;
     public GameObject leftHandNearFarInteractor;
+    public SkinnedMeshRenderer leftHandSkinnedMeshRenderer;
+    public GameObject leftHandRootBone;
+    public List<GameObject> leftHandBones;
+
     public GameObject rightHand;
     public GameObject rightHandNearFarInteractor;
-    public float hoverRadiusOverride = 0.1f;
-    public float interactionColorMaxDistanceOverride = 0.1f;
+    public SkinnedMeshRenderer rightHandSkinnedMeshRenderer;
+    public GameObject rightHandRootBone;
+    public List<GameObject> rightHandBones;
+
+    [Header("Interaction Settings")]
+    public float hoverRadiusOverride;
+    public float interactionColorMaxDistanceOverride;
+
+    [Header("Interaction State")]
     public GameObject leftHandInteractingClimbingHold;
     public GameObject rightHandInteractingClimbingHold;
 
-    [Header("Holds")]
-    public GameObject holdContainer;
-    [Tooltip("List of active holds in the scene -- ensure they are children of the Hold Container!")]
-    public List<GameObject> activeHolds;
+    [Header("Interaction Compute Shader State")]
+    public ComputeShader distanceToClosestBoneComputeShader;
+    public int kernelHandle;
+    public ComputeBuffer climbingHoldVerticesBuffer;
+    public ComputeBuffer leftHandBonesBuffer;
+    public ComputeBuffer rightHandBonesBuffer;
+    public ComputeBuffer leftHandDistancesBuffer;
+    public ComputeBuffer rightHandDistancesBuffer;
 
     void Start()
     {
+        // Traverse root bone of each hand and add all bones to list
+        leftHandBones = new List<GameObject>();
+        rightHandBones = new List<GameObject>();
+        TraverseBones(leftHandRootBone, leftHandBones);
+        TraverseBones(rightHandRootBone, rightHandBones);
+
+        // Set up compute shader
+        kernelHandle = distanceToClosestBoneComputeShader.FindKernel("CSMain");
+    }
+
+    void TraverseBones(GameObject rootBone, List<GameObject> bones)
+    {
+        bones.Add(rootBone);
+        foreach (Transform child in rootBone.transform)
+        {
+            TraverseBones(child.gameObject, bones);
+        }
     }
 
     void Update()
@@ -39,21 +72,92 @@ public class SceneConfiguror : MonoBehaviour
             }
         }
 
+        if (leftHandInteractingClimbingHold == null && rightHandInteractingClimbingHold == null)
+        {
+            return;
+        }
+
+        // Override interaction color max distance, update interaction status
         if (leftHandInteractingClimbingHold != null)
         {
-            MeshRenderer meshRenderer = leftHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
-            meshRenderer.material.SetVector("_InteractingHandPosition", leftHand.transform.position);
+            MeshRenderer leftHandMeshRenderer = leftHandInteractingClimbingHold.GetComponent<MeshRenderer>();
+            leftHandMeshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
         }
         if (rightHandInteractingClimbingHold != null)
         {
-            MeshRenderer meshRenderer = rightHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
-            meshRenderer.material.SetVector("_InteractingHandPosition", rightHand.transform.position);
+            MeshRenderer rightHandMeshRenderer = rightHandInteractingClimbingHold.GetComponent<MeshRenderer>();
+            rightHandMeshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
+        }
+
+        List<GameObject> interactingClimbingHolds = new List<GameObject>();
+        if (leftHandInteractingClimbingHold != null)
+        {
+            interactingClimbingHolds.Add(leftHandInteractingClimbingHold);
+        }
+        if (rightHandInteractingClimbingHold != null)
+        {
+            interactingClimbingHolds.Add(rightHandInteractingClimbingHold);
+        }
+
+        // WARNING: Here be dragons.
+        // The big idea is that for each vertex of the climbing hold, we find the distance to the closest bone of each hand, and save to two arrays.
+        // Then, we encode these distances in the UVs (channel 2) of the climbing hold's mesh vertices, and access them in the shader.
+        foreach (GameObject climbingHold in interactingClimbingHolds)
+        {
+            // Get information about the climbing hold
+            MeshFilter climbingHoldMeshFilter = climbingHold.GetComponent<MeshFilter>();
+            Mesh climbingHoldMesh = climbingHoldMeshFilter.mesh;
+            Vector3[] climbingHoldVertices = climbingHoldMesh.vertices;
+            int climbingHoldVerticesCount = climbingHoldVertices.Length;
+
+            // Initialize buffers for compute shader
+            climbingHoldVerticesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float) * 3); // World position of each vertex of the climbing hold
+            leftHandBonesBuffer = new ComputeBuffer(leftHandBones.Count, sizeof(float) * 3); // World position of each bone of the left hand
+            rightHandBonesBuffer = new ComputeBuffer(rightHandBones.Count, sizeof(float) * 3); // World position of each bone of the right hand
+            leftHandDistancesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float)); // Distance from each vertex of the climbing hold to the closest bone of the left hand
+            rightHandDistancesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float)); // Distance from each vertex of the climbing hold to the closest bone of the right hand
+
+            // Calculate input buffer data
+            for (int i = 0; i < climbingHoldVertices.Length; i++)
+            {
+                climbingHoldVertices[i] = climbingHold.transform.TransformPoint(climbingHoldVertices[i]); // Convert to world position
+            }
+            climbingHoldVerticesBuffer.SetData(climbingHoldVertices);
+            leftHandBonesBuffer.SetData(leftHandBones.ConvertAll(bone => bone.transform.position).ToArray());
+            rightHandBonesBuffer.SetData(rightHandBones.ConvertAll(bone => bone.transform.position).ToArray());
+
+            // Pass buffers to compute shader
+            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "climbingHoldVertices", climbingHoldVerticesBuffer);
+            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandBones", leftHandBonesBuffer);
+            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandBones", rightHandBonesBuffer);
+            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandDistances", leftHandDistancesBuffer);
+            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandDistances", rightHandDistancesBuffer);
+
+            // Dispatch compute shader and retrieve output buffer data
+            distanceToClosestBoneComputeShader.Dispatch(kernelHandle, climbingHoldVerticesCount / 128, 1, 1);
+            float[] leftHandDistances = new float[climbingHoldVerticesCount];
+            float[] rightHandDistances = new float[climbingHoldVerticesCount];
+            leftHandDistancesBuffer.GetData(leftHandDistances);
+            rightHandDistancesBuffer.GetData(rightHandDistances);
+
+            // Release buffers
+            climbingHoldVerticesBuffer.Release();
+            leftHandBonesBuffer.Release();
+            rightHandBonesBuffer.Release();
+            leftHandDistancesBuffer.Release();
+            rightHandDistancesBuffer.Release();
+
+            // Encode the distances in the UVs and set them in the climbing hold's mesh so that in the shader
+            // This works because the order of the vertices is the same in Mesh.vertices and Mesh.uv, both in Unity and in the shader
+            Vector2[] newClimbingHoldMeshUVs = new Vector2[climbingHoldVerticesCount];
+            for (int i = 0; i < climbingHoldVerticesCount; i++)
+            {
+                newClimbingHoldMeshUVs[i] = new Vector2(leftHandDistances[i], rightHandDistances[i]);
+            }
+            climbingHoldMesh.SetUVs(2, newClimbingHoldMeshUVs.ToList());
         }
     }
+
 
     public void LeftHandHoverEnter(HoverEnterEventArgs args)
     {
