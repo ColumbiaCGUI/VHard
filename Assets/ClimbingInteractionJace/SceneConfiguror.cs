@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -9,6 +10,10 @@ using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
 
 public class SceneConfiguror : MonoBehaviour
 {
+    [Header("Scene References")]
+    public GameObject holdsParentGameObject;
+    public Dictionary<string, GameObject> holdsDictionary;
+
     [Header("Hands References")]
     public GameObject leftHand;
     public GameObject leftHandNearFarInteractor;
@@ -26,13 +31,15 @@ public class SceneConfiguror : MonoBehaviour
     public float hoverRadiusOverride;
     public float interactionColorMaxDistanceOverride;
 
-    [Header("Interaction State")]
+    [Header("Interaction State (Changing this is usually a bad move, fix the underlying problem!)")]
     public GameObject leftHandInteractingClimbingHold;
     public GameObject rightHandInteractingClimbingHold;
 
-    [Header("Interaction Compute Shader State")]
+    [Header("Interaction Compute Shader Settings")]
     public ComputeShader distanceToClosestBoneComputeShader;
     public int kernelHandle;
+
+    [Header("Interaction Compute Shader State (Changing this is usually a bad move, fix the underlying problem!)")]
     public ComputeBuffer climbingHoldVerticesBuffer;
     public ComputeBuffer leftHandBonesBuffer;
     public ComputeBuffer rightHandBonesBuffer;
@@ -41,6 +48,16 @@ public class SceneConfiguror : MonoBehaviour
 
     void Start()
     {
+        // Add all the children of the holds parent to the holds dictionary, to be accessed using the string [A-K][1-18]
+        // Jace: Note that the holds are currently named [A-K][1-18].[001/002/003]
+        holdsDictionary = new Dictionary<string, GameObject>();
+        foreach (Transform child in holdsParentGameObject.transform)
+        {
+            string holdName = child.name.Split('.')[0];
+            holdsDictionary[holdName] = child.gameObject;
+            // Debug.Log("Found and added hold " + holdName);
+        }
+
         // Traverse root bone of each hand and add all bones to list
         leftHandBones = new List<GameObject>();
         rightHandBones = new List<GameObject>();
@@ -49,6 +66,9 @@ public class SceneConfiguror : MonoBehaviour
 
         // Set up compute shader
         kernelHandle = distanceToClosestBoneComputeShader.FindKernel("CSMain");
+
+        // DEV: Set up SPEED route
+        SetUpRouteByName("SPEED");
     }
 
     void TraverseBones(GameObject rootBone, List<GameObject> bones)
@@ -239,6 +259,54 @@ public class SceneConfiguror : MonoBehaviour
         else
         {
             Debug.Log("Hand hover exit: " + hand.name + " is no longer interacting with GameObject " + hoveredGameObject.name);
+        }
+    }
+
+    public void SetUpRouteByName(string routeName)
+    {
+        Debug.Log("Requested route by name: " + routeName);
+        // Set up the holds for the route
+        List<string> holdsList = new List<string>();
+        switch (routeName)
+        {
+            case "DEATH STAR":
+                holdsList = new List<string> { "D15", "D18", "G13", "H11", "I4", "J6", "K9" };
+                break;
+            case "SPEED":
+                holdsList = new List<string> { "A5", "D5", "D15", "F12", "F18", "G8", "G10" };
+                break;
+            case "THE CRUSH ALT":
+                holdsList = new List<string> { "B6", "C8", "D1", "D11", "F14", "F16", "K18" };
+                break;
+            case "TO JUG, OR NOT TO JUG...":
+                holdsList = new List<string> { "D9", "D15", "F5", "F12", "G13", "H10", "H18" };
+                break;
+            case "WHITE JUGHAUL":
+                holdsList = new List<string> { "F5", "H10", "H18", "I8", "K13", "K15", "K17" };
+                break;
+            default:
+                Debug.LogError("Route name " + routeName + " not found!");
+                break;
+        }
+        Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", holdsList));
+        SetUpRouteByHoldList(holdsList);
+
+    }
+    void SetUpRouteByHoldList(List<string> holdsList)
+    {
+        // Disable all holds
+        foreach (var hold in holdsDictionary.Values)
+        {
+            hold.SetActive(false);
+        }
+        // Enable holds in the list
+        foreach (var holdName in holdsList)
+        {
+            if (!holdsDictionary.ContainsKey(holdName))
+            {
+                Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
+            }
+            holdsDictionary[holdName].SetActive(true);
         }
     }
 }
