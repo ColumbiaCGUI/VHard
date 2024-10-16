@@ -79,7 +79,9 @@ crashlytics-build.properties
 /Assets/Resources/Moonboard/newestholds.fbx
 *.blend
 *.blend1
-/Processing/
+/Processing/ns/
+/Processing/meshing/holds/
+/Processing/meshing/poisson/
 
 # Media
 /Media/local/
