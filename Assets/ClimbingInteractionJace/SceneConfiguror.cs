@@ -13,6 +13,8 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Scene References")]
     public GameObject holdsParentGameObject;
     public Dictionary<string, GameObject> holdsDictionary;
+    public List<string> holdsList;
+    public List<GameObject> activeHoldsList;
 
     [Header("Hands References")]
     public GameObject leftHand;
@@ -30,6 +32,9 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Interaction Settings")]
     public float hoverRadiusOverride;
     public float interactionColorMaxDistanceOverride;
+    public bool disableInactiveHolds;
+    public float inactiveHoldAlpha;
+    public float activeHoldAlpha;
 
     [Header("Interaction State (Changing this is usually a bad move, fix the underlying problem!)")]
     public GameObject leftHandInteractingClimbingHold;
@@ -201,19 +206,22 @@ public class SceneConfiguror : MonoBehaviour
         GameObject hoveredGameObject = hoveredObjectMB.gameObject;
         if (hoveredGameObject.tag == "ClimbingHold")
         {
-            Debug.Log("Hand hover enter: " + hand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
-
-            MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", hoverRadiusOverride);
-
-            if (hand == leftHand)
+            if (activeHoldsList.Contains(hoveredGameObject))
             {
-                leftHandInteractingClimbingHold = hoveredGameObject;
-            }
-            else if (hand == rightHand)
-            {
-                rightHandInteractingClimbingHold = hoveredGameObject;
+                Debug.Log("Hand hover enter: " + hand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
+
+                MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
+                meshRenderer.material.SetInt("_IsBeingInteracted", 1);
+                meshRenderer.material.SetFloat("_InteractionColorMaxDistance", hoverRadiusOverride);
+
+                if (hand == leftHand)
+                {
+                    leftHandInteractingClimbingHold = hoveredGameObject;
+                }
+                else if (hand == rightHand)
+                {
+                    rightHandInteractingClimbingHold = hoveredGameObject;
+                }
             }
         }
         else
@@ -266,7 +274,6 @@ public class SceneConfiguror : MonoBehaviour
     {
         Debug.Log("Requested route by name: " + routeName);
         // Set up the holds for the route
-        List<string> holdsList = new List<string>();
         switch (routeName)
         {
             case "DEATH STAR":
@@ -295,9 +302,16 @@ public class SceneConfiguror : MonoBehaviour
     void SetUpRouteByHoldList(List<string> holdsList)
     {
         // Disable all holds
+        activeHoldsList = new List<GameObject>();
         foreach (var hold in holdsDictionary.Values)
         {
-            hold.SetActive(false);
+            if (disableInactiveHolds)
+            {
+                hold.SetActive(false);
+            }
+            Renderer renderer = hold.GetComponent<Renderer>();
+            Material material = renderer.material;
+            material.SetFloat("_HoldAlpha", inactiveHoldAlpha); // Replace "_Transparency" with the exact property name used in Shader Graph
         }
         // Enable holds in the list
         foreach (var holdName in holdsList)
@@ -307,6 +321,10 @@ public class SceneConfiguror : MonoBehaviour
                 Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
             }
             holdsDictionary[holdName].SetActive(true);
+            Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
+            Material material = renderer.material;
+            material.SetFloat("_HoldAlpha", activeHoldAlpha); // Replace "_Transparency" with the exact property name used in Shader Graph
+            activeHoldsList.Add(holdsDictionary[holdName]);
         }
     }
 }
