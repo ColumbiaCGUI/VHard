@@ -1,0 +1,36 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Output the two arrays of vertex distances
+RWStructuredBuffer<float> leftHandDistances;
+RWStructuredBuffer<float> rightHandDistances;
+
+// Input the climbing hold vertices and the hand bone positions
+StructuredBuffer<float3> climbingHoldVertices;
+StructuredBuffer<float3> leftHandBones;
+StructuredBuffer<float3> rightHandBones;
+
+[numthreads(128,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    float3 vertexPosition = climbingHoldVertices[id.x];
+    float leftHandMinDistance = 1.0 / 0.0;
+    float rightHandMinDistance = 1.0 / 0.0;
+
+    for (int i = 0; i < leftHandBones.Length; i++)
+    {
+        float3 bonePosition = leftHandBones[i];
+        float vertexDistance = distance(vertexPosition, bonePosition);
+        leftHandMinDistance = min(leftHandMinDistance, vertexDistance);
+    }
+
+    for (int i = 0; i < rightHandBones.Length; i++)
+    {
+        float3 bonePosition = rightHandBones[i];
+        float vertexDistance = distance(vertexPosition, bonePosition);
+        rightHandMinDistance = min(rightHandMinDistance, vertexDistance);
+    }
+
+    leftHandDistances[id.x] = leftHandMinDistance;
+    rightHandDistances[id.x] = rightHandMinDistance;
+}
