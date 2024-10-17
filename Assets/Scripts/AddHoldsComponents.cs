@@ -76,7 +76,7 @@ public class ProcessMoonboardObjects : MonoBehaviour
         {
 
             // Skip non-holds
-            if (child.name.Length < 2 || !char.IsDigit(child.name[1]) || child.GetComponent<CoACD>() == null)
+            if (child.name.Length < 2 || !char.IsDigit(child.name[1]) || child.GetComponent<CoACD>() != null) // Skip if CoACD component already exists
             {
                 UnityEngine.Debug.Log($"Skipped object: {child.name}");
                 skippedCount++;
@@ -85,6 +85,7 @@ public class ProcessMoonboardObjects : MonoBehaviour
 
             try
             {
+                Debug.Log($"Processing object: {child.name}");
                 AddcoACD(child.gameObject);
                 processedCount++;
             }
