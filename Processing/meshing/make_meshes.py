@@ -7,26 +7,115 @@ Created on Mon Jul  8 22:22:46 2024
 
 import open3d as o3d
 from open3d.utility import VerbosityContextManager, VerbosityLevel
+from scipy.spatial import ConvexHull
 
 import os
 import numpy as np
 from io_utils import load_ply
 
-def estimate_normals(files):
+
+def calculate_plane_params(plane_mesh):
+
+    vertices = np.asarray(plane_mesh.vertices)
+    centroid = np.mean(vertices, axis=0)
+
+    # Calculate normal using just the first three vertices
+    v0, v1, v2 = vertices[:3]
+    normal = np.cross(v1 - v0, v2 - v0)
+    normal = normal / np.linalg.norm(normal)
+
+    # Orient the normal towards the origin
+    if np.dot(centroid, normal) < 0:
+        normal = -normal
+
+    return centroid, normal
+
+
+def clip_by_plane(pcd, plane_point, plane_normal, grid_resolution=0.005):
+
+    # Clip points that are on the correct side of the plane
+    points = np.asarray(pcd.points)
+    vectors = points - plane_point
+    distances = np.dot(vectors, plane_normal)
+    mask = distances <= 0
+    filtered_points = points[mask]
+
+    # Project points onto the plane
+    projected_points = filtered_points - np.outer(distances[mask], plane_normal)
+
+    # Find two orthogonal vectors in the plane
+    u = np.cross(plane_normal, [1, 0, 0])
+    if np.allclose(u, 0):
+        u = np.cross(plane_normal, [0, 1, 0])
+    u = u / np.linalg.norm(u)
+    v = np.cross(plane_normal, u)
+
+    # Project the points onto the 2D coordinate system defined by u and v
+    points_2d = np.column_stack([np.dot(projected_points - plane_point, u),
+                                 np.dot(projected_points - plane_point, v)])
+
+    # Compute 2D convex hull
+    hull = ConvexHull(points_2d)
+    hull_points_2d = points_2d[hull.vertices]
+
+    # Determine bounding box of hull points
+    min_bound = np.min(hull_points_2d, axis=0)
+    max_bound = np.max(hull_points_2d, axis=0)
+
+    # Create a grid of points
+    x = np.arange(min_bound[0], max_bound[0], grid_resolution)
+    y = np.arange(min_bound[1], max_bound[1], grid_resolution)
+    xx, yy = np.meshgrid(x, y)
+    grid_points_2d = np.column_stack((xx.ravel(), yy.ravel()))
+
+    # Check which points are inside the hull
+    def in_hull(p, hull):
+        return all((np.dot(eq[:-1], p) + eq[-1] <= 0) for eq in hull.equations)
     
-    clouds = dict()
+    inside_mask = np.array([in_hull(point, hull) for point in grid_points_2d])
+    
+    # Convert 2D intersection points back to 3D
+    intersection_points_2d = grid_points_2d[inside_mask]
+    intersection_points = (plane_point.reshape(1, 3) +
+                           np.outer(intersection_points_2d[:, 0], u) +
+                           np.outer(intersection_points_2d[:, 1], v))
+
+    # Combine the filtered points and intersection points
+    combined_points = np.vstack((filtered_points, intersection_points))
+
+    # Create and return the new point cloud
+    new_pcd = o3d.geometry.PointCloud()
+    new_pcd.points = o3d.utility.Vector3dVector(combined_points)
+
+    return new_pcd
+
+
+def clip_multiple_point_clouds(files, plane_ply_path):
+
+    plane_mesh = o3d.io.read_triangle_mesh(plane_ply_path)
+    plane_point, plane_normal = calculate_plane_params(plane_mesh)
+
+    clipped_clouds = {}
     for file in files:
-        
         try:
-        
-            # Load points
             points, colors = load_ply(file)
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(points)
             if colors is not None:
                 pcd.colors = o3d.utility.Vector3dVector(colors)
-                
-            # Estimate normals
+            
+            clipped_pcd = clip_by_plane(pcd, plane_point, plane_normal)
+            clipped_clouds[file] = clipped_pcd
+        except Exception as e:
+            print(f'FAILED TO CLIP {file}: {e}')
+
+    return clipped_clouds
+
+
+def estimate_normals(clouds):
+
+    for file, pcd in clouds.items():
+        try:
             pcd.estimate_normals(
                 search_param=o3d.geometry.KDTreeSearchParamHybrid(
                 radius=0.1, max_nn=30)
@@ -36,83 +125,44 @@ def estimate_normals(files):
                 continue
             pcd.orient_normals_consistent_tangent_plane(100)
             
-            # Remove outliers
             cl, ind = pcd.remove_statistical_outlier(
                 nb_neighbors=20, 
                 std_ratio=2.0
             )
-            pcd = pcd.select_by_index(ind)
-            
-            # Save to dict
-            clouds[file] = pcd
+            clouds[file] = pcd.select_by_index(ind)
             
         except Exception as e:
             print(f'FAILED TO ESTIMATE NORMALS FOR {file}: {e}')
-        
+    
     return clouds
 
 
 def poisson(clouds):
-    
+
     for file, pcd in clouds.items():
-        
-        # Construct mesh
         with VerbosityContextManager(VerbosityLevel.Debug) as cm:
-            
-            # Apply Poisson reconstruction
-            mesh, densities = \
-                o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-                pcd, depth=9
+            mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+                pcd, depth=8
             )
-                
-            # Remove low density vertices
+            
             vertices_to_remove = densities < np.quantile(densities, 0.1)
             mesh.remove_vertices_by_mask(vertices_to_remove)
             
-            # Smooth the mesh
             mesh = mesh.filter_smooth_taubin(number_of_iterations=100)
             
-            # Write to file
             filename = file.replace('holds', 'poisson')
             o3d.io.write_triangle_mesh(filename, mesh)
             
         print(f'Poissoned {os.path.basename(file[:-4])}')
-        
-        
-def ball_pivoting(clouds):
-    
-    for file, pcd in clouds.items():
-        
-        # Compute parameters
-        distances = pcd.compute_nearest_neighbor_distance()
-        avg_dist = np.mean(distances)
-        radii = [avg_dist * (2**n) for n in range(1, 5)]
-        
-        with VerbosityContextManager(VerbosityLevel.Debug) as cm:
-            
-            # Apply Ball Pivoting
-            mesh = \
-                o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
-                pcd, o3d.utility.DoubleVector(radii)
-            )
-            
-            # Use os.path.basename to get just the filename, not the full path
-            filename = file.replace('holds', 'ball_pivoting')
-            o3d.io.write_triangle_mesh(filename, mesh)
-        
-        print(f'Ball Pivoting applied to {os.path.basename(file[:-4])}')
-        
+
+
 
 if __name__ == '__main__':
-    
+
     files = [os.path.join('holds', h) for h in os.listdir('holds')]
-    # holds = ['A3', 'A5', 'D5', 'G8', 'G10', 'H11', 'J13', 'F18', 'H15', 
-             # 'C13', 'F12', 'B8', 'E4', 'I2', 'F13', 'E11', 'D9', 'G36']
-    # files = [os.path.join('holds', f'{h}.ply') for h in holds]
     
-    clouds = estimate_normals(files)
+    clipped_clouds = clip_multiple_point_clouds(files, 'plane.ply')
     
-    poisson(clouds)
-    # ball_pivoting(clouds)
+    clouds_with_normals = estimate_normals(clipped_clouds)
     
-    
+    poisson(clouds_with_normals)
