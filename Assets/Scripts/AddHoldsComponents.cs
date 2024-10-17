@@ -76,7 +76,7 @@ public class ProcessMoonboardObjects : MonoBehaviour
         {
 
             // Skip non-holds
-            if (child.name.Length < 2 || !char.IsDigit(child.name[1]))
+            if (child.name.Length < 2 || !char.IsDigit(child.name[1]) || child.GetComponent<CoACD>() == null)
             {
                 UnityEngine.Debug.Log($"Skipped object: {child.name}");
                 skippedCount++;
@@ -85,10 +85,7 @@ public class ProcessMoonboardObjects : MonoBehaviour
 
             try
             {
-                if (child.GetComponent<CoACD>() != null)
-                {
-                    AddcoACD(child.gameObject);
-                }
+                AddcoACD(child.gameObject);
                 processedCount++;
             }
             catch (System.Exception e)
@@ -107,7 +104,7 @@ public class ProcessMoonboardObjects : MonoBehaviour
     static void AddcoACD(GameObject obj)
     {
         // Attach Co ACD script and calculate colliders
-        CoACD coACD = Undo.AddComponent<CoACD>(obj);
+        CoACD coACD = obj.AddComponent<CoACD>();
         if (coACD != null)
         {
             // Set any necessary parameters
