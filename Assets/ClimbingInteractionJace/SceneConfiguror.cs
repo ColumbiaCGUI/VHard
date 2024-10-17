@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Unity.XR.CoreUtils;
@@ -13,6 +14,8 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Scene References")]
     public GameObject holdsParentGameObject;
     public Dictionary<string, GameObject> holdsDictionary;
+    public List<string> holdsList;
+    public List<GameObject> activeHoldsList;
 
     [Header("Hands References")]
     public GameObject leftHand;
@@ -30,6 +33,9 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Interaction Settings")]
     public float hoverRadiusOverride;
     public float interactionColorMaxDistanceOverride;
+    public bool disableInactiveHolds;
+    public float inactiveHoldAlpha;
+    public float activeHoldAlpha;
 
     [Header("Interaction State (Changing this is usually a bad move, fix the underlying problem!)")]
     public GameObject leftHandInteractingClimbingHold;
@@ -55,7 +61,7 @@ public class SceneConfiguror : MonoBehaviour
         {
             string holdName = child.name.Split('.')[0];
             holdsDictionary[holdName] = child.gameObject;
-            // Debug.Log("Found and added hold " + holdName);
+            // UnityEngine.Debug.Log("Found and added hold " + holdName);
         }
 
         // Traverse root bone of each hand and add all bones to list
@@ -195,30 +201,33 @@ public class SceneConfiguror : MonoBehaviour
         MonoBehaviour hoveredObjectMB = hoveredObject as MonoBehaviour;
         if (hoveredObjectMB == null)
         {
-            Debug.Log("Hand hover enter: " + hand.name + " is now interacting with something that isn't a MonoBehaviour.");
+            UnityEngine.Debug.Log("Hand hover enter: " + hand.name + " is now interacting with something that isn't a MonoBehaviour.");
             return;
         }
         GameObject hoveredGameObject = hoveredObjectMB.gameObject;
         if (hoveredGameObject.tag == "ClimbingHold")
         {
-            Debug.Log("Hand hover enter: " + hand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
-
-            MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", hoverRadiusOverride);
-
-            if (hand == leftHand)
+            if (activeHoldsList.Contains(hoveredGameObject))
             {
-                leftHandInteractingClimbingHold = hoveredGameObject;
-            }
-            else if (hand == rightHand)
-            {
-                rightHandInteractingClimbingHold = hoveredGameObject;
+                UnityEngine.Debug.Log("Hand hover enter: " + hand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
+
+                MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
+                meshRenderer.material.SetInt("_IsBeingInteracted", 1);
+                meshRenderer.material.SetFloat("_InteractionColorMaxDistance", hoverRadiusOverride);
+
+                if (hand == leftHand)
+                {
+                    leftHandInteractingClimbingHold = hoveredGameObject;
+                }
+                else if (hand == rightHand)
+                {
+                    rightHandInteractingClimbingHold = hoveredGameObject;
+                }
             }
         }
         else
         {
-            Debug.Log("Hand hover enter: " + hand.name + " is now interacting with GameObject " + hoveredGameObject.name);
+            UnityEngine.Debug.Log("Hand hover enter: " + hand.name + " is now interacting with GameObject " + hoveredGameObject.name);
         }
     }
 
@@ -236,13 +245,13 @@ public class SceneConfiguror : MonoBehaviour
         MonoBehaviour hoveredObjectMB = hoveredObject as MonoBehaviour;
         if (hoveredObjectMB == null)
         {
-            Debug.Log("Hand hover exit: " + hand.name + " is no longer interacting with something that isn't a MonoBehaviour.");
+            UnityEngine.Debug.Log("Hand hover exit: " + hand.name + " is no longer interacting with something that isn't a MonoBehaviour.");
             return;
         }
         GameObject hoveredGameObject = hoveredObjectMB.gameObject;
         if (hoveredGameObject.tag == "ClimbingHold")
         {
-            Debug.Log("Hand hover exit: " + hand.name + " is no longer interacting with Climbing Hold " + hoveredGameObject.name);
+            UnityEngine.Debug.Log("Hand hover exit: " + hand.name + " is no longer interacting with Climbing Hold " + hoveredGameObject.name);
 
             MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
             meshRenderer.material.SetInt("_IsBeingInteracted", 0);
@@ -258,13 +267,13 @@ public class SceneConfiguror : MonoBehaviour
         }
         else
         {
-            Debug.Log("Hand hover exit: " + hand.name + " is no longer interacting with GameObject " + hoveredGameObject.name);
+            UnityEngine.Debug.Log("Hand hover exit: " + hand.name + " is no longer interacting with GameObject " + hoveredGameObject.name);
         }
     }
 
     public void SetUpRouteByName(string routeName)
     {
-        Debug.Log("Requested route by name: " + routeName);
+        UnityEngine.Debug.Log("Requested route by name: " + routeName);
         // Set up the holds for the route
         List<string> holdsList = new List<string>();
         switch (routeName)
@@ -307,28 +316,49 @@ public class SceneConfiguror : MonoBehaviour
                 };
                 break;
             default:
-                Debug.LogError("Route name " + routeName + " not found!");
+                UnityEngine.Debug.LogError("Route name " + routeName + " not found!");
                 break;
         }
-        Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", holdsList));
+        UnityEngine.Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", holdsList));
         SetUpRouteByHoldList(holdsList);
 
     }
     void SetUpRouteByHoldList(List<string> holdsList)
     {
         // Disable all holds
+        activeHoldsList = new List<GameObject>();
         foreach (var hold in holdsDictionary.Values)
         {
-            hold.SetActive(false);
+            if (disableInactiveHolds)
+            {
+                hold.SetActive(false);
+            }
+            else
+            {
+                Renderer renderer = hold.GetComponent<Renderer>();
+                Material material = renderer.material;
+                material.SetFloat("_HoldAlpha", inactiveHoldAlpha); // Replace "_Transparency" with the exact property name used in Shader Graph
+                hold.GetComponent<XRGrabInteractable>().enabled = false;
+            }
         }
         // Enable holds in the list
         foreach (var holdName in holdsList)
         {
             if (!holdsDictionary.ContainsKey(holdName))
             {
-                Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
+                UnityEngine.Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
             }
             holdsDictionary[holdName].SetActive(true);
+
+            if (!disableInactiveHolds)
+            {
+                holdsDictionary[holdName].GetComponent<XRGrabInteractable>().enabled = true;
+                Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
+                Material material = renderer.material;
+                material.SetFloat("_HoldAlpha", activeHoldAlpha); // Replace "_Transparency" with the exact property name used in Shader Graph
+            }
+
+            activeHoldsList.Add(holdsDictionary[holdName]);
         }
     }
 }

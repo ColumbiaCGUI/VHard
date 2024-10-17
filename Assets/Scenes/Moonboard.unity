@@ -5143,6 +5143,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   holdsParentGameObject: {fileID: 6965873199804534242}
+  holdsList: []
+  activeHoldsList: []
   leftHand: {fileID: 728455912}
   leftHandNearFarInteractor: {fileID: 97624285}
   leftHandSkinnedMeshRenderer: {fileID: 1674833377}
@@ -5155,6 +5157,9 @@ MonoBehaviour:
   rightHandBones: []
   hoverRadiusOverride: 0.2
   interactionColorMaxDistanceOverride: 0.035
+  disableInactiveHolds: 0
+  inactiveHoldAlpha: 0.1
+  activeHoldAlpha: 1
   leftHandInteractingClimbingHold: {fileID: 0}
   rightHandInteractingClimbingHold: {fileID: 0}
   distanceToClosestBoneComputeShader: {fileID: 7200000, guid: 6ed06c8889d75984d822e528a5ac38b9, type: 3}
