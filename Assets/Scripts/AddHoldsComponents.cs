@@ -9,17 +9,18 @@ using System.Reflection;
 using Debug = UnityEngine.Debug;
 using System.ComponentModel;
 using System;
+using System.Net;
 
 public class ProcessMoonboardObjects : MonoBehaviour
 {
     [MenuItem("Custom/Process Moonboard Objects")]
     static void ProcessAllObjects()
     {
-        Transform moonboardGroup = GameObject.Find("Environment/Moonboard")?.transform;
+        Transform holdsGroup = GameObject.Find("Environment/Moonboard/Holds")?.transform;
         
-        if (moonboardGroup == null)
+        if (holdsGroup == null)
         {
-            UnityEngine.Debug.LogError("Could not find Moonboard/Environment/Moonboard group!");
+            UnityEngine.Debug.LogError("Could not find Moonboard/Environment/Moonboard/Holds group!");
             return;
         }
 
@@ -27,7 +28,7 @@ public class ProcessMoonboardObjects : MonoBehaviour
         int skippedCount = 0;
         int errorCount = 0;
 
-        foreach (Transform child in moonboardGroup)
+        foreach (Transform child in holdsGroup)
         {
 
             // Skip non-holds
@@ -56,14 +57,55 @@ public class ProcessMoonboardObjects : MonoBehaviour
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
     }
 
-    static void ProcessObject(GameObject obj)
+    [MenuItem("Custom/Add CoACD to remaining meshes")]
+    static void AddcoACDToAll()
     {
-        Undo.RecordObject(obj, "Process Moonboard Object");
-        
-        // Rename object if it has a period in its name
-        string newName = obj.name.Split('.')[0];
-        obj.name = newName;
+        Transform holdsGroup = GameObject.Find("Environment/Moonboard/Holds")?.transform;
 
+        if (holdsGroup == null)
+        {
+            UnityEngine.Debug.LogError("Could not find Moonboard/Environment/Moonboard/Holds group!");
+            return;
+        }
+
+        int processedCount = 0;
+        int skippedCount = 0;
+        int errorCount = 0;
+
+        foreach (Transform child in holdsGroup)
+        {
+
+            // Skip non-holds
+            if (child.name.Length < 2 || !char.IsDigit(child.name[1]))
+            {
+                UnityEngine.Debug.Log($"Skipped object: {child.name}");
+                skippedCount++;
+                continue;
+            }
+
+            try
+            {
+                if (child.GetComponent<CoACD>() != null)
+                {
+                    AddcoACD(child.gameObject);
+                }
+                processedCount++;
+            }
+            catch (System.Exception e)
+            {
+                UnityEngine.Debug.LogError($"Error processing object {child.name}: {e.Message}");
+                errorCount++;
+            }
+        }
+
+        UnityEngine.Debug.Log($"Processing complete. Processed {processedCount} objects. Encountered {errorCount} errors.");
+
+        // Save the changes
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+    }
+
+    static void AddcoACD(GameObject obj)
+    {
         // Attach Co ACD script and calculate colliders
         CoACD coACD = Undo.AddComponent<CoACD>(obj);
         if (coACD != null)
@@ -89,6 +131,18 @@ public class ProcessMoonboardObjects : MonoBehaviour
         {
             Debug.LogWarning($"CoACD component could not be added to {obj.name}");
         }
+    }
+
+    static void ProcessObject(GameObject obj)
+    {
+        Undo.RecordObject(obj, "Process Moonboard Object");
+        
+        // Rename object if it has a period in its name
+        string newName = obj.name.Split('.')[0];
+        obj.name = newName;
+
+        // Add COAcd
+        AddcoACD(obj);
 
         // Add XR Grab Interactable component
         UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable = Undo.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>(obj);

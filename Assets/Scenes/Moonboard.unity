@@ -5158,7 +5158,7 @@ MonoBehaviour:
   hoverRadiusOverride: 0.2
   interactionColorMaxDistanceOverride: 0.035
   disableInactiveHolds: 0
-  inactiveHoldAlpha: 0.1
+  inactiveHoldAlpha: 0.01
   activeHoldAlpha: 1
   leftHandInteractingClimbingHold: {fileID: 0}
   rightHandInteractingClimbingHold: {fileID: 0}
