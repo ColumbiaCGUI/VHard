@@ -10,7 +10,7 @@ def write_point_cloud(point_cloud, filename):
     o3d.io.write_point_cloud(filename, point_cloud)
 
 def quaternion_to_rotation_matrix(q):
-    q = q / torch.norm(q)
+    q = q / (torch.norm(q) + 1e-8)
     w, x, y, z = q
     R = torch.tensor([
         [1 - 2*y*y - 2*z*z, 2*x*y - 2*z*w, 2*x*z + 2*y*w],
@@ -137,7 +137,8 @@ def align_point_clouds(newscan: str, target: str, num_iterations=10000, patience
 
     return best_loss, best_quaternion, best_translation, best_scale
 
-def tune_coplanarity_weight(newscan: str, target: str, weights, num_iterations=1000, patience=50, min_delta=1e-4, lr_rotation=0.01, lr_translation=0.001):
+def tune_coplanarity_weight(newscan: str, target: str, weights, num_iterations=1000, patience=50, 
+                            min_delta=1e-4, lr_rotation=0.01, lr_translation=0.0001):
     best_weight = None
     best_loss = float('inf')
     best_quaternion = None
@@ -146,7 +147,9 @@ def tune_coplanarity_weight(newscan: str, target: str, weights, num_iterations=1
 
     for weight in weights:
         print(f"\nTrying coplanarity weight: {weight}")
-        loss, quaternion, translation, scale = align_point_clouds(newscan, target, num_iterations, patience, min_delta, coplanarity_weight=weight, lr_rotation=lr_rotation, lr_translation=lr_translation)
+        loss, quaternion, translation, scale = align_point_clouds(
+            newscan, target, num_iterations, patience, min_delta, coplanarity_weight=weight, 
+            lr_rotation=lr_rotation, lr_translation=lr_translation)
         
         if loss < best_loss:
             best_loss = loss

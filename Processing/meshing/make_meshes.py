@@ -35,10 +35,12 @@ def clip_by_plane(pcd, plane_point, plane_normal, grid_resolution=0.005):
 
     # Clip points that are on the correct side of the plane
     points = np.asarray(pcd.points)
+    colors = np.asarray(pcd.colors)
     vectors = points - plane_point
     distances = np.dot(vectors, plane_normal)
     mask = distances <= 0
     filtered_points = points[mask]
+    filtered_colors = colors[mask]
 
     # Project points onto the plane
     projected_points = filtered_points - np.outer(distances[mask], plane_normal)
@@ -80,12 +82,17 @@ def clip_by_plane(pcd, plane_point, plane_normal, grid_resolution=0.005):
                            np.outer(intersection_points_2d[:, 0], u) +
                            np.outer(intersection_points_2d[:, 1], v))
 
-    # Combine the filtered points and intersection points
+   # Combine the filtered points and intersection points
     combined_points = np.vstack((filtered_points, intersection_points))
+    
+    # Create new colors for intersection points (e.g., white)
+    intersection_colors = np.ones((len(intersection_points), 3))
+    combined_colors = np.vstack((filtered_colors, intersection_colors))
 
     # Create and return the new point cloud
     new_pcd = o3d.geometry.PointCloud()
     new_pcd.points = o3d.utility.Vector3dVector(combined_points)
+    new_pcd.colors = o3d.utility.Vector3dVector(combined_colors)
 
     return new_pcd
 
@@ -106,6 +113,9 @@ def clip_multiple_point_clouds(files, plane_ply_path):
             
             clipped_pcd = clip_by_plane(pcd, plane_point, plane_normal)
             clipped_clouds[file] = clipped_pcd
+            
+            print(f'Clipped {os.path.basename(file[:-4])}')
+
         except Exception as e:
             print(f'FAILED TO CLIP {file}: {e}')
 
@@ -136,19 +146,31 @@ def estimate_normals(clouds):
     
     return clouds
 
-
 def poisson(clouds):
 
     for file, pcd in clouds.items():
         with VerbosityContextManager(VerbosityLevel.Debug) as cm:
             mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-                pcd, depth=8
+                pcd, depth=7
             )
             
             vertices_to_remove = densities < np.quantile(densities, 0.1)
             mesh.remove_vertices_by_mask(vertices_to_remove)
             
             mesh = mesh.filter_smooth_taubin(number_of_iterations=100)
+            
+            # Transfer colors from point cloud to mesh using nearest neighbor search
+            pcd_tree = o3d.geometry.KDTreeFlann(pcd)
+            mesh_vertices = np.asarray(mesh.vertices)
+            vertex_colors = []
+            
+            for vertex in mesh_vertices:
+                _, idx, _ = pcd_tree.search_knn_vector_3d(vertex, 1)
+                closest_point_color = np.asarray(pcd.colors)[idx[0]]
+                vertex_colors.append(closest_point_color)
+            
+            mesh.vertex_colors = o3d.utility.Vector3dVector(np.array(vertex_colors))
+            
             
             filename = file.replace('holds', 'poisson')
             o3d.io.write_triangle_mesh(filename, mesh)
