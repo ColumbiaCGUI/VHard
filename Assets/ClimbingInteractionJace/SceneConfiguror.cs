@@ -337,8 +337,14 @@ public class SceneConfiguror : MonoBehaviour
             {
                 Renderer renderer = hold.GetComponent<Renderer>();
                 Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", inactiveHoldAlpha); // Replace "_Transparency" with the exact property name used in Shader Graph
+                material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
                 hold.GetComponent<XRGrabInteractable>().enabled = false;
+            }
+
+            hold.GetComponent<CoACD>().enabled = false;
+            MeshCollider[] meshColliders = hold.GetComponent<CoACD>().GetComponents<MeshCollider>();
+            foreach (var collider in meshColliders) {
+                collider.enabled = false;
             }
         }
         // Enable holds in the list
@@ -348,14 +354,20 @@ public class SceneConfiguror : MonoBehaviour
             {
                 UnityEngine.Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
             }
-            holdsDictionary[holdName].SetActive(true);
 
+            holdsDictionary[holdName].SetActive(true);
             if (!disableInactiveHolds)
             {
                 holdsDictionary[holdName].GetComponent<XRGrabInteractable>().enabled = true;
                 Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
                 Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", activeHoldAlpha); // Replace "_Transparency" with the exact property name used in Shader Graph
+                material.SetFloat("_HoldAlpha", activeHoldAlpha);
+            }
+
+            holdsDictionary[holdName].GetComponent<CoACD>().enabled = true;
+            MeshCollider[] meshColliders = holdsDictionary[holdName].GetComponent<CoACD>().GetComponents<MeshCollider>();
+            foreach (var collider in meshColliders) {
+                collider.enabled = true;
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
