@@ -97,10 +97,7 @@ def clip_by_plane(pcd, plane_point, plane_normal, grid_resolution=0.005):
     return new_pcd
 
 
-def clip_multiple_point_clouds(files, plane_ply_path):
-
-    plane_mesh = o3d.io.read_triangle_mesh(plane_ply_path)
-    plane_point, plane_normal = calculate_plane_params(plane_mesh)
+def clip_multiple_point_clouds(files, plane_point, plane_normal):
 
     clipped_clouds = {}
     for file in files:
@@ -146,45 +143,88 @@ def estimate_normals(clouds):
     
     return clouds
 
-def poisson(clouds):
+def poisson(clouds, depth=6):
 
     for file, pcd in clouds.items():
-        with VerbosityContextManager(VerbosityLevel.Debug) as cm:
-            mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-                pcd, depth=7
-            )
-            
-            vertices_to_remove = densities < np.quantile(densities, 0.1)
-            mesh.remove_vertices_by_mask(vertices_to_remove)
-            
-            mesh = mesh.filter_smooth_taubin(number_of_iterations=100)
-            
-            # Transfer colors from point cloud to mesh using nearest neighbor search
-            pcd_tree = o3d.geometry.KDTreeFlann(pcd)
-            mesh_vertices = np.asarray(mesh.vertices)
-            vertex_colors = []
-            
-            for vertex in mesh_vertices:
-                _, idx, _ = pcd_tree.search_knn_vector_3d(vertex, 1)
-                closest_point_color = np.asarray(pcd.colors)[idx[0]]
-                vertex_colors.append(closest_point_color)
-            
-            mesh.vertex_colors = o3d.utility.Vector3dVector(np.array(vertex_colors))
-            
-            
-            filename = file.replace('holds', 'poisson')
-            o3d.io.write_triangle_mesh(filename, mesh)
-            
-        print(f'Poissoned {os.path.basename(file[:-4])}')
+        try:
+            with VerbosityContextManager(VerbosityLevel.Debug) as cm:
 
+                # Poisson surface reconstruction
+                mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+                    pcd, depth=depth
+                )
+                
+                # Remove useless vertices
+                vertices_to_remove = densities < np.quantile(densities, 0.01)
+                mesh.remove_vertices_by_mask(vertices_to_remove)
+                
+                # Smoothing
+                mesh = mesh.filter_smooth_taubin(number_of_iterations=100)
+                
+                # Check if the point cloud has colors
+                if not pcd.has_colors():
+                    print(f"Warning: Point cloud for {file} does not have colors. Skipping color transfer.")
+                    continue
+                
+                # Transfer colors from point cloud to mesh using nearest neighbor search
+                pcd_tree = o3d.geometry.KDTreeFlann(pcd)
+                mesh_vertices = np.asarray(mesh.vertices)
+                pcd_colors = np.asarray(pcd.colors)
+                vertex_colors = []
+                
+                for vertex in mesh_vertices:
+                    _, idx, _ = pcd_tree.search_knn_vector_3d(vertex, 1)
+                    if len(idx) > 0:
+                        closest_point_color = pcd_colors[idx[0]]
+                    else:
+                        # If no nearest neighbor is found, use a default color (e.g., white)
+                        closest_point_color = np.array([1.0, 1.0, 1.0])
+                    vertex_colors.append(closest_point_color)
+                
+                mesh.vertex_colors = o3d.utility.Vector3dVector(np.array(vertex_colors))
+                
+                # Write file
+                filename = file.replace('holds', 'poisson')
+                o3d.io.write_triangle_mesh(filename, mesh)
+                
+            print(f'Poissoned {os.path.basename(file[:-4])}')
+
+        except Exception as e:
+            print(f"Error processing {file}: {str(e)}")
+
+
+def refine_meshes(plane_point, plane_normal, in_folder='poisson', out_folder='refined'):
+
+    for file in os.listdir(in_folder):
+
+        # Read mesh
+        filename = os.path.join(in_folder, file)
+        mesh = o3d.t.io.read_triangle_mesh(filename, enable_post_processing=True)
+
+        # Fill holes
+        mesh = mesh.fill_holes(hole_size=.1)
+
+        # Clip plane
+        mesh = mesh.clip_plane(plane_point, plane_normal)
+        plane_mesh = o3d.io.read_triangle_mesh('plane.ply')
+        convex_hull = mesh.compute_convex_hull()
+        intersection = convex_hull.boolean_intersection(plane_mesh)
+        mesh  = mesh.boolean_union(intersection)
+
+        # Write new mesh
+        outfile = os.path.join(out_folder, file)
+        o3d.t.io.write_triangle_mesh(outfile, mesh)
 
 
 if __name__ == '__main__':
 
     files = [os.path.join('holds', h) for h in os.listdir('holds')]
     
-    clipped_clouds = clip_multiple_point_clouds(files, 'plane.ply')
+    plane_mesh = o3d.io.read_triangle_mesh('plane.ply')
+    plane_point, plane_normal = calculate_plane_params(plane_mesh)
+    # clipped_clouds = clip_multiple_point_clouds(files, plane_point, plane_normal)
     
-    clouds_with_normals = estimate_normals(clipped_clouds)
+    # clouds_with_normals = estimate_normals(clipped_clouds)
     
-    poisson(clouds_with_normals)
+    # poisson(clouds_with_normals)
+    refine_meshes(plane_point, plane_normal*-1 + .01)
