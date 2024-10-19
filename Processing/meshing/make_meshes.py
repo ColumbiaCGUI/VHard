@@ -206,7 +206,6 @@ def refine_meshes(plane_point, plane_normal, in_folder='poisson', out_folder='re
 
         # Clip plane
         mesh = mesh.clip_plane(plane_point, plane_normal)
-        plane_mesh = o3d.io.read_triangle_mesh('plane.ply')
         convex_hull = mesh.compute_convex_hull()
         intersection = convex_hull.boolean_intersection(plane_mesh)
         mesh  = mesh.boolean_union(intersection)
@@ -227,4 +226,5 @@ if __name__ == '__main__':
     # clouds_with_normals = estimate_normals(clipped_clouds)
     
     # poisson(clouds_with_normals)
+    plane_mesh = o3d.t.io.read_triangle_mesh('plane.ply')
     refine_meshes(plane_point, plane_normal*-1 + .01)
