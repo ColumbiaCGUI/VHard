@@ -8,6 +8,7 @@ Created on Mon Jul  8 22:22:46 2024
 import open3d as o3d
 from open3d.utility import VerbosityContextManager, VerbosityLevel
 from scipy.spatial import ConvexHull
+import pymeshfix
 
 import os
 import numpy as np
@@ -193,26 +194,39 @@ def poisson(clouds, depth=6):
             print(f"Error processing {file}: {str(e)}")
 
 
-def refine_meshes(plane_point, plane_normal, in_folder='poisson', out_folder='refined'):
+def refine_meshes(plane_point, plane_normal, plane_mesh, in_folder='poisson', out_folder='refined'):
 
     for file in os.listdir(in_folder):
 
-        # Read mesh
-        filename = os.path.join(in_folder, file)
-        mesh = o3d.t.io.read_triangle_mesh(filename, enable_post_processing=True)
+        try:
 
-        # Fill holes
-        mesh = mesh.fill_holes(hole_size=.1)
+            # Read mesh
+            filename = os.path.join(in_folder, file)
+            mesh = o3d.t.io.read_triangle_mesh(filename, enable_post_processing=True)
+            
+            # Clip plane
+            mesh = mesh.clip_plane(plane_point, plane_normal)
+            convex_hull = mesh.compute_convex_hull()
+            intersection = plane_mesh.boolean_intersection(convex_hull)
+            mesh = mesh.boolean_union(intersection)
 
-        # Clip plane
-        mesh = mesh.clip_plane(plane_point, plane_normal)
-        convex_hull = mesh.compute_convex_hull()
-        intersection = convex_hull.boolean_intersection(plane_mesh)
-        mesh  = mesh.boolean_union(intersection)
+            # Write new mesh
+            outfile = os.path.join(out_folder, file)
+            o3d.t.io.write_triangle_mesh(outfile, mesh)
+            del mesh
 
-        # Write new mesh
-        outfile = os.path.join(out_folder, file)
-        o3d.t.io.write_triangle_mesh(outfile, mesh)
+            # Fix holes with pymeshfix
+            tin = pymeshfix.PyTMesh()
+            tin.LoadFile(outfile)
+            tin.fill_small_boundaries()
+            tin.clean(max_iters=10, inner_loops=3)
+            tin.save_file(outfile)
+
+            print(f"Refined {file[:-4]}")
+
+        except Exception as e:
+
+            print(f'Failed to process {file[:-4]}: {e}')
 
 
 if __name__ == '__main__':
@@ -221,10 +235,11 @@ if __name__ == '__main__':
     
     plane_mesh = o3d.io.read_triangle_mesh('plane.ply')
     plane_point, plane_normal = calculate_plane_params(plane_mesh)
-    # clipped_clouds = clip_multiple_point_clouds(files, plane_point, plane_normal)
-    
-    # clouds_with_normals = estimate_normals(clipped_clouds)
-    
-    # poisson(clouds_with_normals)
+
+    clipped_clouds = clip_multiple_point_clouds(files, plane_point, plane_normal)
+    clouds_with_normals = estimate_normals(clipped_clouds)
+    poisson(clouds_with_normals)
+
     plane_mesh = o3d.t.io.read_triangle_mesh('plane.ply')
-    refine_meshes(plane_point, plane_normal*-1 + .01)
+    plane_normal *= -1
+    refine_meshes(plane_point + plane_normal*.01, plane_normal, plane_mesh)
