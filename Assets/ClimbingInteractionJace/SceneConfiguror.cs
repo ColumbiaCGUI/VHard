@@ -357,6 +357,11 @@ public class SceneConfiguror : MonoBehaviour
                     collider.enabled = false;
                 }
             }
+            SphereCollider sphere = hold.GetComponent<SphereCollider>();
+            if (sphere != null)
+            {
+                hold.GetComponent<SphereCollider>().enabled = false;
+            }
         }
 
         // Enable holds in the list
@@ -385,6 +390,11 @@ public class SceneConfiguror : MonoBehaviour
                 {
                     collider.enabled = true;
                 }
+            }
+            SphereCollider sphere = holdsDictionary[holdName].GetComponent<SphereCollider>();
+            if (sphere != null)
+            {
+                holdsDictionary[holdName].GetComponent<SphereCollider>().enabled = true;
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
@@ -417,6 +427,11 @@ public class SceneConfiguror : MonoBehaviour
                 {
                     collider.enabled = false;
                 }
+            }
+            SphereCollider sphere = hold.GetComponent<SphereCollider>();
+            if (sphere != null)
+            {
+                hold.GetComponent<SphereCollider>().enabled = false;
             }
         }
 
