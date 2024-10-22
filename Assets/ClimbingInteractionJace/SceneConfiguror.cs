@@ -347,11 +347,15 @@ public class SceneConfiguror : MonoBehaviour
                 hold.GetComponent<XRGrabInteractable>().enabled = false;
             }
 
-            hold.GetComponent<CoACD>().enabled = false;
-            MeshCollider[] meshColliders = hold.GetComponent<CoACD>().GetComponents<MeshCollider>();
-            foreach (var collider in meshColliders)
+            CoACD coACD = hold.GetComponent<CoACD>();
+            if (coACD != null)
             {
-                collider.enabled = false;
+                hold.GetComponent<CoACD>().enabled = false;
+                MeshCollider[] meshColliders = hold.GetComponent<CoACD>().GetComponents<MeshCollider>();
+                foreach (var collider in meshColliders)
+                {
+                    collider.enabled = false;
+                }
             }
         }
 
@@ -372,11 +376,15 @@ public class SceneConfiguror : MonoBehaviour
                 material.SetFloat("_HoldAlpha", activeHoldAlpha);
             }
 
-            holdsDictionary[holdName].GetComponent<CoACD>().enabled = true;
-            MeshCollider[] meshColliders = holdsDictionary[holdName].GetComponent<CoACD>().GetComponents<MeshCollider>();
-            foreach (var collider in meshColliders)
+            CoACD coACD = holdsDictionary[holdName].GetComponent<CoACD>();
+            if (coACD != null)
             {
-                collider.enabled = true;
+                holdsDictionary[holdName].GetComponent<CoACD>().enabled = true;
+                MeshCollider[] meshColliders = holdsDictionary[holdName].GetComponent<CoACD>().GetComponents<MeshCollider>();
+                foreach (var collider in meshColliders)
+                {
+                    collider.enabled = true;
+                }
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
@@ -400,11 +408,15 @@ public class SceneConfiguror : MonoBehaviour
                 hold.GetComponent<XRGrabInteractable>().enabled = false;
             }
 
-            hold.GetComponent<CoACD>().enabled = false;
-            MeshCollider[] meshColliders = hold.GetComponent<CoACD>().GetComponents<MeshCollider>();
-            foreach (var collider in meshColliders)
+            CoACD coACD = hold.GetComponent<CoACD>();
+            if (coACD != null)
             {
-                collider.enabled = false;
+                hold.GetComponent<CoACD>().enabled = false;
+                MeshCollider[] meshColliders = hold.GetComponent<CoACD>().GetComponents<MeshCollider>();
+                foreach (var collider in meshColliders)
+                {
+                    collider.enabled = false;
+                }
             }
         }
 
