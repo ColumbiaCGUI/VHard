@@ -29,8 +29,8 @@ def segment(unsegmented, lattice):
 
     Returns
     -------
-    final_clusters : dict of 
-        DESCRIPTION.
+    final_clusters : dict of o3d
+        duh.
 
     """
 

@@ -22,4 +22,5 @@ if __name__ == '__main__':
     
     poisson(clouds_with_normals)
     plane_mesh = o3d.t.io.read_triangle_mesh('plane.ply')
-    refine_meshes(plane_point, plane_normal*-1 + .01)
+    plane_normal *= -1
+    refine_meshes(plane_point + plane_normal*.01, plane_normal, plane_mesh)
