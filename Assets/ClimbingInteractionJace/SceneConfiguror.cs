@@ -14,7 +14,7 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Scene References")]
     public GameObject holdsParentGameObject;
     public Dictionary<string, GameObject> holdsDictionary;
-    public List<string> holdsList;
+    public List<string> activeRouteHoldsNamesList;
     public List<GameObject> activeHoldsList;
 
     [Header("Hands References")]
@@ -275,26 +275,25 @@ public class SceneConfiguror : MonoBehaviour
     {
         UnityEngine.Debug.Log("Requested route by name: " + routeName);
         // Set up the holds for the route
-        List<string> holdsList = new List<string>();
         switch (routeName)
         {
             case "DEATH STAR":
-                holdsList = new List<string> { "D15", "D18", "G13", "H11", "I4", "J6", "K9" };
+                activeRouteHoldsNamesList = new List<string> { "D15", "D18", "G13", "H11", "I4", "J6", "K9" };
                 break;
             case "SPEED":
-                holdsList = new List<string> { "A5", "D5", "D15", "F12", "F18", "G8", "G10" };
+                activeRouteHoldsNamesList = new List<string> { "A5", "D5", "D15", "F12", "F18", "G8", "G10" };
                 break;
             case "THE CRUSH ALT":
-                holdsList = new List<string> { "B6", "C8", "D1", "D11", "F14", "F16", "K18" };
+                activeRouteHoldsNamesList = new List<string> { "B6", "C8", "D1", "D11", "F14", "F16", "K18" };
                 break;
             case "TO JUG, OR NOT TO JUG...":
-                holdsList = new List<string> { "D9", "D15", "F5", "F12", "G13", "H10", "H18" };
+                activeRouteHoldsNamesList = new List<string> { "D9", "D15", "F5", "F12", "G13", "H10", "H18" };
                 break;
             case "WHITE JUGHAUL":
-                holdsList = new List<string> { "F5", "H10", "H18", "I8", "K13", "K15", "K17" };
+                activeRouteHoldsNamesList = new List<string> { "F5", "H10", "H18", "I8", "K13", "K15", "K17" };
                 break;
-            case "[ALL]":
-                holdsList = new List<string> { // this was the fastest way to get this working, sue me
+            case "[PREVIEW ALL (SHADER OFF)]":
+                activeRouteHoldsNamesList = new List<string> { // this was the fastest way to get this working, sue me
                     "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1", "I1", "J1", "K1",
                     "A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "I2", "J2", "K2",
                     "A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3", "I3", "J3", "K3",
@@ -319,9 +318,16 @@ public class SceneConfiguror : MonoBehaviour
                 UnityEngine.Debug.LogError("Route name " + routeName + " not found!");
                 break;
         }
-        UnityEngine.Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", holdsList));
-        SetUpRouteByHoldList(holdsList);
-
+        if (routeName != "[PREVIEW ALL (SHADER OFF)]")
+        {
+            UnityEngine.Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", activeRouteHoldsNamesList));
+            SetUpRouteByHoldList(activeRouteHoldsNamesList);
+        }
+        else
+        {
+            UnityEngine.Debug.Log("Setting up route " + routeName + " with all holds");
+            PreviewAllHolds();
+        }
     }
     void SetUpRouteByHoldList(List<string> holdsList)
     {
@@ -343,10 +349,12 @@ public class SceneConfiguror : MonoBehaviour
 
             hold.GetComponent<CoACD>().enabled = false;
             MeshCollider[] meshColliders = hold.GetComponent<CoACD>().GetComponents<MeshCollider>();
-            foreach (var collider in meshColliders) {
+            foreach (var collider in meshColliders)
+            {
                 collider.enabled = false;
             }
         }
+
         // Enable holds in the list
         foreach (var holdName in holdsList)
         {
@@ -366,8 +374,55 @@ public class SceneConfiguror : MonoBehaviour
 
             holdsDictionary[holdName].GetComponent<CoACD>().enabled = true;
             MeshCollider[] meshColliders = holdsDictionary[holdName].GetComponent<CoACD>().GetComponents<MeshCollider>();
-            foreach (var collider in meshColliders) {
+            foreach (var collider in meshColliders)
+            {
                 collider.enabled = true;
+            }
+
+            activeHoldsList.Add(holdsDictionary[holdName]);
+        }
+    }
+    void PreviewAllHolds()
+    {
+        // Disable all holds
+        activeHoldsList = new List<GameObject>();
+        foreach (var hold in holdsDictionary.Values)
+        {
+            if (disableInactiveHolds)
+            {
+                hold.SetActive(false);
+            }
+            else
+            {
+                Renderer renderer = hold.GetComponent<Renderer>();
+                Material material = renderer.material;
+                material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
+                hold.GetComponent<XRGrabInteractable>().enabled = false;
+            }
+
+            hold.GetComponent<CoACD>().enabled = false;
+            MeshCollider[] meshColliders = hold.GetComponent<CoACD>().GetComponents<MeshCollider>();
+            foreach (var collider in meshColliders)
+            {
+                collider.enabled = false;
+            }
+        }
+
+        // Enable holds in the list
+        foreach (var holdName in activeRouteHoldsNamesList)
+        {
+            if (!holdsDictionary.ContainsKey(holdName))
+            {
+                UnityEngine.Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
+            }
+
+            holdsDictionary[holdName].SetActive(true);
+            if (!disableInactiveHolds)
+            {
+                holdsDictionary[holdName].GetComponent<XRGrabInteractable>().enabled = true;
+                Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
+                Material material = renderer.material;
+                material.SetFloat("_HoldAlpha", activeHoldAlpha);
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
