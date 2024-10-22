@@ -16,8 +16,20 @@ public class ProcessMoonboardObjects : MonoBehaviour
     [MenuItem("Custom/Process Moonboard Objects")]
     static void ProcessAllObjects()
     {
+        // Load shader
+        // Hardcoded path
+        string materialPath = "Assets/ClimbingInteractionJace/InteractableHold.mat";
+
+        // Load the material using AssetDatabase
+        Material materialToApply = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+        if (materialToApply == null)
+        {
+            Debug.LogError("Material not found at the specified path: " + materialPath);
+            return;
+        }
+
+        // Find holds
         Transform holdsGroup = GameObject.Find("Environment/Moonboard/Holds")?.transform;
-        
         if (holdsGroup == null)
         {
             UnityEngine.Debug.LogError("Could not find Moonboard/Environment/Moonboard/Holds group!");
@@ -27,7 +39,6 @@ public class ProcessMoonboardObjects : MonoBehaviour
         int processedCount = 0;
         int skippedCount = 0;
         int errorCount = 0;
-
         foreach (Transform child in holdsGroup)
         {
 
@@ -41,7 +52,7 @@ public class ProcessMoonboardObjects : MonoBehaviour
 
             try
             {
-                ProcessObject(child.gameObject);
+                ProcessObject(child.gameObject, materialToApply);
                 processedCount++;
             }
             catch (System.Exception e)
@@ -131,16 +142,9 @@ public class ProcessMoonboardObjects : MonoBehaviour
         }
     }
 
-    static void ProcessObject(GameObject obj)
+    static void ProcessObject(GameObject obj, Material materialToApply)
     {
         Undo.RecordObject(obj, "Process Moonboard Object");
-        
-        // Rename object if it has a period in its name
-        string newName = obj.name.Split('.')[0];
-        obj.name = newName;
-
-        // Add COAcd
-        AddcoACD(obj);
 
         // Add XR Grab Interactable component
         UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable = Undo.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>(obj);
@@ -175,62 +179,12 @@ public class ProcessMoonboardObjects : MonoBehaviour
             UnityEngine.Debug.LogWarning($"XRBaseInteractable component could not be added to {obj.name}");
         }
 
-        // Check for existing Color Affordance object
-        Transform existingAffordance = obj.transform.Find("ColorAffordance");
-        if (existingAffordance == null)
+        // Add custom shader to material
+        Renderer renderer = obj.GetComponent<Renderer>();
+        if (renderer != null)
         {
-            existingAffordance = obj.transform.Find("Color Affordance");
-            if (existingAffordance != null)
-            {
-                // Rename "Color Affordance" to "ColorAffordance"
-                Undo.RecordObject(existingAffordance.gameObject, "Rename Color Affordance");
-                existingAffordance.gameObject.name = "ColorAffordance";
-                UnityEngine.Debug.Log($"Renamed 'Color Affordance' to 'ColorAffordance' for {obj.name}");
-            }
-        }
-
-        GameObject colorAffordance;
-        if (existingAffordance != null)
-        {
-            colorAffordance = existingAffordance.gameObject;
-            Undo.RecordObject(colorAffordance, "Modify Existing Color Affordance");
-            UnityEngine.Debug.Log($"Using existing ColorAffordance object for {obj.name}");
-        }
-        else
-        {
-            colorAffordance = new GameObject("ColorAffordance");
-            Undo.RegisterCreatedObjectUndo(colorAffordance, "Create Color Affordance");
-            Undo.SetTransformParent(colorAffordance.transform, obj.transform, "Set Color Affordance Parent");
-            UnityEngine.Debug.Log($"Created new ColorAffordance object for {obj.name}");
-        }
-
-        // Add MaterialPropertyBlockHelper component
-        var materialPropertyBlockHelper = AddComponentByName(colorAffordance, "UnityEngine.XR.Interaction.Toolkit.AffordanceSystem.Rendering.MaterialPropertyBlockHelper");
-
-        // Add ColorMaterialPropertyAffordanceReceiver component
-        var colorAffordanceReceiver = AddComponentByName(colorAffordance, "UnityEngine.XR.Interaction.Toolkit.AffordanceSystem.Receiver.Rendering.ColorMaterialPropertyAffordanceReceiver");
-
-        if (colorAffordanceReceiver != null)
-        {
-            // Set MaterialPropertyBlockHelper
-            SetFieldValue(colorAffordanceReceiver, "m_MaterialPropertyBlockHelper", materialPropertyBlockHelper);
-
-            // Set color property name (optional, as it has a default value)
-            SetFieldValue(colorAffordanceReceiver, "m_ColorPropertyName", "_Color");
-
-            // Add XRInteractableAffordanceStateProvider to the parent object
-            var stateProvider = AddComponentByName(obj, "UnityEngine.XR.Interaction.Toolkit.XRInteractableAffordanceStateProvider");
-            if (stateProvider != null)
-            {
-                // Set the affordance state provider
-                SetFieldValue(colorAffordanceReceiver, "m_AffordanceStateProvider", stateProvider);
-            }
-
-            // Set replaceIdleStateValueWithInitialValue
-            SetFieldValue(colorAffordanceReceiver, "m_ReplaceIdleStateValueWithInitialValue", true);
-
-            // Manually call OnValidate to ensure proper setup
-            InvokeMethod(colorAffordanceReceiver, "OnValidate");
+            // Apply the material
+            renderer.material = materialToApply;
         }
 
         UnityEngine.Debug.Log($"Processed object: {obj.name}");

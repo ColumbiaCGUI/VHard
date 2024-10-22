@@ -74,7 +74,7 @@ public class SceneConfiguror : MonoBehaviour
         kernelHandle = distanceToClosestBoneComputeShader.FindKernel("CSMain");
 
         // DEV: Turn on all holds by default
-        SetUpRouteByName("[ALL]");
+        SetUpRouteByName("[PREVIEW ALL (SHADER OFF)]");
     }
 
     void TraverseBones(GameObject rootBone, List<GameObject> bones)
