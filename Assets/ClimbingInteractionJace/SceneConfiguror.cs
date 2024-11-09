@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Unity.VisualScripting;
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -9,9 +11,16 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
 
+public enum GameMode
+{
+    Basic = 0, // Only shader
+    Grip = 1, // JACE: In development, fixed-grip movement mode
+}
+
 public class SceneConfiguror : MonoBehaviour
 {
     [Header("Scene References")]
+    public GameObject cameraOffset;
     public GameObject holdsParentGameObject;
     public Dictionary<string, GameObject> holdsDictionary;
     public List<string> activeRouteHoldsNamesList;
@@ -31,6 +40,7 @@ public class SceneConfiguror : MonoBehaviour
     public List<GameObject> rightHandBones;
 
     [Header("Interaction Settings")]
+    public GameMode gameMode;
     public float hoverRadiusOverride;
     public float interactionColorMaxDistanceOverride;
     public bool disableInactiveHolds;
@@ -40,6 +50,14 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Interaction State (Changing this is usually a bad move, fix the underlying problem!)")]
     public GameObject leftHandInteractingClimbingHold;
     public GameObject rightHandInteractingClimbingHold;
+    // Grip Mode
+    public bool isGripLocomotionActive;
+    public bool leftHandIsGripping;
+    public bool rightHandIsGripping;
+    public Vector3 leftHandGripStartPosition;
+    public Vector3 leftHandGripLastPosition;
+    public Vector3 rightHandGripStartPosition;
+    public Vector3 rightHandGripLastPosition;
 
     [Header("Interaction Compute Shader Settings")]
     public ComputeShader distanceToClosestBoneComputeShader;
@@ -74,7 +92,7 @@ public class SceneConfiguror : MonoBehaviour
         kernelHandle = distanceToClosestBoneComputeShader.FindKernel("CSMain");
 
         // DEV: Turn on all holds by default
-        SetUpRouteByName("[PREVIEW ALL (SHADER OFF)]");
+        SetUpRouteByName("DEATH STAR");
     }
 
     void TraverseBones(GameObject rootBone, List<GameObject> bones)
@@ -184,8 +202,101 @@ public class SceneConfiguror : MonoBehaviour
             }
             climbingHoldMesh.SetUVs(2, newClimbingHoldMeshUVs.ToList());
         }
+
+        // Grip mode
+        if (gameMode == GameMode.Grip)
+        {
+            ManageGripMode();
+        }
     }
 
+    public void ManageGripMode()
+    {
+        leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(leftHand, leftHandInteractingClimbingHold);
+        rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(rightHand, rightHandInteractingClimbingHold);
+
+        // If neither hand is gripping, don't move
+        if (!leftHandIsGripping && !rightHandIsGripping)
+        {
+            isGripLocomotionActive = false;
+            return;
+        }
+
+        // If both hands are gripping, don't move
+        if (leftHandIsGripping && rightHandIsGripping)
+        {
+            isGripLocomotionActive = false;
+            return;
+        }
+
+        // At this point, only one hand is gripping
+        // First, check isGripLocomotionActive -- If false, we are just starting to grip and need to record the grip start position
+        if (!isGripLocomotionActive)
+        {
+            UnityEngine.Debug.Log("Started gripping with only one hand, now moving!");
+            isGripLocomotionActive = true;
+            leftHandGripStartPosition = leftHand.transform.position;
+            rightHandGripStartPosition = rightHand.transform.position;
+            leftHandGripLastPosition = leftHand.transform.position;
+            rightHandGripLastPosition = rightHand.transform.position;
+        }
+        // Now, only one hand is gripping, AND isGripLocomotionActive is true
+        // Next, we need to check the distance between the current position of the hand and the start position of the grip, and only move if the distance is greater than some allowed jitter
+        float leftHandGripDistance = Vector3.Distance(leftHandGripStartPosition, leftHand.transform.position);
+        float rightHandGripDistance = Vector3.Distance(rightHandGripStartPosition, rightHand.transform.position);
+        if (leftHandIsGripping)
+        {
+            if (leftHandGripDistance <= 0.01f)
+            {
+                leftHandGripLastPosition = leftHand.transform.position;
+                return;
+            }
+        }
+        else if (rightHandIsGripping)
+        {
+            if (rightHandGripDistance <= 0.01f)
+            {
+                rightHandGripLastPosition = rightHand.transform.position;
+                return;
+            }
+        }
+
+        // Finally, we are sure that the player needs to move.
+        // We move by getting the distance since last frame, and moving the player by that distance, then recording the new last position.
+        Vector3 vectorToMovePlayer = Vector3.zero;
+        if (leftHandIsGripping)
+        {
+            vectorToMovePlayer = leftHand.transform.position - leftHandGripLastPosition;
+            // Compensate by moving the hands back
+            leftHand.transform.position -= vectorToMovePlayer;
+            leftHandGripLastPosition = leftHand.transform.position;
+        }
+        else if (rightHandIsGripping)
+        {
+            vectorToMovePlayer = rightHand.transform.position - rightHandGripLastPosition;
+            // Compensate by moving the hands back
+            rightHand.transform.position -= vectorToMovePlayer;
+            rightHandGripLastPosition = rightHand.transform.position;
+        }
+        cameraOffset.transform.position += vectorToMovePlayer; // Move player
+    }
+
+    public bool CheckIfHandIsGrippingHold(GameObject hand, GameObject climbingHold)
+    {
+        // JACE: Currently, we only check if the hand is close.
+        // NOTE: We check the distance between the hand and the center of the climbing hold's sphere collider since the actual transforms are significantly different from the actual hold (vertex positions of the mesh)
+        // TODO: Implement grip detection (possibly via shader)
+        float dist = Vector3.Distance(hand.transform.position, climbingHold.GetComponent<SphereCollider>().bounds.center);
+        UnityEngine.Debug.Log("Distance between hand and climbing hold: " + dist);
+        if (dist <= 0.05f)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
 
     public void LeftHandHoverEnter(HoverEnterEventArgs args)
     {
