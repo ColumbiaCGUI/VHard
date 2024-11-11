@@ -51,6 +51,9 @@ public class SceneConfiguror : MonoBehaviour
     public GameObject leftHandInteractingClimbingHold;
     public GameObject rightHandInteractingClimbingHold;
     // Grip Mode
+    public GameObject moonBoardEnv;
+    public GameObject leftHandGripTrackingObjectTest;
+    public GameObject rightHandGripTrackingObjectTest;
     public bool isGripLocomotionActive;
     public bool leftHandIsGripping;
     public bool rightHandIsGripping;
@@ -148,6 +151,7 @@ public class SceneConfiguror : MonoBehaviour
         // WARNING: Here be dragons.
         // The big idea is that for each vertex of the climbing hold, we find the distance to the closest bone of each hand, and save to two arrays.
         // Then, we encode these distances in the UVs (channel 2) of the climbing hold's mesh vertices, and access them in the shader.
+        // JACE DEV Nov 2024: Let's also keep the distance of each hand bone to the closest climbing hold mesh vertex and save this to the main object.
         foreach (GameObject climbingHold in interactingClimbingHolds)
         {
             // Get information about the climbing hold
@@ -212,8 +216,8 @@ public class SceneConfiguror : MonoBehaviour
 
     public void ManageGripMode()
     {
-        leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(leftHand, leftHandInteractingClimbingHold);
-        rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(rightHand, rightHandInteractingClimbingHold);
+        leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(leftHandGripTrackingObjectTest, leftHandInteractingClimbingHold);
+        rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(rightHandGripTrackingObjectTest, rightHandInteractingClimbingHold);
 
         // If neither hand is gripping, don't move
         if (!leftHandIsGripping && !rightHandIsGripping)
@@ -235,61 +239,62 @@ public class SceneConfiguror : MonoBehaviour
         {
             UnityEngine.Debug.Log("Started gripping with only one hand, now moving!");
             isGripLocomotionActive = true;
-            leftHandGripStartPosition = leftHand.transform.position;
-            rightHandGripStartPosition = rightHand.transform.position;
-            leftHandGripLastPosition = leftHand.transform.position;
-            rightHandGripLastPosition = rightHand.transform.position;
+            leftHandGripStartPosition = leftHandGripTrackingObjectTest.transform.position;
+            rightHandGripStartPosition = rightHandGripTrackingObjectTest.transform.position;
+            leftHandGripLastPosition = leftHandGripTrackingObjectTest.transform.position;
+            rightHandGripLastPosition = rightHandGripTrackingObjectTest.transform.position;
         }
         // Now, only one hand is gripping, AND isGripLocomotionActive is true
         // Next, we need to check the distance between the current position of the hand and the start position of the grip, and only move if the distance is greater than some allowed jitter
-        float leftHandGripDistance = Vector3.Distance(leftHandGripStartPosition, leftHand.transform.position);
-        float rightHandGripDistance = Vector3.Distance(rightHandGripStartPosition, rightHand.transform.position);
-        if (leftHandIsGripping)
-        {
-            if (leftHandGripDistance <= 0.01f)
-            {
-                leftHandGripLastPosition = leftHand.transform.position;
-                return;
-            }
-        }
-        else if (rightHandIsGripping)
-        {
-            if (rightHandGripDistance <= 0.01f)
-            {
-                rightHandGripLastPosition = rightHand.transform.position;
-                return;
-            }
-        }
+        // float leftHandGripDistance = Vector3.Distance(leftHandGripStartPosition, leftHandGripTrackingObjectTest.transform.position);
+        // float rightHandGripDistance = Vector3.Distance(rightHandGripStartPosition, rightHandGripTrackingObjectTest.transform.position);
+        // if (leftHandIsGripping)
+        // {
+        //     if (leftHandGripDistance <= 0.02f)
+        //     {
+        //         leftHandGripLastPosition = leftHandGripTrackingObjectTest.transform.position;
+        //         return;
+        //     }
+        // }
+        // else if (rightHandIsGripping)
+        // {
+        //     if (rightHandGripDistance <= 0.02f)
+        //     {
+        //         rightHandGripLastPosition = rightHandGripTrackingObjectTest.transform.position;
+        //         return;
+        //     }
+        // }
 
         // Finally, we are sure that the player needs to move.
         // We move by getting the distance since last frame, and moving the player by that distance, then recording the new last position.
         Vector3 vectorToMovePlayer = Vector3.zero;
         if (leftHandIsGripping)
         {
-            vectorToMovePlayer = leftHand.transform.position - leftHandGripLastPosition;
+            vectorToMovePlayer = leftHandGripTrackingObjectTest.transform.position - leftHandGripLastPosition;
             // Compensate by moving the hands back
-            leftHand.transform.position -= vectorToMovePlayer;
-            leftHandGripLastPosition = leftHand.transform.position;
+            // leftHand.transform.position -= vectorToMovePlayer;
+            leftHandGripLastPosition = leftHandGripTrackingObjectTest.transform.position;
         }
         else if (rightHandIsGripping)
         {
-            vectorToMovePlayer = rightHand.transform.position - rightHandGripLastPosition;
+            vectorToMovePlayer = rightHandGripTrackingObjectTest.transform.position - rightHandGripLastPosition;
             // Compensate by moving the hands back
-            rightHand.transform.position -= vectorToMovePlayer;
-            rightHandGripLastPosition = rightHand.transform.position;
+            // rightHand.transform.position -= vectorToMovePlayer;
+            rightHandGripLastPosition = rightHandGripTrackingObjectTest.transform.position;
         }
-        cameraOffset.transform.position += vectorToMovePlayer; // Move player
+        // cameraOffset.transform.position -= vectorToMovePlayer; // Move player
+        moonBoardEnv.transform.position += vectorToMovePlayer;
     }
 
     public bool CheckIfHandIsGrippingHold(GameObject hand, GameObject climbingHold)
     {
-        // JACE: Currently, we only check if the hand is close.
         // NOTE: We check the distance between the hand and the center of the climbing hold's sphere collider since the actual transforms are significantly different from the actual hold (vertex positions of the mesh)
         // TODO: Implement grip detection (possibly via shader)
         float dist = Vector3.Distance(hand.transform.position, climbingHold.GetComponent<SphereCollider>().bounds.center);
-        UnityEngine.Debug.Log("Distance between hand and climbing hold: " + dist);
+        // UnityEngine.Debug.Log("Distance between hand and climbing hold: " + dist);
         if (dist <= 0.05f)
         {
+            // UnityEngine.Debug.Log("Hand is now gripping a climbing hold.");
             return true;
         }
         else

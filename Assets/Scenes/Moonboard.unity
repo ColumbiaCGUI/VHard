@@ -4787,6 +4787,9 @@ MonoBehaviour:
   activeHoldAlpha: 1
   leftHandInteractingClimbingHold: {fileID: 0}
   rightHandInteractingClimbingHold: {fileID: 0}
+  moonBoardEnv: {fileID: 6194138620445696611}
+  leftHandGripTrackingObjectTest: {fileID: 1281728395}
+  rightHandGripTrackingObjectTest: {fileID: 1554003839}
   isGripLocomotionActive: 0
   leftHandIsGripping: 0
   rightHandIsGripping: 0
@@ -13750,6 +13753,11 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.0022
   m_Center: {x: 0.0043752687, y: -0.008434936, z: 0.031952083}
+--- !u!1 &1281728395 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5169788651624585358, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
+  m_PrefabInstance: {fileID: 1557298105}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1328461926
 GameObject:
   m_ObjectHideFlags: 0
@@ -16175,6 +16183,11 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.0022
   m_Center: {x: -0.0046350355, y: -0.025104582, z: 0.012450026}
+--- !u!1 &1554003839 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4803118528487651453, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
+  m_PrefabInstance: {fileID: 1557298105}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1557298105
 PrefabInstance:
   m_ObjectHideFlags: 0
