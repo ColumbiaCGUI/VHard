@@ -39,8 +39,10 @@ public class SceneConfiguror : MonoBehaviour
     public GameObject rightHandRootBone;
     public List<GameObject> rightHandBones;
 
-    [Header("Interaction Settings")]
+    [Header("Climb Settings")]
     public GameMode gameMode;
+
+    [Header("Interaction Settings")]
     public float hoverRadiusOverride;
     public float interactionColorMaxDistanceOverride;
     public bool disableInactiveHolds;
@@ -50,17 +52,6 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Interaction State (Changing this is usually a bad move, fix the underlying problem!)")]
     public GameObject leftHandInteractingClimbingHold;
     public GameObject rightHandInteractingClimbingHold;
-    // Grip Mode
-    public GameObject moonBoardEnv;
-    public GameObject leftHandGripTrackingObjectTest;
-    public GameObject rightHandGripTrackingObjectTest;
-    public bool isGripLocomotionActive;
-    public bool leftHandIsGripping;
-    public bool rightHandIsGripping;
-    public Vector3 leftHandGripStartPosition;
-    public Vector3 leftHandGripLastPosition;
-    public Vector3 rightHandGripStartPosition;
-    public Vector3 rightHandGripLastPosition;
 
     [Header("Interaction Compute Shader Settings")]
     public ComputeShader distanceToClosestBoneComputeShader;
@@ -72,6 +63,20 @@ public class SceneConfiguror : MonoBehaviour
     public ComputeBuffer rightHandBonesBuffer;
     public ComputeBuffer leftHandDistancesBuffer;
     public ComputeBuffer rightHandDistancesBuffer;
+    
+    [Header("Grip Settings (Changing this is usually a bad move, fix the underlying problem!)")]
+    public GameObject moonBoardEnv;
+    public GameObject leftHandGripTrackingObjectTest;
+    public GameObject rightHandGripTrackingObjectTest;
+
+    [Header("Grip State (Changing this is usually a bad move, fix the underlying problem!)")]
+    public bool isGripLocomotionActive;
+    public bool leftHandIsGripping;
+    public bool rightHandIsGripping;
+    public Vector3 leftHandGripStartPosition;
+    public Vector3 leftHandGripLastPosition;
+    public Vector3 rightHandGripStartPosition;
+    public Vector3 rightHandGripLastPosition;
 
     void Start()
     {
