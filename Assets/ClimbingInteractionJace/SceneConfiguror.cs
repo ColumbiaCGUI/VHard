@@ -13,6 +13,14 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Scene References")]
     public GameObject holdsParentGameObject;
     public Dictionary<string, GameObject> holdsDictionary;
+<<<<<<< Updated upstream
+=======
+    public List<string> activeRouteHoldsNamesList;
+    public List<GameObject> activeHoldsList;
+    public bool ghostHoldMode = false;  // Toggle for Ghost Hold Mode
+    public float ghostHoldAlpha = 0.3f; // Alpha value for ghosted holds
+
+>>>>>>> Stashed changes
 
     [Header("Hands References")]
     public GameObject leftHand;
@@ -45,6 +53,12 @@ public class SceneConfiguror : MonoBehaviour
     public ComputeBuffer rightHandBonesBuffer;
     public ComputeBuffer leftHandDistancesBuffer;
     public ComputeBuffer rightHandDistancesBuffer;
+<<<<<<< Updated upstream
+=======
+
+    
+
+>>>>>>> Stashed changes
 
     void Start()
     {
@@ -68,7 +82,11 @@ public class SceneConfiguror : MonoBehaviour
         kernelHandle = distanceToClosestBoneComputeShader.FindKernel("CSMain");
 
         // DEV: Turn on all holds by default
+<<<<<<< Updated upstream
         SetUpRouteByName("[ALL]");
+=======
+        SetUpRouteByName("[PREVIEW ALL (SHADER OFF)]");
+>>>>>>> Stashed changes
     }
 
     void TraverseBones(GameObject rootBone, List<GameObject> bones)

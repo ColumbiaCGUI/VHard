@@ -129,6 +129,7 @@ MonoBehaviour:
   - {fileID: 4621409366128508630}
   - {fileID: -6519104937214576966}
   - {fileID: 6016779415207693710}
+  - {fileID: 5683558325819040724}
   - {fileID: -2236155118912061595}
   - {fileID: 5828873692622626693}
   - {fileID: -2904433504589477172}
@@ -315,7 +316,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3cf79659a011bd419c7a2a30eb74e9a, type: 3}
   m_Name: EyeGazeInteraction Standalone
   m_EditorClassIdentifier: 
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Eye Gaze Interaction Profile
   version: 0.0.1
   featureIdInternal: com.unity.openxr.feature.input.eyetracking
@@ -897,6 +898,7 @@ MonoBehaviour:
   - {fileID: -308585557040319915}
   - {fileID: -7968845329629037458}
   - {fileID: -7515698379179034497}
+  - {fileID: 7668851678147914771}
   - {fileID: -4953122796452676433}
   - {fileID: 742335786829116444}
   - {fileID: 1497918194097045728}
@@ -1146,6 +1148,26 @@ MonoBehaviour:
   company: Unity
   priority: 0
   required: 0
+--- !u!114 &5683558325819040724
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 386434fa39b7c8245b95345e8ca0dc91, type: 3}
+  m_Name: OpenXREyeTrackersFeature Standalone
+  m_EditorClassIdentifier: 
+  m_enabled: 1
+  nameUi: OpenXR-Eye-Trackers API layer
+  version: 1
+  featureIdInternal: com.unity.openxr.features.openxr_eye_trackers
+  openxrExtensionStrings: 
+  company: Unity
+  priority: 0
+  required: 0
 --- !u!114 &5821478893302792208
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1179,7 +1201,7 @@ MonoBehaviour:
   - {fileID: -2949905873254932275}
   m_renderMode: 1
   m_depthSubmissionMode: 0
-  m_optimizeBufferDiscards: 0
+  m_optimizeBufferDiscards: 1
   m_symmetricProjection: 0
   m_foveatedRenderingApi: 0
 --- !u!114 &5828873692622626693
@@ -1301,6 +1323,26 @@ MonoBehaviour:
   version: 1.0.0
   featureIdInternal: com.unity.openxr.feature.extension.performance_settings
   openxrExtensionStrings: XR_EXT_performance_settings
+  company: Unity
+  priority: 0
+  required: 0
+--- !u!114 &7668851678147914771
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 386434fa39b7c8245b95345e8ca0dc91, type: 3}
+  m_Name: OpenXREyeTrackersFeature Metro
+  m_EditorClassIdentifier: 
+  m_enabled: 0
+  nameUi: OpenXR-Eye-Trackers API layer
+  version: 1
+  featureIdInternal: com.unity.openxr.features.openxr_eye_trackers
+  openxrExtensionStrings: 
   company: Unity
   priority: 0
   required: 0
