@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -8,48 +8,45 @@ using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
-using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
 
 public class GhostHoldCreator : MonoBehaviour
 {
     public Canvas canvas; // Reference to the Canvas
-    public GameObject holdPrefab; // Reference to the hold prefab (can be your existing climbing hold)
-
     public GameObject childObject;
     
-    void Start()
+    public void Start()
     {
         // Example: Create a ghost hold at a position in the world space
-        Vector3 canvasWorldPosition = canvas.transform.position;        
-        CreateGhostHoldInCanvas(canvasWorldPosition);
+        UnityEngine.Debug.Log("started");
+
     }
 
-    void CreateGhostHoldInCanvas(Vector3 worldPosition)
+    public void CreateGhostHoldInCanvas()
     {
 
 
-        Renderer holdRenderer = holdPrefab.GetComponent<Renderer>();
-        Vector3 pivotOffset = Vector3.zero;
+        UnityEngine.Debug.Log("creating ghost holds");
+        Vector3 canvasWorldPosition = canvas.transform.position;   
+
 
         Renderer renderer = childObject.GetComponent<Renderer>();
         Material material = renderer.material;
         material.SetFloat("_HoldAlpha", 1);
-        childObject.GetComponent<XRGrabInteractable>().enabled = true;        
+        childObject.GetComponent<XRGrabInteractable>().enabled = true;
 
-        if (holdRenderer != null)
-        {
-            // Get the offset between the pivot and the center of the object
-            pivotOffset = holdRenderer.bounds.center - holdPrefab.transform.position;
-        }
-        // Convert the world position to the Canvas's local space
-        Vector3 viewportPosition = Camera.main.WorldToViewportPoint(worldPosition); // Get viewport position
-        Vector3 localPosition = canvas.transform.InverseTransformPoint(viewportPosition); // Convert to local position in canvas
+        GameObject ghostHold = Instantiate(childObject);
 
-        // Instantiate the ghost hold (the existing climbing hold) in the Canvas at the calculated position
-        GameObject ghostHold = Instantiate(holdPrefab, localPosition, Quaternion.identity);
-        
+        // TODO: rotate 40 degrees (before calculating bounds.center)
+        Vector3 meshCenter = ghostHold.GetComponent<Renderer>().bounds.center;
+        Vector3 pivot = ghostHold.transform.position;
+        Vector3 offset = pivot - meshCenter;
+
         // Set the parent to the Canvas so the ghost hold is part of the UI (world space)
         ghostHold.transform.SetParent(canvas.transform);
+        ghostHold.transform.position = offset + canvas.transform.position;
 
     }
 }
