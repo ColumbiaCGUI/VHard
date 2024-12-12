@@ -146,39 +146,6 @@ public class ProcessMoonboardObjects : MonoBehaviour
     {
         Undo.RecordObject(obj, "Process Moonboard Object");
 
-        // // Add XR Grab Interactable component
-        // UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable = Undo.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>(obj);
-        // if (grabInteractable != null)
-        // {
-        //     grabInteractable.trackPosition = false;
-        //     grabInteractable.trackRotation = false;
-        //     grabInteractable.trackScale = false;
-        //     grabInteractable.throwOnDetach = false;
-        // }
-        // else
-        // {
-        //     UnityEngine.Debug.LogWarning($"XRGrabInteractable component could not be added to {obj.name}");
-        // }
-
-        // // Modify RigidBody component
-        // Rigidbody rb = obj.GetComponent<Rigidbody>();
-        // if (rb != null)
-        // {
-        //     Undo.RecordObject(rb, "Modify RigidBody");
-        //     rb.useGravity = false;
-        // }
-        // else
-        // {
-        //     UnityEngine.Debug.LogWarning($"RigidBody component not found on {obj.name}");
-        // }
-
-        // // Add Interactable component (as XRInteractableAffordanceStateProvider is not found)
-        // UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable interactable = Undo.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable>(obj);
-        // if (interactable == null)
-        // {
-        //     UnityEngine.Debug.LogWarning($"XRBaseInteractable component could not be added to {obj.name}");
-        // }
-
         // Add custom shader to material
         Renderer renderer = obj.GetComponent<Renderer>();
         if (renderer != null)
