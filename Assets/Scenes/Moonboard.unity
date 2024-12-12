@@ -4593,23 +4593,20 @@ MonoBehaviour:
   holdsParentGameObject: {fileID: 5525280435182380628}
   activeRouteHoldsNamesList: []
   activeHoldsList: []
-  handOVRSkeletons:
-  - {fileID: 1076200163}
-  - {fileID: 1681208675}
-  nearFarInteractors:
-  - {fileID: 163649658}
-  - {fileID: 2081470508}
+  leftHandOVRSkeleton: {fileID: 1076200163}
+  rightHandOVRSkeleton: {fileID: 1681208675}
+  leftHandNearFarInteractor: {fileID: 163649658}
+  rightHandNearFarInteractor: {fileID: 2081470508}
   numBonesPerHand: 0
-  DEBUG_LeftHandBonePositions: []
-  DEBUG_RightHandBonePositions: []
+  leftHandBonePositions: []
+  rightHandBonePositions: []
   hoverRadiusOverride: 0.2
   interactionColorMaxDistanceOverride: 0.035
   disableInactiveHolds: 0
   inactiveHoldAlpha: 0.01
   activeHoldAlpha: 1
-  handInteractingClimbingHolds:
-  - {fileID: 0}
-  - {fileID: 0}
+  leftHandInteractingClimbingHold: {fileID: 0}
+  rightHandInteractingClimbingHold: {fileID: 0}
   distanceToClosestBoneComputeShader: {fileID: 7200000, guid: 6ed06c8889d75984d822e528a5ac38b9, type: 3}
   kernelHandle: 0
 --- !u!1 &398274483

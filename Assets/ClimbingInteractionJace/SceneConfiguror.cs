@@ -18,14 +18,15 @@ public class SceneConfiguror : MonoBehaviour
     public List<GameObject> activeHoldsList;
 
     [Header("Hands References (Left = 0, Right = 1)")]
-    public OVRSkeleton[] handOVRSkeletons = new OVRSkeleton[2];
-    public GameObject[] nearFarInteractors = new GameObject[2];
+    public OVRSkeleton leftHandOVRSkeleton;
+    public OVRSkeleton rightHandOVRSkeleton;
+    public GameObject leftHandNearFarInteractor;
+    public GameObject rightHandNearFarInteractor;
 
     [Header("Hands State")]
     public int numBonesPerHand;
-    public List<Vector3>[] handBonePositions = new List<Vector3>[2];
-    public List<Vector3> DEBUG_LeftHandBonePositions = new List<Vector3>();
-    public List<Vector3> DEBUG_RightHandBonePositions = new List<Vector3>();
+    public List<Vector3> leftHandBonePositions = new List<Vector3>();
+    public List<Vector3> rightHandBonePositions = new List<Vector3>();
 
     [Header("Interaction Settings")]
     public float hoverRadiusOverride;
@@ -62,16 +63,16 @@ public class SceneConfiguror : MonoBehaviour
         }
 
         // Access hand bones
-        foreach (OVRSkeleton handOVRSkeleton in handOVRSkeletons)
+        foreach (OVRBone bone in leftHandOVRSkeleton.Bones)
         {
-            int handIndex = (int)handOVRSkeleton.GetSkeletonType();
-            handBonePositions[handIndex] = new List<Vector3>(); // Left = 0, Right = 1
-            foreach (OVRBone bone in handOVRSkeleton.Bones)
-            {
-                handBonePositions[handIndex].Add(bone.Transform.position);
-            }
+            leftHandBonePositions.Add(bone.Transform.position);
         }
-        numBonesPerHand = handBonePositions[0].Count;
+        foreach (OVRBone bone in rightHandOVRSkeleton.Bones)
+        {
+            rightHandBonePositions.Add(bone.Transform.position);
+        }
+        numBonesPerHand = leftHandBonePositions.Count;
+        UnityEngine.Debug.Log("Found " + numBonesPerHand + " bones per hand.");
         UnityEngine.Debug.Log("SceneConfiguror initializing.");
 
         // Set up compute shader
@@ -85,25 +86,18 @@ public class SceneConfiguror : MonoBehaviour
     void Update()
     {
         // Override hover radius
-        foreach (var nearFarInteractor in nearFarInteractors)
+        IInteractionCaster leftHandNearInteractionCaster = leftHandNearFarInteractor.GetComponent<NearFarInteractor>().nearInteractionCaster;
+        if (leftHandNearInteractionCaster is SphereInteractionCaster leftHandSphereInteractionCaster)
         {
-            IInteractionCaster nearInteractionCaster = nearFarInteractor.GetComponent<NearFarInteractor>().nearInteractionCaster;
-            if (nearInteractionCaster is SphereInteractionCaster sphereInteractionCaster)
-            {
-                sphereInteractionCaster.castRadius = hoverRadiusOverride;
-            }
+            leftHandSphereInteractionCaster.castRadius = hoverRadiusOverride;
+        }
+        IInteractionCaster rightHandNearInteractionCaster = rightHandNearFarInteractor.GetComponent<NearFarInteractor>().nearInteractionCaster;
+        if (rightHandNearInteractionCaster is SphereInteractionCaster rightHandSphereInteractionCaster)
+        {
+            rightHandSphereInteractionCaster.castRadius = hoverRadiusOverride;
         }
 
         // Override interaction color max distance, update interaction status
-        // for (int i = 0; i < 2; i++)
-        // {
-        //     if (handInteractingClimbingHolds[i] != null)
-        //     {
-        //         MeshRenderer meshRenderer = handInteractingClimbingHolds[i].GetComponent<MeshRenderer>();
-        //         meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-        //         meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
-        //     }
-        // }
         if (leftHandInteractingClimbingHold != null)
         {
             MeshRenderer meshRenderer = leftHandInteractingClimbingHold.GetComponent<MeshRenderer>();
@@ -117,29 +111,41 @@ public class SceneConfiguror : MonoBehaviour
             meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
         }
 
-        // Update hand bone positions
-        foreach (OVRSkeleton handOVRSkeleton in handOVRSkeletons)
-        {
-            int handIndex = (int)handOVRSkeleton.GetSkeletonType();
-            handBonePositions[handIndex] = new List<Vector3>(); // Left = 0, Right = 1
-            foreach (OVRBone bone in handOVRSkeleton.Bones)
-            {
-                handBonePositions[handIndex].Add(bone.Transform.position);
-            }
-        }
-        numBonesPerHand = handBonePositions[0].Count;
-        DEBUG_LeftHandBonePositions = handBonePositions[0];
-        DEBUG_RightHandBonePositions = handBonePositions[1];
-
-        // if (handInteractingClimbingHolds[0] == null && handInteractingClimbingHolds[1] == null)
+        // Update hand bone info
+        numBonesPerHand = leftHandOVRSkeleton.Bones.Count;
+        leftHandBonePositions = new List<Vector3>(leftHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
+        rightHandBonePositions = new List<Vector3>(rightHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
+        // DEBUG: Print first element if not empty (if empty, raise a stink...)
+        // if (leftHandBonePositions.Count > 0)
         // {
-        //     return;
+        //     UnityEngine.Debug.Log("Left hand bone 0: " + leftHandBonePositions[0]);
         // }
+        // else
+        // {
+        //     // UnityEngine.Debug.Log("Left hand bone positions list is empty!");
+        // }
+        // if (rightHandBonePositions.Count > 0)
+        // {
+        //     UnityEngine.Debug.Log("Right hand bone 0: " + rightHandBonePositions[0]);
+        // }
+        // else
+        // {
+        //     // UnityEngine.Debug.Log("Right hand bone positions list is empty!");
+        // }
+
         if (leftHandInteractingClimbingHold == null && rightHandInteractingClimbingHold == null)
         {
             return;
         }
-        List<GameObject> interactingClimbingHolds = new List<GameObject> { leftHandInteractingClimbingHold, rightHandInteractingClimbingHold };
+        List<GameObject> interactingClimbingHolds = new List<GameObject>();
+        if (leftHandInteractingClimbingHold != null)
+        {
+            interactingClimbingHolds.Add(leftHandInteractingClimbingHold);
+        }
+        if (rightHandInteractingClimbingHold != null)
+        {
+            interactingClimbingHolds.Add(rightHandInteractingClimbingHold);
+        }
         // WARNING: Here be dragons.
         // The big idea is that for each vertex of the climbing hold, we find the distance to the closest bone of each hand, and save to two arrays.
         // Then, we encode these distances in the UVs (channel 2) of the climbing hold's mesh vertices, and access them in the shader.
@@ -164,8 +170,8 @@ public class SceneConfiguror : MonoBehaviour
                 climbingHoldVertices[i] = climbingHold.transform.TransformPoint(climbingHoldVertices[i]); // Convert to world position
             }
             climbingHoldVerticesBuffer.SetData(climbingHoldVertices);
-            leftHandBonesBuffer.SetData(handBonePositions[0].ToArray());
-            rightHandBonesBuffer.SetData(handBonePositions[1].ToArray());
+            leftHandBonesBuffer.SetData(leftHandBonePositions.ToArray());
+            rightHandBonesBuffer.SetData(rightHandBonePositions.ToArray());
 
             // Pass buffers to compute shader
             distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "climbingHoldVertices", climbingHoldVerticesBuffer);
@@ -199,21 +205,37 @@ public class SceneConfiguror : MonoBehaviour
         }
     }
 
-
+    public OVRSkeleton GetOVRSkeletonFromHandIndex(int handIndex)
+    {
+        if (handIndex == 0)
+        {
+            return leftHandOVRSkeleton;
+        }
+        else if (handIndex == 1)
+        {
+            return rightHandOVRSkeleton;
+        }
+        else
+        {
+            UnityEngine.Debug.LogError("Hand index " + handIndex + " not found!");
+            return null;
+        }
+    }
     public void HandHoverEnter(int hand, GameObject hoveredGameObject)
     {
-        OVRHand ovrHand = handOVRSkeletons[hand].GetComponent<OVRHand>();
+        UnityEngine.Debug.Log("SceneConfiguror: HandHoverEnter() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
+        OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
+        OVRHand handOVRHand = handOVRSkeleton.GetComponent<OVRHand>();
         if (hoveredGameObject.tag == "ClimbingHold")
         {
             if (activeHoldsList.Contains(hoveredGameObject))
             {
-                UnityEngine.Debug.Log("Hand hover enter: " + ovrHand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
+                UnityEngine.Debug.Log("Hand hover enter: " + handOVRHand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
 
                 MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
                 meshRenderer.material.SetInt("_IsBeingInteracted", 1);
                 meshRenderer.material.SetFloat("_InteractionColorMaxDistance", hoverRadiusOverride);
 
-                // handInteractingClimbingHolds[hand] = hoveredGameObject;
                 if (hand == 0)
                 {
                     leftHandInteractingClimbingHold = hoveredGameObject;
@@ -224,15 +246,12 @@ public class SceneConfiguror : MonoBehaviour
                 }
             }
         }
-        else
-        {
-            UnityEngine.Debug.Log("Hand hover enter: " + ovrHand.name + " is now interacting with GameObject " + hoveredGameObject.name);
-        }
     }
-
     public void HandHoverExit(int hand, GameObject hoveredGameObject)
     {
-        OVRHand ovrHand = handOVRSkeletons[hand].GetComponent<OVRHand>();
+        UnityEngine.Debug.Log("SceneConfiguror: HandHoverExit() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
+        OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
+        OVRHand ovrHand = handOVRSkeleton.GetComponent<OVRHand>();
         if (hoveredGameObject.tag == "ClimbingHold")
         {
             UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with Climbing Hold " + hoveredGameObject.name);
@@ -240,7 +259,6 @@ public class SceneConfiguror : MonoBehaviour
             MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
             meshRenderer.material.SetInt("_IsBeingInteracted", 0);
 
-            // handInteractingClimbingHolds[hand] = null; 
             if (hand == 0)
             {
                 leftHandInteractingClimbingHold = null;
@@ -255,40 +273,6 @@ public class SceneConfiguror : MonoBehaviour
             UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with GameObject " + hoveredGameObject.name);
         }
     }
-
-    // public void LeftHandHoverExit(HoverExitEventArgs args)
-    // {
-    //     HandHoverExit(0, args);
-    // }
-    // public void RightHandHoverExit(HoverExitEventArgs args)
-    // {
-    //     HandHoverExit(0, args);
-    // }
-    // void HandHoverExit(int hand, HoverExitEventArgs args)
-    // {
-    //     OVRHand ovrHand = handOVRSkeletons[hand].GetComponent<OVRHand>();
-    //     IXRHoverInteractable hoveredObject = args.interactableObject;
-    //     MonoBehaviour hoveredObjectMB = hoveredObject as MonoBehaviour;
-    //     if (hoveredObjectMB == null)
-    //     {
-    //         UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with something that isn't a MonoBehaviour.");
-    //         return;
-    //     }
-    //     GameObject hoveredGameObject = hoveredObjectMB.gameObject;
-    //     if (hoveredGameObject.tag == "ClimbingHold")
-    //     {
-    //         UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with Climbing Hold " + hoveredGameObject.name);
-
-    //         MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
-    //         meshRenderer.material.SetInt("_IsBeingInteracted", 0);
-
-    //         handInteractingClimbingHolds[hand] = null;
-    //     }
-    //     else
-    //     {
-    //         UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with GameObject " + hoveredGameObject.name);
-    //     }
-    // }
 
     public void SetUpRouteByName(string routeName)
     {
