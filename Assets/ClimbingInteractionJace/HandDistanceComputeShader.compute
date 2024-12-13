@@ -1,9 +1,11 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
-// Output the two arrays of vertex distances
+// Output the two arrays of each-vertex-from-closest-hand-bone distances and two arrays of each-hand-bone-from-closestvertex distances
 RWStructuredBuffer<float> leftHandDistances;
 RWStructuredBuffer<float> rightHandDistances;
+RWStructuredBuffer<uint> leftHandBoneToHoldMinDistances;
+RWStructuredBuffer<uint> rightHandBoneToHoldMinDistances;
 
 // Input the climbing hold vertices and the hand bone positions
 StructuredBuffer<float3> climbingHoldVertices;
@@ -13,22 +15,36 @@ StructuredBuffer<float3> rightHandBones;
 [numthreads(128,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
+    if (id.x >= climbingHoldVertices.Length) return;
+
     float3 vertexPosition = climbingHoldVertices[id.x];
-    float leftHandMinDistance = 1.0 / 0.0;
-    float rightHandMinDistance = 1.0 / 0.0;
+    float leftHandMinDistance = 1.0 / 0.0; // +inf
+    float rightHandMinDistance = 1.0 / 0.0; // +inf
 
     for (int i = 0; i < leftHandBones.Length; i++)
     {
         float3 bonePosition = leftHandBones[i];
         float vertexDistance = distance(vertexPosition, bonePosition);
+
+        // Concurrently update the closest distance from this thread's vertex to any left hand bone
         leftHandMinDistance = min(leftHandMinDistance, vertexDistance);
+
+        // Atomically update the closest distance from any left hand bone to this thread's vertex
+        uint encodedDistance = asuint(vertexDistance);
+        InterlockedMin(leftHandBoneToHoldMinDistances[i], encodedDistance);
     }
 
     for (int i = 0; i < rightHandBones.Length; i++)
     {
         float3 bonePosition = rightHandBones[i];
         float vertexDistance = distance(vertexPosition, bonePosition);
+
+        // Concurrently update the closest distance from this thread's vertex to any right hand bone
         rightHandMinDistance = min(rightHandMinDistance, vertexDistance);
+
+        // Atomically update the closest distance from any right hand bone to this thread's vertex
+        uint encodedDistance = asuint(vertexDistance);
+        InterlockedMin(rightHandBoneToHoldMinDistances[i], encodedDistance);
     }
 
     leftHandDistances[id.x] = leftHandMinDistance;

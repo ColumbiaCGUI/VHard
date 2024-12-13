@@ -60,11 +60,18 @@ public class SceneConfiguror : MonoBehaviour
     public ComputeBuffer rightHandBonesBuffer;
     public ComputeBuffer leftHandDistancesBuffer;
     public ComputeBuffer rightHandDistancesBuffer;
+    public ComputeBuffer leftHandBoneToHoldMinDistancesBuffer;
+    public ComputeBuffer rightHandBoneToHoldMinDistancesBuffer;
 
     [Header("Grip Settings")]
     public GameObject moonBoardEnv;
+    public float gripFingertipRange;
+    public GameObject leftHandGripStatusDisplayHelper;
+    public GameObject rightHandGripStatusDisplayHelper;
 
     [Header("Grip State")]
+    public float[] leftHandBoneToHoldMinDistances;
+    public float[] rightHandBoneToHoldMinDistances;
     public bool isGripLocomotionActive;
     public bool leftHandIsGripping;
     public bool rightHandIsGripping;
@@ -125,6 +132,11 @@ public class SceneConfiguror : MonoBehaviour
 
         // Update hand bone info
         numBonesPerHand = leftHandOVRSkeleton.Bones.Count;
+        // Immediately give up if no bones (this happens if hand tracking is not enabled or if the user is holding controllers at the moment)
+        if (numBonesPerHand == 0)
+        {
+            return;
+        }
         leftHandBonePositions = new List<Vector3>(leftHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
         rightHandBonePositions = new List<Vector3>(rightHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
         // DEBUG: Print first element if not empty (if empty, raise a stink...)
@@ -145,10 +157,6 @@ public class SceneConfiguror : MonoBehaviour
         //     // UnityEngine.Debug.Log("Right hand bone positions list is empty!");
         // }
 
-        if (leftHandInteractingClimbingHold == null && rightHandInteractingClimbingHold == null)
-        {
-            return;
-        }
         List<GameObject> interactingClimbingHolds = new List<GameObject>();
         if (leftHandInteractingClimbingHold != null)
         {
@@ -178,6 +186,22 @@ public class SceneConfiguror : MonoBehaviour
             leftHandDistancesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float)); // Distance from each vertex of the climbing hold to the closest bone of the left hand
             rightHandDistancesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float)); // Distance from each vertex of the climbing hold to the closest bone of the right hand
 
+            // Distance from each vertex of the climbing hold to the closest bone of the right hand
+            // NOTE: We use uint here because the ComputeBuffer HLSL InterlockedMin() method does not support floats, and we will decode this later.
+            leftHandBoneToHoldMinDistancesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(uint));
+            // Distance from each vertex of the climbing hold to the closest bone of the right hand
+            // NOTE: We use uint here because the ComputeBuffer HLSL InterlockedMin() method does not support floats, and we will decode this later.
+            rightHandBoneToHoldMinDistancesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(uint));
+            // Initialize the bone distance buffers with +inf
+            uint[] infArray = new uint[numBonesPerHand];
+            uint positiveInfinityAsUint = BitConverter.ToUInt32(BitConverter.GetBytes(float.PositiveInfinity), 0);
+            for (int i = 0; i < numBonesPerHand; i++)
+            {
+                infArray[i] = positiveInfinityAsUint;
+            }
+            leftHandBoneToHoldMinDistancesBuffer.SetData(infArray);
+            rightHandBoneToHoldMinDistancesBuffer.SetData(infArray);
+
             // Calculate input buffer data
             for (int i = 0; i < climbingHoldVertices.Length; i++)
             {
@@ -193,13 +217,35 @@ public class SceneConfiguror : MonoBehaviour
             distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandBones", rightHandBonesBuffer);
             distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandDistances", leftHandDistancesBuffer);
             distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandDistances", rightHandDistancesBuffer);
+            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandBoneToHoldMinDistances", leftHandBoneToHoldMinDistancesBuffer);
+            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandBoneToHoldMinDistances", rightHandBoneToHoldMinDistancesBuffer);
 
-            // Dispatch compute shader and retrieve output buffer data
-            distanceToClosestBoneComputeShader.Dispatch(kernelHandle, climbingHoldVerticesCount / 128, 1, 1);
+            // Dispatch compute shader (Blocking!)
+            // UnityEngine.Debug.Log("[SceneConfiguror] Thread Group Size: " + climbingHoldVerticesCount / 128);
+            distanceToClosestBoneComputeShader.Dispatch(kernelHandle, Math.Max(climbingHoldVerticesCount / 128, 1), 1, 1);
+
+            // Retrieve data now that the compute shader has run
             float[] leftHandDistances = new float[climbingHoldVerticesCount];
             float[] rightHandDistances = new float[climbingHoldVerticesCount];
+            leftHandBoneToHoldMinDistances = new float[numBonesPerHand]; // Public variable here on SceneConfiguror!
+            rightHandBoneToHoldMinDistances = new float[numBonesPerHand]; // Public variable here on SceneConfiguror!
             leftHandDistancesBuffer.GetData(leftHandDistances);
             rightHandDistancesBuffer.GetData(rightHandDistances);
+            uint[] leftHandBoneToHoldMinDistancesUint = new uint[numBonesPerHand];
+            uint[] rightHandBoneToHoldMinDistancesUint = new uint[numBonesPerHand];
+            leftHandBoneToHoldMinDistancesBuffer.GetData(leftHandBoneToHoldMinDistancesUint);
+            rightHandBoneToHoldMinDistancesBuffer.GetData(rightHandBoneToHoldMinDistancesUint);
+
+            // Decode uints to floats and save them in the public variables
+            leftHandBoneToHoldMinDistances = new float[numBonesPerHand];
+            rightHandBoneToHoldMinDistances = new float[numBonesPerHand];
+            for (int i = 0; i < numBonesPerHand; i++)
+            {
+                leftHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
+                    BitConverter.GetBytes(leftHandBoneToHoldMinDistancesUint[i]), 0);
+                rightHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
+                    BitConverter.GetBytes(rightHandBoneToHoldMinDistancesUint[i]), 0);
+            }
 
             // Release buffers
             climbingHoldVerticesBuffer.Release();
@@ -207,6 +253,8 @@ public class SceneConfiguror : MonoBehaviour
             rightHandBonesBuffer.Release();
             leftHandDistancesBuffer.Release();
             rightHandDistancesBuffer.Release();
+            leftHandBoneToHoldMinDistancesBuffer.Release();
+            rightHandBoneToHoldMinDistancesBuffer.Release();
 
             // Encode the distances in the UVs and set them in the climbing hold's mesh so that in the shader
             // This works because the order of the vertices is the same in Mesh.vertices and Mesh.uv, both in Unity and in the shader
@@ -229,10 +277,30 @@ public class SceneConfiguror : MonoBehaviour
     {
         leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(0, leftHandInteractingClimbingHold);
         rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(1, rightHandInteractingClimbingHold);
+        if (leftHandIsGripping)
+        {
+            leftHandGripStatusDisplayHelper.GetComponent<MeshRenderer>().material.color = Color.green;
+        }
+        else
+        {
+            leftHandGripStatusDisplayHelper.GetComponent<MeshRenderer>().material.color = Color.red;
+        }
+        if (rightHandIsGripping)
+        {
+            rightHandGripStatusDisplayHelper.GetComponent<MeshRenderer>().material.color = Color.green;
+        }
+        else
+        {
+            rightHandGripStatusDisplayHelper.GetComponent<MeshRenderer>().material.color = Color.red;
+        }
 
         // If neither hand is gripping, don't move
         if (!leftHandIsGripping && !rightHandIsGripping)
         {
+            if (isGripLocomotionActive)
+            {
+                UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now not gripping with either hand. Stopping movement.");
+            }
             isGripLocomotionActive = false;
             return;
         }
@@ -240,6 +308,10 @@ public class SceneConfiguror : MonoBehaviour
         // If both hands are gripping, don't move
         if (leftHandIsGripping && rightHandIsGripping)
         {
+            if (isGripLocomotionActive)
+            {
+                UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now gripping with both hands. Stopping movement.");
+            }
             isGripLocomotionActive = false;
             return;
         }
@@ -302,22 +374,32 @@ public class SceneConfiguror : MonoBehaviour
         // If we don't have access to the expected hand bone positions, return false.
         // NOTE: The expected hand bone positions refer to the standard number and ordering of hand bone positions as returned from OVRSkeleton.Bones
 
-        List<Vector3> handBonePositions = null;
+        // Clarify left or right hand
+        float[] handBoneToHoldMinDistances = null;
         if (handIndex == 0)
         {
-            handBonePositions = leftHandBonePositions;
+            handBoneToHoldMinDistances = leftHandBoneToHoldMinDistances;
         }
         else if (handIndex == 1)
         {
-            handBonePositions = rightHandBonePositions;
+            handBoneToHoldMinDistances = rightHandBoneToHoldMinDistances;
         }
 
-        // TODO: Implement grip detection (possibly via shader)
-        float dist = Vector3.Distance(handBonePositions[0], climbingHold.GetComponent<SphereCollider>().bounds.center);
-        // UnityEngine.Debug.Log("Distance between hand and climbing hold: " + dist);
-        if (dist <= 0.05f)
+        // TODO: Improve grip detection (possibly via shader)
+        // Currently, the following will check if each fingertip is close to the hold. (When using Meta SDK v71's new OpenXR Hand Skeleton, bone indices 5, 10, 15, 20, 25 for thumb, pointer, middle, ring, and little fingertips respectively)
+        bool isGripping = true;
+        foreach (int boneIndex in new List<int> { 5, 10, 15, 20, 25 })
         {
-            // UnityEngine.Debug.Log("Hand is now gripping a climbing hold.");
+            if (handBoneToHoldMinDistances[boneIndex] > gripFingertipRange)
+            {
+                isGripping = false;
+                break;
+            }
+        }
+
+        if (isGripping)
+        {
+            // UnityEngine.Debug.Log("[SceneConfiguror] DEV: Hand " + handIndex + " is gripping hold " + climbingHold.name);
             return true;
         }
         else
@@ -344,7 +426,7 @@ public class SceneConfiguror : MonoBehaviour
     }
     public void HandHoverEnter(int hand, GameObject hoveredGameObject)
     {
-        UnityEngine.Debug.Log("SceneConfiguror: HandHoverEnter() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
+        // UnityEngine.Debug.Log("SceneConfiguror: HandHoverEnter() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
         OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
         OVRHand handOVRHand = handOVRSkeleton.GetComponent<OVRHand>();
         if (hoveredGameObject.tag == "ClimbingHold")
@@ -370,7 +452,7 @@ public class SceneConfiguror : MonoBehaviour
     }
     public void HandHoverExit(int hand, GameObject hoveredGameObject)
     {
-        UnityEngine.Debug.Log("SceneConfiguror: HandHoverExit() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
+        // UnityEngine.Debug.Log("SceneConfiguror: HandHoverExit() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
         OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
         OVRHand ovrHand = handOVRSkeleton.GetComponent<OVRHand>();
         if (hoveredGameObject.tag == "ClimbingHold")
