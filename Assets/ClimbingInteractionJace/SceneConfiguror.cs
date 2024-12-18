@@ -28,8 +28,6 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Hands References (Left = 0, Right = 1)")]
     public OVRSkeleton leftHandOVRSkeleton;
     public OVRSkeleton rightHandOVRSkeleton;
-    public GameObject leftHandNearFarInteractor;
-    public GameObject rightHandNearFarInteractor;
 
     [Header("Hands State")]
     public int numBonesPerHand;
@@ -40,7 +38,6 @@ public class SceneConfiguror : MonoBehaviour
     public GameMode gameMode;
 
     [Header("Interaction Settings")]
-    public float hoverRadiusOverride;
     public float interactionColorMaxDistanceOverride;
     public bool disableInactiveHolds;
     public float inactiveHoldAlpha;
@@ -79,6 +76,10 @@ public class SceneConfiguror : MonoBehaviour
     public Vector3 leftHandGripLastPosition;
     public Vector3 rightHandGripStartPosition;
     public Vector3 rightHandGripLastPosition;
+    public List<Vector3> leftHandGripStartPose;
+    public List<Vector3> leftHandGripCurrentPose;
+    public List<Vector3> rightHandGripStartPose;
+    public List<Vector3> rightHandGripCurrentPose;
 
     void Start()
     {
@@ -104,18 +105,6 @@ public class SceneConfiguror : MonoBehaviour
 
     void Update()
     {
-        // Override hover radius
-        IInteractionCaster leftHandNearInteractionCaster = leftHandNearFarInteractor.GetComponent<NearFarInteractor>().nearInteractionCaster;
-        if (leftHandNearInteractionCaster is SphereInteractionCaster leftHandSphereInteractionCaster)
-        {
-            leftHandSphereInteractionCaster.castRadius = hoverRadiusOverride;
-        }
-        IInteractionCaster rightHandNearInteractionCaster = rightHandNearFarInteractor.GetComponent<NearFarInteractor>().nearInteractionCaster;
-        if (rightHandNearInteractionCaster is SphereInteractionCaster rightHandSphereInteractionCaster)
-        {
-            rightHandSphereInteractionCaster.castRadius = hoverRadiusOverride;
-        }
-
         // Override interaction color max distance, update interaction status
         if (leftHandInteractingClimbingHold != null)
         {
@@ -139,40 +128,36 @@ public class SceneConfiguror : MonoBehaviour
         }
         leftHandBonePositions = new List<Vector3>(leftHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
         rightHandBonePositions = new List<Vector3>(rightHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
-        // DEBUG: Print first element if not empty (if empty, raise a stink...)
-        // if (leftHandBonePositions.Count > 0)
-        // {
-        //     UnityEngine.Debug.Log("Left hand bone 0: " + leftHandBonePositions[0]);
-        // }
-        // else
-        // {
-        //     // UnityEngine.Debug.Log("Left hand bone positions list is empty!");
-        // }
-        // if (rightHandBonePositions.Count > 0)
-        // {
-        //     UnityEngine.Debug.Log("Right hand bone 0: " + rightHandBonePositions[0]);
-        // }
-        // else
-        // {
-        //     // UnityEngine.Debug.Log("Right hand bone positions list is empty!");
-        // }
-
-        List<GameObject> interactingClimbingHolds = new List<GameObject>();
-        if (leftHandInteractingClimbingHold != null)
-        {
-            interactingClimbingHolds.Add(leftHandInteractingClimbingHold);
-        }
-        if (rightHandInteractingClimbingHold != null)
-        {
-            interactingClimbingHolds.Add(rightHandInteractingClimbingHold);
-        }
 
         // WARNING: Here be dragons.
         // The big idea is that for each vertex of the climbing hold, we find the distance to the closest bone of each hand, and save to two arrays.
         // Then, we encode these distances in the UVs (channel 2) of the climbing hold's mesh vertices, and access them in the shader.
         // JACE DEV Nov 2024: Let's also keep the distance of each hand bone to the closest climbing hold mesh vertex and save this to the main object.
-        foreach (GameObject climbingHold in interactingClimbingHolds)
+
+        // First, we reset the grip check distances to +inf
+        leftHandBoneToHoldMinDistances = new float[numBonesPerHand];
+        rightHandBoneToHoldMinDistances = new float[numBonesPerHand];
+        Array.Fill(leftHandBoneToHoldMinDistances, float.PositiveInfinity);
+        Array.Fill(rightHandBoneToHoldMinDistances, float.PositiveInfinity);
+
+        // Then, we queue up the climbing holds that are being interacted with
+        var climbingHoldsBeingInteracted = new List<(GameObject climbingHold, int handIndex)>();
+        if (leftHandInteractingClimbingHold != null)
         {
+            climbingHoldsBeingInteracted.Add((leftHandInteractingClimbingHold, 0));
+        }
+        if (rightHandInteractingClimbingHold != null)
+        {
+            climbingHoldsBeingInteracted.Add((rightHandInteractingClimbingHold, 1));
+        }
+
+        // For each climbing hold being interacted with, 
+        // calculate the distances to the closest bones of each hand 
+        // as well as the distances of each bone to the closest vertex of the climbing hold
+        foreach (var interaction in climbingHoldsBeingInteracted)
+        {
+            GameObject climbingHold = interaction.climbingHold;
+            int hand = interaction.handIndex;
             // Get information about the climbing hold
             MeshFilter climbingHoldMeshFilter = climbingHold.GetComponent<MeshFilter>();
             Mesh climbingHoldMesh = climbingHoldMeshFilter.mesh;
@@ -227,8 +212,6 @@ public class SceneConfiguror : MonoBehaviour
             // Retrieve data now that the compute shader has run
             float[] leftHandDistances = new float[climbingHoldVerticesCount];
             float[] rightHandDistances = new float[climbingHoldVerticesCount];
-            leftHandBoneToHoldMinDistances = new float[numBonesPerHand]; // Public variable here on SceneConfiguror!
-            rightHandBoneToHoldMinDistances = new float[numBonesPerHand]; // Public variable here on SceneConfiguror!
             leftHandDistancesBuffer.GetData(leftHandDistances);
             rightHandDistancesBuffer.GetData(rightHandDistances);
             uint[] leftHandBoneToHoldMinDistancesUint = new uint[numBonesPerHand];
@@ -237,14 +220,19 @@ public class SceneConfiguror : MonoBehaviour
             rightHandBoneToHoldMinDistancesBuffer.GetData(rightHandBoneToHoldMinDistancesUint);
 
             // Decode uints to floats and save them in the public variables
-            leftHandBoneToHoldMinDistances = new float[numBonesPerHand];
-            rightHandBoneToHoldMinDistances = new float[numBonesPerHand];
+            // Don't reset the other hand's array, because we will be using the other hand's array in the next iteration
             for (int i = 0; i < numBonesPerHand; i++)
             {
-                leftHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
-                    BitConverter.GetBytes(leftHandBoneToHoldMinDistancesUint[i]), 0);
-                rightHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
-                    BitConverter.GetBytes(rightHandBoneToHoldMinDistancesUint[i]), 0);
+                if (hand == 0)
+                {
+                    leftHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
+                        BitConverter.GetBytes(leftHandBoneToHoldMinDistancesUint[i]), 0);
+                }
+                else if (hand == 1)
+                {
+                    rightHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
+                        BitConverter.GetBytes(rightHandBoneToHoldMinDistancesUint[i]), 0);
+                }
             }
 
             // Release buffers
@@ -275,24 +263,45 @@ public class SceneConfiguror : MonoBehaviour
 
     public void UpdateGripMode()
     {
-        leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(0, leftHandInteractingClimbingHold);
-        rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(1, rightHandInteractingClimbingHold);
-        if (leftHandIsGripping)
+        float gripPoseBoneDriftThreshold = 0.05f;
+        if (!leftHandIsGripping)
         {
-            leftHandGripStatusDisplayHelper.GetComponent<MeshRenderer>().material.color = Color.green;
+            // If a hand was not gripping, we check if it started gripping by calling CheckIfHandIsGrippingHold() to check for the "start condition".
+            leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(0, leftHandInteractingClimbingHold);
+            if (leftHandIsGripping)
+            {
+                // "Wasn't gripping, now gripping"
+                // Save the start pose of the hand (joint positions).
+                leftHandGripStartPose = new List<Vector3>(leftHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
+                // Save "relative positions" by subtracting the base position (index 0) from all other positions.
+                leftHandGripStartPose = leftHandGripStartPose.Select((pos, i) => pos - leftHandBonePositions[0]).ToList();
+            }
         }
         else
         {
-            leftHandGripStatusDisplayHelper.GetComponent<MeshRenderer>().material.color = Color.red;
+            // However, if a hand is already gripping, we instead check if the hand is still gripping by comparing the start pose and the current pose.
+            leftHandGripCurrentPose = new List<Vector3>(leftHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
+            leftHandGripCurrentPose = leftHandGripCurrentPose.Select((pos, i) => pos - leftHandBonePositions[0]).ToList();
+            leftHandIsGripping = AreHandPosesApproximatelyEqual(leftHandGripStartPose, leftHandGripCurrentPose, gripPoseBoneDriftThreshold);
         }
-        if (rightHandIsGripping)
+        if (!rightHandIsGripping)
         {
-            rightHandGripStatusDisplayHelper.GetComponent<MeshRenderer>().material.color = Color.green;
+            rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(1, rightHandInteractingClimbingHold);
+            if (rightHandIsGripping)
+            {
+                rightHandGripStartPose = new List<Vector3>(rightHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
+                rightHandGripStartPose = rightHandGripStartPose.Select((pos, i) => pos - rightHandBonePositions[0]).ToList();
+            }
         }
         else
         {
-            rightHandGripStatusDisplayHelper.GetComponent<MeshRenderer>().material.color = Color.red;
+            rightHandGripCurrentPose = new List<Vector3>(rightHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
+            rightHandGripCurrentPose = rightHandGripCurrentPose.Select((pos, i) => pos - rightHandBonePositions[0]).ToList();
+            rightHandIsGripping = AreHandPosesApproximatelyEqual(rightHandGripStartPose, rightHandGripCurrentPose, gripPoseBoneDriftThreshold);
         }
+
+        // leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(0, leftHandInteractingClimbingHold);
+        // rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(1, rightHandInteractingClimbingHold);
 
         // If neither hand is gripping, don't move
         if (!leftHandIsGripping && !rightHandIsGripping)
@@ -327,26 +336,6 @@ public class SceneConfiguror : MonoBehaviour
             rightHandGripStartPosition = rightHandBonePositions[0];
             rightHandGripLastPosition = rightHandGripStartPosition;
         }
-        // Now, only one hand is gripping, AND isGripLocomotionActive is true
-        // Next, we need to check the distance between the current position of the hand and the start position of the grip, and only move if the distance is greater than some allowed jitter
-        // float leftHandGripDistance = Vector3.Distance(leftHandGripStartPosition, leftHandGripTrackingObjectTest.transform.position);
-        // float rightHandGripDistance = Vector3.Distance(rightHandGripStartPosition, rightHandGripTrackingObjectTest.transform.position);
-        // if (leftHandIsGripping)
-        // {
-        //     if (leftHandGripDistance <= 0.02f)
-        //     {
-        //         leftHandGripLastPosition = leftHandGripTrackingObjectTest.transform.position;
-        //         return;
-        //     }
-        // }
-        // else if (rightHandIsGripping)
-        // {
-        //     if (rightHandGripDistance <= 0.02f)
-        //     {
-        //         rightHandGripLastPosition = rightHandGripTrackingObjectTest.transform.position;
-        //         return;
-        //     }
-        // }
 
         // Finally, we are sure that the player needs to move.
         // We move by getting the distance since last frame, and moving the player by that distance, then recording the new last position.
@@ -368,7 +357,6 @@ public class SceneConfiguror : MonoBehaviour
         // cameraOffset.transform.position -= vectorToMovePlayer; // Move player
         moonBoardEnv.transform.position += vectorToMovePlayer;
     }
-
     public bool CheckIfHandIsGrippingHold(int handIndex, GameObject climbingHold)
     {
         // If we don't have access to the expected hand bone positions, return false.
@@ -407,6 +395,21 @@ public class SceneConfiguror : MonoBehaviour
             return false;
         }
     }
+    public bool AreHandPosesApproximatelyEqual(List<Vector3> pose1, List<Vector3> pose2, float threshold)
+    {
+        if (pose1.Count != pose2.Count)
+        {
+            return false;
+        }
+        for (int i = 2; i < pose1.Count; i++) // Skip bones 0 (palm) and 1 (wrist)
+        {
+            if (Vector3.Distance(pose1[i], pose2[i]) > threshold)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     public OVRSkeleton GetOVRSkeletonFromHandIndex(int handIndex)
     {
@@ -437,7 +440,6 @@ public class SceneConfiguror : MonoBehaviour
 
                 MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
                 meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-                meshRenderer.material.SetFloat("_InteractionColorMaxDistance", hoverRadiusOverride);
 
                 if (hand == 0)
                 {
