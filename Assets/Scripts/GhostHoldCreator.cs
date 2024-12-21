@@ -24,6 +24,11 @@ public class GhostHoldCreator : MonoBehaviour
 
     }
 
+    public void SetObjectInfo(GameObject co)
+    {
+        childObject = co;
+    }
+
     public void CreateGhostHoldInCanvas()
     {
 
