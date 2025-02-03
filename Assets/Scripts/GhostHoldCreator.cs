@@ -10,12 +10,14 @@ using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
 using System.Collections;
 using System.Collections.Generic;
+using System;
 
 
 public class GhostHoldCreator : MonoBehaviour
 {
     public Canvas canvas; // Reference to the Canvas
     public GameObject childObject;
+    // private Boolean clicked = false;
     
     public void Start()
     {
@@ -29,9 +31,26 @@ public class GhostHoldCreator : MonoBehaviour
         childObject = co;
     }
 
-    public void CreateGhostHoldInCanvas()
+    // public void Update()
+    // {
+    //     if (!clicked)
+    //     {
+    //         CreateGhostHoldInCanvas();
+    //         clicked = true;
+    //     } else
+    //     {
+    //         clicked = false;
+    //         removeGhostHoldInCanvas();
+    //     }
+    // }
+
+    public void removeGhostHoldInCanvas()
     {
 
+    }
+
+    public void CreateGhostHoldInCanvas()
+    {
 
         UnityEngine.Debug.Log("creating ghost holds");
         Vector3 canvasWorldPosition = canvas.transform.position;   
