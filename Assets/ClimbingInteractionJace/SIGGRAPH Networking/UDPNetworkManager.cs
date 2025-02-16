@@ -15,13 +15,23 @@ public class UDPNetworkManager : MonoBehaviour
     public SceneConfiguror sceneConfiguror;
 
     [Header("Our Hands State (Relative to Environment)")]
+    public Vector3 centerEyePosition;
     public List<Vector3> leftHandBonePositionsSelf;
     public List<Vector3> rightHandBonePositionsSelf;
 
     [Header("Other Player's Hands State (Relative to Environment)")]
-    public bool drawOtherPlayerHands = false;
+    public Vector3 centerEyePositionOther;
     public List<Vector3> leftHandBonePositionsOther;
     public List<Vector3> rightHandBonePositionsOther;
+
+    [Header("Other Player's Visuals")]
+    public bool drawOtherPlayerHead = false;
+    public GameObject headOther;
+    public bool drawOtherPlayerHands = false;
+    public GameObject leftHandRootOther;
+    public GameObject rightHandRootOther;
+    public List<GameObject> leftHandBonesOther;
+    public List<GameObject> rightHandBonesOther;
 
     void Start()
     {
@@ -35,25 +45,39 @@ public class UDPNetworkManager : MonoBehaviour
 
     void Update()
     {
+        centerEyePosition = sceneConfiguror.centerEyePosition;
+
         // Don't send any data if we're not using hands
         if (OVRInput.GetActiveController() != OVRInput.Controller.Hands)
         {
-            Debug.Log("UDPNetworkManager: Not sending data because we're not using hands!");
+            // Debug.Log("UDPNetworkManager: Not sending data because we're not using hands!");
             return;
         }
         if (!OVRInput.IsControllerConnected(OVRInput.Controller.LHand) || !OVRInput.IsControllerConnected(OVRInput.Controller.RHand))
         {
-            Debug.Log("UDPNetworkManager: Not sending data because one or both hands are not connected!");
+            // Debug.Log("UDPNetworkManager: Not sending data because one or both hands are not connected!");
             return;
         }
-        leftHandBonePositionsSelf = sceneConfiguror.leftHandBonePositions;
-        rightHandBonePositionsSelf = sceneConfiguror.rightHandBonePositions;
+        leftHandBonePositionsSelf = new List<Vector3>(sceneConfiguror.leftHandBonePositions);
+        rightHandBonePositionsSelf = new List<Vector3>(sceneConfiguror.rightHandBonePositions);
         if (leftHandBonePositionsSelf.Count == 0 || rightHandBonePositionsSelf.Count == 0)
         {
-            Debug.Log("UDPNetworkManager: Not sending data because we don't have hand bone positions!");
+            // Debug.Log("UDPNetworkManager: Not sending data because we don't have hand bone positions!");
             return;
         }
-        SendData(leftHandBonePositionsSelf, rightHandBonePositionsSelf);
+        SendData(centerEyePosition, new List<Vector3>(leftHandBonePositionsSelf), new List<Vector3>(rightHandBonePositionsSelf));
+
+        // DEV: Offset own hands slightly for now to work on shader
+        // leftHandBonePositionsOther = leftHandBonePositionsSelf;
+        // for (int i = 0; i < leftHandBonePositionsOther.Count; i++)
+        // {
+        //     leftHandBonePositionsOther[i] += new Vector3(0, 0.1f, 0);
+        // }
+        // rightHandBonePositionsOther = rightHandBonePositionsSelf;
+        // for (int i = 0; i < rightHandBonePositionsOther.Count; i++)
+        // {
+        //     rightHandBonePositionsOther[i] += new Vector3(0, 0.1f, 0);
+        // }
     }
 
     void OnApplicationQuit()
@@ -61,10 +85,11 @@ public class UDPNetworkManager : MonoBehaviour
         udpClient?.Close();
     }
 
-    void SendData(List<Vector3> leftHandBonePositions, List<Vector3> rightHandBonePositions)
+    void SendData(Vector3 centerEyePosition, List<Vector3> leftHandBonePositions, List<Vector3> rightHandBonePositions)
     {
         // Send the data relative to the environment, so that the other player can place our hands in the correct position
         Vector3 environmentPosition = environment.transform.position;
+        centerEyePosition -= environmentPosition;
         for (int i = 0; i < leftHandBonePositions.Count; i++)
         {
             leftHandBonePositions[i] -= environmentPosition;
@@ -74,7 +99,7 @@ public class UDPNetworkManager : MonoBehaviour
             rightHandBonePositions[i] -= environmentPosition;
         }
 
-        float[] floatsToSend = new float[leftHandBonePositions.Count * 3 * 2];
+        float[] floatsToSend = new float[(leftHandBonePositions.Count * 3 * 2) + 3];
         for (int i = 0; i < leftHandBonePositions.Count; i++)
         {
             floatsToSend[i * 3] = leftHandBonePositions[i].x;
@@ -87,6 +112,9 @@ public class UDPNetworkManager : MonoBehaviour
             floatsToSend[leftHandBonePositions.Count * 3 + i * 3 + 1] = rightHandBonePositions[i].y;
             floatsToSend[leftHandBonePositions.Count * 3 + i * 3 + 2] = rightHandBonePositions[i].z;
         }
+        floatsToSend[floatsToSend.Length - 3] = centerEyePosition.x;
+        floatsToSend[floatsToSend.Length - 2] = centerEyePosition.y;
+        floatsToSend[floatsToSend.Length - 1] = centerEyePosition.z;
 
         int numBytesToSend = 1 + floatsToSend.Length * 4; // 1 byte for the first byte, 4 bytes per float
         byte[] bytesToSend = new byte[numBytesToSend];
@@ -95,7 +123,7 @@ public class UDPNetworkManager : MonoBehaviour
 
         IPEndPoint broadcastEndPoint = new IPEndPoint(IPAddress.Broadcast, udpPort);
         udpClient.Send(bytesToSend, numBytesToSend, broadcastEndPoint);
-        Debug.Log($"UDPNetworkManager: Sent {numBytesToSend} bytes of data to {broadcastEndPoint}: {BitConverter.ToString(bytesToSend)}");
+        // Debug.Log($"UDPNetworkManager: Sent {numBytesToSend} bytes of data to {broadcastEndPoint}: {BitConverter.ToString(bytesToSend)}");
     }
 
     void ReceiveData(IAsyncResult result)
@@ -122,7 +150,7 @@ public class UDPNetworkManager : MonoBehaviour
         data = new byte[data.Length - 1];
 
         int numBonesPerHand = sceneConfiguror.numBonesPerHand;
-        int totalFloatCountExpected = numBonesPerHand * 3 * 2; // 3 floats per bone, 2 hands
+        int totalFloatCountExpected = (numBonesPerHand * 3 * 2) + 3; // 3 floats per bone, 2 hands
         // Check the length of the data to make sure it's what we expect
         if (data.Length != totalFloatCountExpected * 4) // 4 bytes per float
         {
@@ -149,8 +177,14 @@ public class UDPNetworkManager : MonoBehaviour
             rightHandBonePositionsOther.Add(rightHandBonePosition);
         }
 
-        // Add the environment position back to the hands
+        centerEyePositionOther = new Vector3(
+            BitConverter.ToSingle(data, numBonesPerHand * 3 * 4),
+            BitConverter.ToSingle(data, (numBonesPerHand * 3 + 1) * 4),
+            BitConverter.ToSingle(data, (numBonesPerHand * 3 + 2) * 4));
+
+        // Add the environment position back
         Vector3 environmentPosition = environment.transform.position;
+        centerEyePositionOther += environmentPosition;
         for (int i = 0; i < leftHandBonePositionsOther.Count; i++)
         {
             leftHandBonePositionsOther[i] += environmentPosition;
@@ -161,7 +195,8 @@ public class UDPNetworkManager : MonoBehaviour
         }
 
         Debug.Log("UDPNetworkManager: Received data: " +
-            $"Left Hand: {string.Join(", ", leftHandBonePositionsOther)}" +
-            $"Right Hand: {string.Join(", ", rightHandBonePositionsOther)}");
+            $"Left Hand: {leftHandBonePositionsOther[0]}" +
+            $"Right Hand: {rightHandBonePositionsOther[0]}" +
+            $"Center Eye: {centerEyePositionOther}");
     }
 }

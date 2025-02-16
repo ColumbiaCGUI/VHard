@@ -25,12 +25,14 @@ public class SceneConfiguror : MonoBehaviour
     public List<string> activeRouteHoldsNamesList;
     public List<GameObject> activeHoldsList;
 
-    [Header("Hands References (Left = 0, Right = 1)")]
+    [Header("Hands References")]
+    public GameObject centerEyeAnchor;
     public OVRSkeleton leftHandOVRSkeleton;
     public OVRSkeleton rightHandOVRSkeleton;
 
     [Header("Hands State")]
     public int numBonesPerHand;
+    public Vector3 centerEyePosition;
     public List<Vector3> leftHandBonePositions = new List<Vector3>();
     public List<Vector3> rightHandBonePositions = new List<Vector3>();
 
@@ -105,6 +107,8 @@ public class SceneConfiguror : MonoBehaviour
 
     void Update()
     {
+        centerEyePosition = centerEyeAnchor.transform.position;
+
         // Override interaction color max distance, update interaction status
         if (leftHandInteractingClimbingHold != null)
         {

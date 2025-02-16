@@ -2500,11 +2500,19 @@ MonoBehaviour:
   udpPort: 12345
   environment: {fileID: 359739251}
   sceneConfiguror: {fileID: 394303256}
+  centerEyePosition: {x: 0, y: 0, z: 0}
   leftHandBonePositionsSelf: []
   rightHandBonePositionsSelf: []
-  drawOtherPlayerHands: 0
+  centerEyePositionOther: {x: 0, y: 0, z: 0}
   leftHandBonePositionsOther: []
   rightHandBonePositionsOther: []
+  drawOtherPlayerHead: 0
+  headOther: {fileID: 0}
+  drawOtherPlayerHands: 0
+  leftHandRootOther: {fileID: 0}
+  rightHandRootOther: {fileID: 0}
+  leftHandBonesOther: []
+  rightHandBonesOther: []
 --- !u!1 &206009740
 GameObject:
   m_ObjectHideFlags: 0
@@ -4784,9 +4792,11 @@ MonoBehaviour:
   holdsParentGameObject: {fileID: 5525280435182380628}
   activeRouteHoldsNamesList: []
   activeHoldsList: []
+  centerEyeAnchor: {fileID: 856394430}
   leftHandOVRSkeleton: {fileID: 1076200163}
   rightHandOVRSkeleton: {fileID: 1681208675}
   numBonesPerHand: 0
+  centerEyePosition: {x: 0, y: 0, z: 0}
   leftHandBonePositions: []
   rightHandBonePositions: []
   gameMode: 1
@@ -12812,6 +12822,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: LeftOVRHandPrefab
       objectReference: {fileID: 0}
+    - target: {fileID: 1870938896605422, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4453513310108136, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -12853,7 +12867,7 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 114252240061623322, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
-      propertyPath: m_Enabled
+      propertyPath: _confidenceBehavior
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 114567484643301796, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
@@ -12862,13 +12876,9 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114567484643301796, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
       propertyPath: _enablePhysicsCapsules
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 114925265787909616, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 137619227449585070, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
@@ -12949,6 +12959,10 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 114252240061623322, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
+      propertyPath: _confidenceBehavior
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 114428879332287356, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
       propertyPath: HandType
       value: 1
@@ -12958,8 +12972,12 @@ PrefabInstance:
       value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 114567484643301796, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
+      propertyPath: _updateRootPose
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 114567484643301796, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
       propertyPath: _enablePhysicsCapsules
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 114925265787909616, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
       propertyPath: _meshType
@@ -19371,7 +19389,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1896824353}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2100dcb979f462a4b9f5d591dddf6cf0, type: 3}
   m_Name: 
@@ -41768,7 +41786,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &7114770130172068990
 MonoBehaviour:
   m_ObjectHideFlags: 0
