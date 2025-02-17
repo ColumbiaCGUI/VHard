@@ -4808,11 +4808,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5074090213125318159, guid: e1ab2fc64e68034439cb3a08fb5bbc33, type: 3}
   m_PrefabInstance: {fileID: 272519337}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &272519339 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 5557752581690670261, guid: e1ab2fc64e68034439cb3a08fb5bbc33, type: 3}
+--- !u!114 &272519340 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 67570277512471797, guid: e1ab2fc64e68034439cb3a08fb5bbc33, type: 3}
   m_PrefabInstance: {fileID: 272519337}
   m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44a804acb05f7684bb2b003058ab7ba7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &275486771
 GameObject:
   m_ObjectHideFlags: 0
@@ -7060,7 +7066,7 @@ MonoBehaviour:
   leftHandOVRSkeleton: {fileID: 2081368201}
   rightHandOVRSkeleton: {fileID: 195688215}
   networkedHands: {fileID: 0}
-  otherPlayerLeftHand: {fileID: 272519339}
+  otherPlayerLeftHand: {fileID: 272519340}
   otherPlayerRightHand: {fileID: 941850939}
   numBonesPerHand: 0
   centerEyePosition: {x: 0, y: 0, z: 0}

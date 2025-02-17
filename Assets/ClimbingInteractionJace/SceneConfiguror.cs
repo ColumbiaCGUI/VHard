@@ -270,10 +270,19 @@ public class SceneConfiguror : MonoBehaviour
         // Update networked hands
         if (networkedHands != null)
         {
-            for (int i = 0; i < numBonesPerHand; i++)
+            if (networkedHands.leftHandJointPositionsNetworked.Count == numBonesPerHand
+            || networkedHands.rightHandJointPositionsNetworked.Count == numBonesPerHand)
             {
-                otherPlayerLeftHand.joints[i].transform.position = networkedHands.leftHandJointPositionsNetworked[i];
-                otherPlayerRightHand.joints[i].transform.position = networkedHands.rightHandJointPositionsNetworked[i];
+                otherPlayerLeftHand.gameObject.SetActive(true);
+                otherPlayerRightHand.gameObject.SetActive(true);
+                for (int i = 0; i < numBonesPerHand; i++)
+                {
+                    otherPlayerLeftHand.joints[i].transform.position = networkedHands.leftHandJointPositionsNetworked[i];
+                    otherPlayerRightHand.joints[i].transform.position = networkedHands.rightHandJointPositionsNetworked[i];
+                }
+            } else {
+                otherPlayerLeftHand.gameObject.SetActive(false);
+                otherPlayerRightHand.gameObject.SetActive(false);
             }
         }
     }

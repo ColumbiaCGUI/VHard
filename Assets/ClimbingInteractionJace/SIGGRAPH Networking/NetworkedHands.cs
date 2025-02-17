@@ -33,15 +33,25 @@ public class NetworkedHands : NetworkBehaviour
         // Only the local player should update the networked data.
         if (HasStateAuthority)
         {
+            leftHandJointPositionsNetworked.Clear();
+            rightHandJointPositionsNetworked.Clear();
+
+            // Don't send any data if we're not using hands
+            if (OVRInput.GetActiveController() != OVRInput.Controller.Hands)
+            {
+                return;
+            }
+            if (!OVRInput.IsControllerConnected(OVRInput.Controller.LHand) || !OVRInput.IsControllerConnected(OVRInput.Controller.RHand))
+            {
+                return;
+            }
+
             leftHandJointPositionsSelf = sceneConfiguror.leftHandBonePositions;
             rightHandJointPositionsSelf = sceneConfiguror.rightHandBonePositions;
-
-            leftHandJointPositionsNetworked.Clear();
             foreach (Vector3 joint in leftHandJointPositionsSelf)
             {
                 leftHandJointPositionsNetworked.Add(joint);
             }
-            rightHandJointPositionsNetworked.Clear();
             foreach (Vector3 joint in rightHandJointPositionsSelf)
             {
                 rightHandJointPositionsNetworked.Add(joint);
