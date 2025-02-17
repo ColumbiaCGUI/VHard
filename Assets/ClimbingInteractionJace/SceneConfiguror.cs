@@ -29,6 +29,9 @@ public class SceneConfiguror : MonoBehaviour
     public GameObject centerEyeAnchor;
     public OVRSkeleton leftHandOVRSkeleton;
     public OVRSkeleton rightHandOVRSkeleton;
+
+    [Header("Other Player's Avatar")]
+    public bool shouldOtherPlayerHandsBeActive;
     public NetworkedHands networkedHands;
     public AvatarHand otherPlayerLeftHand;
     public AvatarHand otherPlayerRightHand;
@@ -38,6 +41,8 @@ public class SceneConfiguror : MonoBehaviour
     public Vector3 centerEyePosition;
     public List<Vector3> leftHandBonePositions = new List<Vector3>();
     public List<Vector3> rightHandBonePositions = new List<Vector3>();
+    public List<Quaternion> leftHandBoneQuaternions = new List<Quaternion>();
+    public List<Quaternion> rightHandBoneQuaternions = new List<Quaternion>();
 
     [Header("Climb Settings")]
     public GameMode gameMode;
@@ -135,6 +140,8 @@ public class SceneConfiguror : MonoBehaviour
         }
         leftHandBonePositions = new List<Vector3>(leftHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
         rightHandBonePositions = new List<Vector3>(rightHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
+        leftHandBoneQuaternions = new List<Quaternion>(leftHandOVRSkeleton.Bones.Select(bone => bone.Transform.rotation));
+        rightHandBoneQuaternions = new List<Quaternion>(rightHandOVRSkeleton.Bones.Select(bone => bone.Transform.rotation));
 
         // WARNING: Here be dragons.
         // The big idea is that for each vertex of the climbing hold, we find the distance to the closest bone of each hand, and save to two arrays.
@@ -268,23 +275,37 @@ public class SceneConfiguror : MonoBehaviour
         }
 
         // Update networked hands
-        if (networkedHands != null)
+        if (!shouldOtherPlayerHandsBeActive)
         {
-            if (networkedHands.leftHandJointPositionsNetworked.Count == numBonesPerHand
-            || networkedHands.rightHandJointPositionsNetworked.Count == numBonesPerHand)
+            otherPlayerLeftHand.gameObject.SetActive(false);
+            otherPlayerRightHand.gameObject.SetActive(false);
+        }
+        else if (networkedHands == null)
+        {
+            otherPlayerLeftHand.gameObject.SetActive(false);
+            otherPlayerRightHand.gameObject.SetActive(false);
+        }
+        else if (networkedHands.leftHandJointPositionsNetworked.Count != numBonesPerHand
+             || networkedHands.rightHandJointPositionsNetworked.Count != numBonesPerHand
+             || networkedHands.leftHandJointQuaternionNetworked.Count != numBonesPerHand
+             || networkedHands.rightHandJointQuaternionNetworked.Count != numBonesPerHand)
+        {
+            otherPlayerLeftHand.gameObject.SetActive(false);
+            otherPlayerRightHand.gameObject.SetActive(false);
+        }
+        else
+        {
+            otherPlayerLeftHand.gameObject.SetActive(true);
+            otherPlayerRightHand.gameObject.SetActive(true);
+            for (int i = 0; i < numBonesPerHand; i++)
             {
-                otherPlayerLeftHand.gameObject.SetActive(true);
-                otherPlayerRightHand.gameObject.SetActive(true);
-                for (int i = 0; i < numBonesPerHand; i++)
-                {
-                    otherPlayerLeftHand.joints[i].transform.position = networkedHands.leftHandJointPositionsNetworked[i];
-                    otherPlayerRightHand.joints[i].transform.position = networkedHands.rightHandJointPositionsNetworked[i];
-                }
-            } else {
-                otherPlayerLeftHand.gameObject.SetActive(false);
-                otherPlayerRightHand.gameObject.SetActive(false);
+                otherPlayerLeftHand.joints[i].transform.position = networkedHands.leftHandJointPositionsNetworked[i];
+                otherPlayerRightHand.joints[i].transform.position = networkedHands.rightHandJointPositionsNetworked[i];
+                otherPlayerLeftHand.joints[i].transform.rotation = networkedHands.leftHandJointQuaternionNetworked[i];
+                otherPlayerRightHand.joints[i].transform.rotation = networkedHands.rightHandJointQuaternionNetworked[i];
             }
         }
+
     }
 
     public void UpdateGripMode()
@@ -299,7 +320,7 @@ public class SceneConfiguror : MonoBehaviour
                 // "Wasn't gripping, now gripping"
                 // Save the start pose of the hand (joint positions).
                 leftHandGripStartPose = new List<Vector3>(leftHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
-                // Save "relative positions" by subtracting the base position (index 0) from all other positions.
+                                                                                  // Save "relative positions" by subtracting the base position (index 0) from all other positions.
                 leftHandGripStartPose = leftHandGripStartPose.Select((pos, i) => pos - leftHandBonePositions[0]).ToList();
             }
         }

@@ -7,19 +7,30 @@ public class NetworkedHands : NetworkBehaviour
 {
     [UnitySerializeField] // Show this private property in the inspector.
     [Networked]
-    [Capacity(30)]
-    // [OnChangedRender(nameof(OnLeftHandJointsChanged))]
+    [Capacity(26)]
     public NetworkLinkedList<Vector3> leftHandJointPositionsNetworked { get; }
 
     [UnitySerializeField] // Show this private property in the inspector.
     [Networked]
-    [Capacity(30)]
+    [Capacity(26)]
     public NetworkLinkedList<Vector3> rightHandJointPositionsNetworked { get; }
+
+    [UnitySerializeField] // Show this private property in the inspector.
+    [Networked]
+    [Capacity(26)]
+    public NetworkLinkedList<Quaternion> leftHandJointQuaternionNetworked { get; }
+
+    [UnitySerializeField] // Show this private property in the inspector.
+    [Networked]
+    [Capacity(26)]
+    public NetworkLinkedList<Quaternion> rightHandJointQuaternionNetworked { get; }
 
     [Header("Local References")]
     public SceneConfiguror sceneConfiguror;
     public List<Vector3> leftHandJointPositionsSelf;
     public List<Vector3> rightHandJointPositionsSelf;
+    public List<Quaternion> leftHandJointQuaternionSelf;
+    public List<Quaternion> rightHandJointQuaternionSelf;
 
     public override void Spawned()
     {
@@ -35,6 +46,8 @@ public class NetworkedHands : NetworkBehaviour
         {
             leftHandJointPositionsNetworked.Clear();
             rightHandJointPositionsNetworked.Clear();
+            leftHandJointQuaternionNetworked.Clear();
+            rightHandJointQuaternionNetworked.Clear();
 
             // Don't send any data if we're not using hands
             if (OVRInput.GetActiveController() != OVRInput.Controller.Hands)
@@ -48,6 +61,8 @@ public class NetworkedHands : NetworkBehaviour
 
             leftHandJointPositionsSelf = sceneConfiguror.leftHandBonePositions;
             rightHandJointPositionsSelf = sceneConfiguror.rightHandBonePositions;
+            leftHandJointQuaternionSelf = sceneConfiguror.leftHandBoneQuaternions;
+            rightHandJointQuaternionSelf = sceneConfiguror.rightHandBoneQuaternions;
             foreach (Vector3 joint in leftHandJointPositionsSelf)
             {
                 leftHandJointPositionsNetworked.Add(joint);
@@ -55,6 +70,14 @@ public class NetworkedHands : NetworkBehaviour
             foreach (Vector3 joint in rightHandJointPositionsSelf)
             {
                 rightHandJointPositionsNetworked.Add(joint);
+            }
+            foreach (Quaternion joint in leftHandJointQuaternionSelf)
+            {
+                leftHandJointQuaternionNetworked.Add(joint);
+            }
+            foreach (Quaternion joint in rightHandJointQuaternionSelf)
+            {
+                rightHandJointQuaternionNetworked.Add(joint);
             }
         }
     }
