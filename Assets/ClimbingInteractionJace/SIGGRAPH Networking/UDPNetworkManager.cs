@@ -85,19 +85,6 @@ public class UDPNetworkManager : MonoBehaviour
         // {
         //     rightHandBonePositionsOther[i] += new Vector3(0, 0.1f, 0);
         // }
-
-        // Puppet the other player's hands
-        if (drawOtherPlayerHands)
-        {
-            for (int i = 0; i < leftHandBonesOther.Count; i++)
-            {
-                leftHandBonesOther[i].transform.position = leftHandBonePositionsOther[i];
-            }
-            for (int i = 0; i < rightHandBonesOther.Count; i++)
-            {
-                rightHandBonesOther[i].transform.position = rightHandBonePositionsOther[i];
-            }
-        }
     }
 
     void OnApplicationQuit()
@@ -180,6 +167,7 @@ public class UDPNetworkManager : MonoBehaviour
 
         leftHandBonePositionsOther = new List<Vector3>();
         rightHandBonePositionsOther = new List<Vector3>();
+
         for (int i = 0; i < numBonesPerHand * 3; i += 3) // 3 floats per bone
         {
             Vector3 leftHandBonePosition = new Vector3(
@@ -218,5 +206,24 @@ public class UDPNetworkManager : MonoBehaviour
             $"Left Hand: {leftHandBonePositionsOther[0]}" +
             $"Right Hand: {rightHandBonePositionsOther[0]}" +
             $"Center Eye: {centerEyePositionOther}");
+            
+        // Puppet the other player's hands
+        Debug.Log("UDPNetworkManager: Data received and decoded.");
+        Debug.Log($"{leftHandBonePositionsOther.Count} left bone positions, {leftHandBonesOther.Count} left bones");
+        Debug.Log($"{rightHandBonePositionsOther.Count} right bone positions, {rightHandBonesOther.Count} right bones");
+        if (drawOtherPlayerHands && leftHandBonePositionsOther.Count >= leftHandBonesOther.Count && rightHandBonePositionsOther.Count >= rightHandBonesOther.Count)
+        {
+            for (int i = 0; i < leftHandBonePositionsOther.Count - 1; i++)
+            {
+                leftHandBonesOther[i].transform.position = leftHandBonePositionsOther[i];
+            }
+            for (int i = 0; i < rightHandBonePositionsOther.Count - 1; i++)
+            {
+                // Debug.Log($"Accessing index {i} with {rightHandBonePositionsOther.Count} positions and {rightHandBonesOther.Count} bones.");
+                // Debug.Log(rightHandBonesOther[i].name);
+                // Debug.Log(rightHandBonePositionsOther[i]);
+                rightHandBonesOther[i].transform.position = rightHandBonePositionsOther[i];
+            }
+        }
     }
 }

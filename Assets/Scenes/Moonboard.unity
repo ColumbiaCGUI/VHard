@@ -13013,6 +13013,10 @@ PrefabInstance:
       propertyPath: sceneConfiguror
       value: 
       objectReference: {fileID: 394303256}
+    - target: {fileID: 8443047486566004653, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: drawOtherPlayerHands
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
