@@ -30,8 +30,8 @@ public class SceneConfiguror : MonoBehaviour
     public OVRSkeleton leftHandOVRSkeleton;
     public OVRSkeleton rightHandOVRSkeleton;
     public NetworkedHands networkedHands;
-    public GameObject otherPlayerLeftHand;
-    public GameObject otherPlayerRightHand;
+    public AvatarHand otherPlayerLeftHand;
+    public AvatarHand otherPlayerRightHand;
 
     [Header("Hands State")]
     public int numBonesPerHand;
@@ -270,7 +270,11 @@ public class SceneConfiguror : MonoBehaviour
         // Update networked hands
         if (networkedHands != null)
         {
-            
+            for (int i = 0; i < numBonesPerHand; i++)
+            {
+                otherPlayerLeftHand.joints[i].transform.position = networkedHands.leftHandJointPositionsNetworked[i];
+                otherPlayerRightHand.joints[i].transform.position = networkedHands.rightHandJointPositionsNetworked[i];
+            }
         }
     }
 
