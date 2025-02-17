@@ -10,6 +10,10 @@ public class NetworkedHands : NetworkBehaviour
     [Capacity(30)]
     // [OnChangedRender(nameof(OnLeftHandJointsChanged))]
     public NetworkLinkedList<Vector3> leftHandJointPositionsNetworked { get; }
+
+    [UnitySerializeField] // Show this private property in the inspector.
+    [Networked]
+    [Capacity(30)]
     public NetworkLinkedList<Vector3> rightHandJointPositionsNetworked { get; }
 
     [Header("Local References")]
