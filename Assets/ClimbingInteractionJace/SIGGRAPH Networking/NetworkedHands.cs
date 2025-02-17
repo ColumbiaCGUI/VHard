@@ -36,7 +36,23 @@ public class NetworkedHands : NetworkBehaviour
     {
         Debug.Log("NetworkedHands: Spawned called.");
         sceneConfiguror = FindAnyObjectByType<SceneConfiguror>();
+
+        // Only the remote player should render networkedHands.
+        if (!HasStateAuthority)
+        {
         sceneConfiguror.networkedHands = this;
+        }
+    }
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        if (sceneConfiguror != null)
+        {
+            if (sceneConfiguror.networkedHands == this)
+            {
+                sceneConfiguror.networkedHands = null;
+            }
+        }
     }
 
     public override void FixedUpdateNetwork()
