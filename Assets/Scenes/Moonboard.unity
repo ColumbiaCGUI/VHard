@@ -6997,6 +6997,9 @@ MonoBehaviour:
   centerEyeAnchor: {fileID: 1079894977}
   leftHandOVRSkeleton: {fileID: 2081368201}
   rightHandOVRSkeleton: {fileID: 195688215}
+  networkedHands: {fileID: 0}
+  otherPlayerLeftHand: {fileID: 603658505}
+  otherPlayerRightHand: {fileID: 1824818268}
   numBonesPerHand: 0
   centerEyePosition: {x: 0, y: 0, z: 0}
   leftHandBonePositions: []
@@ -30303,8 +30306,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   otherPlayerPrefab: {fileID: 1525274385310535886, guid: 210cc277e7176ff4795c184f7fe7e3f8, type: 3}
-  otherPlayerLeftHand: {fileID: 603658505}
-  otherPlayerRightHand: {fileID: 1824818268}
 --- !u!1 &2144736564
 GameObject:
   m_ObjectHideFlags: 0

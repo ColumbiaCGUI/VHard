@@ -29,6 +29,9 @@ public class SceneConfiguror : MonoBehaviour
     public GameObject centerEyeAnchor;
     public OVRSkeleton leftHandOVRSkeleton;
     public OVRSkeleton rightHandOVRSkeleton;
+    public NetworkedHands networkedHands;
+    public GameObject otherPlayerLeftHand;
+    public GameObject otherPlayerRightHand;
 
     [Header("Hands State")]
     public int numBonesPerHand;
@@ -262,6 +265,12 @@ public class SceneConfiguror : MonoBehaviour
         if (gameMode == GameMode.Grip)
         {
             UpdateGripMode();
+        }
+
+        // Update networked hands
+        if (networkedHands != null)
+        {
+            
         }
     }
 

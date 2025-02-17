@@ -20,13 +20,12 @@ public class NetworkedHands : NetworkBehaviour
     public SceneConfiguror sceneConfiguror;
     public List<Vector3> leftHandJointPositionsSelf;
     public List<Vector3> rightHandJointPositionsSelf;
-    public GameObject leftHandOther;
-    public GameObject rightHandOther;
 
     public override void Spawned()
     {
         Debug.Log("NetworkedHands: Spawned called.");
         sceneConfiguror = FindAnyObjectByType<SceneConfiguror>();
+        sceneConfiguror.networkedHands = this;
     }
 
     public override void FixedUpdateNetwork()
