@@ -7059,12 +7059,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5277d625dcf91984a816732c89a04546, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  environment: {fileID: 359739251}
   holdsParentGameObject: {fileID: 5525280435182380628}
   activeRouteHoldsNamesList: []
   activeHoldsList: []
   centerEyeAnchor: {fileID: 1079894977}
   leftHandOVRSkeleton: {fileID: 2081368201}
   rightHandOVRSkeleton: {fileID: 195688215}
+  shouldOtherPlayerHandsBeActive: 0
   networkedHands: {fileID: 0}
   otherPlayerLeftHand: {fileID: 272519340}
   otherPlayerRightHand: {fileID: 941850939}
@@ -7072,6 +7074,8 @@ MonoBehaviour:
   centerEyePosition: {x: 0, y: 0, z: 0}
   leftHandBonePositions: []
   rightHandBonePositions: []
+  leftHandBoneQuaternions: []
+  rightHandBoneQuaternions: []
   gameMode: 1
   interactionColorMaxDistanceOverride: 0.02
   disableInactiveHolds: 0

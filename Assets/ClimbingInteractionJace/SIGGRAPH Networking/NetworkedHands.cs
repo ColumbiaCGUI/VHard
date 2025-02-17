@@ -27,6 +27,7 @@ public class NetworkedHands : NetworkBehaviour
 
     [Header("Local References")]
     public SceneConfiguror sceneConfiguror;
+    public GameObject environment;
     public List<Vector3> leftHandJointPositionsSelf;
     public List<Vector3> rightHandJointPositionsSelf;
     public List<Quaternion> leftHandJointQuaternionSelf;
@@ -36,11 +37,12 @@ public class NetworkedHands : NetworkBehaviour
     {
         Debug.Log("NetworkedHands: Spawned called.");
         sceneConfiguror = FindAnyObjectByType<SceneConfiguror>();
+        environment = sceneConfiguror.environment;
 
         // Only the remote player should render networkedHands.
         if (!HasStateAuthority)
         {
-        sceneConfiguror.networkedHands = this;
+            sceneConfiguror.networkedHands = this;
         }
     }
 
@@ -81,11 +83,11 @@ public class NetworkedHands : NetworkBehaviour
             rightHandJointQuaternionSelf = sceneConfiguror.rightHandBoneQuaternions;
             foreach (Vector3 joint in leftHandJointPositionsSelf)
             {
-                leftHandJointPositionsNetworked.Add(joint);
+                leftHandJointPositionsNetworked.Add(joint - environment.transform.position);
             }
             foreach (Vector3 joint in rightHandJointPositionsSelf)
             {
-                rightHandJointPositionsNetworked.Add(joint);
+                rightHandJointPositionsNetworked.Add(joint - environment.transform.position);
             }
             foreach (Quaternion joint in leftHandJointQuaternionSelf)
             {

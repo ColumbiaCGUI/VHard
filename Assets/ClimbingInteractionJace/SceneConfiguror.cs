@@ -20,6 +20,7 @@ public enum GameMode
 public class SceneConfiguror : MonoBehaviour
 {
     [Header("Scene References")]
+    public GameObject environment;
     public GameObject holdsParentGameObject;
     public Dictionary<string, GameObject> holdsDictionary;
     public List<string> activeRouteHoldsNamesList;
@@ -299,8 +300,8 @@ public class SceneConfiguror : MonoBehaviour
             otherPlayerRightHand.gameObject.SetActive(true);
             for (int i = 0; i < numBonesPerHand; i++)
             {
-                otherPlayerLeftHand.joints[i].transform.position = networkedHands.leftHandJointPositionsNetworked[i];
-                otherPlayerRightHand.joints[i].transform.position = networkedHands.rightHandJointPositionsNetworked[i];
+                otherPlayerLeftHand.joints[i].transform.position = networkedHands.leftHandJointPositionsNetworked[i] + environment.transform.position;
+                otherPlayerRightHand.joints[i].transform.position = networkedHands.rightHandJointPositionsNetworked[i] + environment.transform.position;
                 otherPlayerLeftHand.joints[i].transform.rotation = networkedHands.leftHandJointQuaternionNetworked[i];
                 otherPlayerRightHand.joints[i].transform.rotation = networkedHands.rightHandJointQuaternionNetworked[i];
             }
