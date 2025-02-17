@@ -10,6 +10,9 @@ public class UDPNetworkManager : MonoBehaviour
     public UdpClient udpClient;
     public int udpPort = 12345;
 
+    [Header("UDP Networking State")]
+    public bool isBroadcasting = false;
+
     [Header("Scene References")]
     public GameObject environment;
     public SceneConfiguror sceneConfiguror;
@@ -51,11 +54,13 @@ public class UDPNetworkManager : MonoBehaviour
         if (OVRInput.GetActiveController() != OVRInput.Controller.Hands)
         {
             // Debug.Log("UDPNetworkManager: Not sending data because we're not using hands!");
+            isBroadcasting = false;
             return;
         }
         if (!OVRInput.IsControllerConnected(OVRInput.Controller.LHand) || !OVRInput.IsControllerConnected(OVRInput.Controller.RHand))
         {
             // Debug.Log("UDPNetworkManager: Not sending data because one or both hands are not connected!");
+            isBroadcasting = false;
             return;
         }
         leftHandBonePositionsSelf = new List<Vector3>(sceneConfiguror.leftHandBonePositions);
@@ -63,21 +68,36 @@ public class UDPNetworkManager : MonoBehaviour
         if (leftHandBonePositionsSelf.Count == 0 || rightHandBonePositionsSelf.Count == 0)
         {
             // Debug.Log("UDPNetworkManager: Not sending data because we don't have hand bone positions!");
+            isBroadcasting = false;
             return;
         }
+        isBroadcasting = true;
         SendData(centerEyePosition, new List<Vector3>(leftHandBonePositionsSelf), new List<Vector3>(rightHandBonePositionsSelf));
 
         // DEV: Offset own hands slightly for now to work on shader
-        // leftHandBonePositionsOther = leftHandBonePositionsSelf;
+        // leftHandBonePositionsOther = new List<Vector3>(leftHandBonePositionsSelf);
         // for (int i = 0; i < leftHandBonePositionsOther.Count; i++)
         // {
         //     leftHandBonePositionsOther[i] += new Vector3(0, 0.1f, 0);
         // }
-        // rightHandBonePositionsOther = rightHandBonePositionsSelf;
+        // rightHandBonePositionsOther = new List<Vector3>(rightHandBonePositionsSelf);
         // for (int i = 0; i < rightHandBonePositionsOther.Count; i++)
         // {
         //     rightHandBonePositionsOther[i] += new Vector3(0, 0.1f, 0);
         // }
+
+        // Puppet the other player's hands
+        if (drawOtherPlayerHands)
+        {
+            for (int i = 0; i < leftHandBonesOther.Count; i++)
+            {
+                leftHandBonesOther[i].transform.position = leftHandBonePositionsOther[i];
+            }
+            for (int i = 0; i < rightHandBonesOther.Count; i++)
+            {
+                rightHandBonesOther[i].transform.position = rightHandBonePositionsOther[i];
+            }
+        }
     }
 
     void OnApplicationQuit()

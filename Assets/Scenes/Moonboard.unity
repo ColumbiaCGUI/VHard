@@ -2453,66 +2453,6 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.0022
   m_Center: {x: -0.005950986, y: 0.005718121, z: 0.04660157}
---- !u!1 &198539542
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 198539543}
-  - component: {fileID: 198539544}
-  m_Layer: 0
-  m_Name: SIGGRAPH UDPNetworkManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &198539543
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 198539542}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1930824380}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &198539544
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 198539542}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f48ce2f486267f84d92a7d58906171f8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  udpPort: 12345
-  environment: {fileID: 359739251}
-  sceneConfiguror: {fileID: 394303256}
-  centerEyePosition: {x: 0, y: 0, z: 0}
-  leftHandBonePositionsSelf: []
-  rightHandBonePositionsSelf: []
-  centerEyePositionOther: {x: 0, y: 0, z: 0}
-  leftHandBonePositionsOther: []
-  rightHandBonePositionsOther: []
-  drawOtherPlayerHead: 0
-  headOther: {fileID: 0}
-  drawOtherPlayerHands: 0
-  leftHandRootOther: {fileID: 0}
-  rightHandRootOther: {fileID: 0}
-  leftHandBonesOther: []
-  rightHandBonesOther: []
 --- !u!1 &206009740
 GameObject:
   m_ObjectHideFlags: 0
@@ -13001,6 +12941,88 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4453513310108136, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
   m_PrefabInstance: {fileID: 1105068523}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1109232496
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1930824380}
+    m_Modifications:
+    - target: {fileID: 2113564904521407062, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_Name
+      value: SIGGRAPH UDPNetworkManager
+      objectReference: {fileID: 0}
+    - target: {fileID: 2113564904521407062, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4911932849306056900, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7805020245798494535, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8443047486566004653, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: environment
+      value: 
+      objectReference: {fileID: 359739251}
+    - target: {fileID: 8443047486566004653, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+      propertyPath: sceneConfiguror
+      value: 
+      objectReference: {fileID: 394303256}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+--- !u!4 &1109232497 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 5409565433682828113, guid: 8994262876736d944a3bf05581e8b24e, type: 3}
+  m_PrefabInstance: {fileID: 1109232496}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1176255785
 GameObject:
   m_ObjectHideFlags: 0
@@ -19683,7 +19705,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 394303255}
-  - {fileID: 198539543}
+  - {fileID: 1109232497}
   - {fileID: 821021393}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
