@@ -132,7 +132,7 @@ GameObject:
   - component: {fileID: 8086477}
   - component: {fileID: 8086476}
   - component: {fileID: 8086480}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -524,7 +524,7 @@ GameObject:
   - component: {fileID: 11139418}
   - component: {fileID: 11139417}
   - component: {fileID: 11139421}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H9
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -783,7 +783,7 @@ GameObject:
   - component: {fileID: 26401921}
   - component: {fileID: 26401920}
   - component: {fileID: 26401924}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E9
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -1042,7 +1042,7 @@ GameObject:
   - component: {fileID: 32297384}
   - component: {fileID: 32297383}
   - component: {fileID: 32297387}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -1301,7 +1301,7 @@ GameObject:
   - component: {fileID: 51543184}
   - component: {fileID: 51543183}
   - component: {fileID: 51543182}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C13
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -1687,7 +1687,7 @@ GameObject:
   - component: {fileID: 98480174}
   - component: {fileID: 98480173}
   - component: {fileID: 98480177}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A4
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -2175,7 +2175,7 @@ GameObject:
   - component: {fileID: 116470107}
   - component: {fileID: 116470106}
   - component: {fileID: 116470110}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B5
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -2592,7 +2592,7 @@ GameObject:
   - component: {fileID: 187447526}
   - component: {fileID: 187447525}
   - component: {fileID: 187447529}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A3
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -2851,7 +2851,7 @@ GameObject:
   - component: {fileID: 236204887}
   - component: {fileID: 236204886}
   - component: {fileID: 236204890}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -3110,7 +3110,7 @@ GameObject:
   - component: {fileID: 248710987}
   - component: {fileID: 248710986}
   - component: {fileID: 248710990}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -3472,7 +3472,7 @@ GameObject:
   - component: {fileID: 300577477}
   - component: {fileID: 300577476}
   - component: {fileID: 300577480}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -3731,7 +3731,7 @@ GameObject:
   - component: {fileID: 313758392}
   - component: {fileID: 313758391}
   - component: {fileID: 313758395}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -3990,7 +3990,7 @@ GameObject:
   - component: {fileID: 339364878}
   - component: {fileID: 339364877}
   - component: {fileID: 339364881}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -4249,7 +4249,7 @@ GameObject:
   - component: {fileID: 359336706}
   - component: {fileID: 359336705}
   - component: {fileID: 359336709}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B3
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -4541,7 +4541,7 @@ GameObject:
   - component: {fileID: 387239463}
   - component: {fileID: 387239462}
   - component: {fileID: 387239466}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J18
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -4863,7 +4863,7 @@ GameObject:
   - component: {fileID: 404136447}
   - component: {fileID: 404136449}
   - component: {fileID: 404136448}
-  m_Layer: 5
+  m_Layer: 3
   m_Name: Text (TMP)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5002,7 +5002,7 @@ GameObject:
   - component: {fileID: 461960844}
   - component: {fileID: 461960843}
   - component: {fileID: 461960847}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A17
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -5351,7 +5351,7 @@ GameObject:
   - component: {fileID: 503345141}
   - component: {fileID: 503345140}
   - component: {fileID: 503345144}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C17
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -5610,7 +5610,7 @@ GameObject:
   - component: {fileID: 515055220}
   - component: {fileID: 515055219}
   - component: {fileID: 515055223}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E3
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -5990,7 +5990,7 @@ GameObject:
   - component: {fileID: 531463338}
   - component: {fileID: 531463337}
   - component: {fileID: 531463341}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H17
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -6370,7 +6370,7 @@ GameObject:
   - component: {fileID: 564483710}
   - component: {fileID: 564483709}
   - component: {fileID: 564483708}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B17
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -6629,7 +6629,7 @@ GameObject:
   - component: {fileID: 571975567}
   - component: {fileID: 571975566}
   - component: {fileID: 571975570}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -7006,7 +7006,7 @@ GameObject:
   - component: {fileID: 613505001}
   - component: {fileID: 613505000}
   - component: {fileID: 613505004}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G16
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -7265,7 +7265,7 @@ GameObject:
   - component: {fileID: 621444240}
   - component: {fileID: 621444239}
   - component: {fileID: 621444243}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C3
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -7524,7 +7524,7 @@ GameObject:
   - component: {fileID: 640962893}
   - component: {fileID: 640962892}
   - component: {fileID: 640962896}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A16
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -7873,7 +7873,7 @@ GameObject:
   - component: {fileID: 668515170}
   - component: {fileID: 668515169}
   - component: {fileID: 668515173}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E4
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -8130,7 +8130,7 @@ GameObject:
   - component: {fileID: 669109995}
   - component: {fileID: 669109994}
   - component: {fileID: 669109993}
-  m_Layer: 5
+  m_Layer: 3
   m_Name: Button
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8524,7 +8524,7 @@ GameObject:
   - component: {fileID: 699018474}
   - component: {fileID: 699018473}
   - component: {fileID: 699018477}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -8787,7 +8787,7 @@ GameObject:
   - component: {fileID: 751728163}
   - component: {fileID: 751728162}
   - component: {fileID: 751728161}
-  m_Layer: 5
+  m_Layer: 3
   m_Name: Canvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8910,7 +8910,7 @@ GameObject:
   - component: {fileID: 775154155}
   - component: {fileID: 775154154}
   - component: {fileID: 775154158}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I17
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -9169,7 +9169,7 @@ GameObject:
   - component: {fileID: 816500766}
   - component: {fileID: 816500765}
   - component: {fileID: 816500769}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -9564,7 +9564,7 @@ GameObject:
   - component: {fileID: 825594311}
   - component: {fileID: 825594310}
   - component: {fileID: 825594314}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -9820,7 +9820,8 @@ GameObject:
   - component: {fileID: 829099217}
   - component: {fileID: 829099219}
   - component: {fileID: 829099218}
-  m_Layer: 0
+  - component: {fileID: 829099220}
+  m_Layer: 5
   m_Name: RawImage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9881,6 +9882,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 829099216}
   m_CullTransparentMesh: 1
+--- !u!114 &829099220
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 829099216}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa00cd4e8b70a42c282abd52413ef9cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  minimapCamera: {fileID: 1018808079}
+  mainCamera: {fileID: 648463501}
+  climbingWall: {fileID: 6733757867262858513}
 --- !u!1 &860837221
 GameObject:
   m_ObjectHideFlags: 0
@@ -9895,7 +9911,7 @@ GameObject:
   - component: {fileID: 860837224}
   - component: {fileID: 860837223}
   - component: {fileID: 860837227}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K8
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -10154,7 +10170,7 @@ GameObject:
   - component: {fileID: 871786438}
   - component: {fileID: 871786437}
   - component: {fileID: 871786436}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K17
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -10412,7 +10428,7 @@ GameObject:
   - component: {fileID: 876447210}
   - component: {fileID: 876447209}
   - component: {fileID: 876447208}
-  m_Layer: 5
+  m_Layer: 3
   m_Name: Canvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10837,7 +10853,7 @@ GameObject:
   - component: {fileID: 934190508}
   - component: {fileID: 934190507}
   - component: {fileID: 934190511}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B6
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -11395,7 +11411,7 @@ GameObject:
   - component: {fileID: 976817299}
   - component: {fileID: 976817298}
   - component: {fileID: 976817302}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G3
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -11788,7 +11804,7 @@ GameObject:
   - component: {fileID: 1018808079}
   - component: {fileID: 1018808078}
   m_Layer: 0
-  m_Name: Minimap Camera
+  m_Name: minimap camera
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -11880,19 +11896,19 @@ Camera:
   m_LensShift: {x: 0, y: 0}
   m_NormalizedViewPortRect:
     serializedVersion: 2
-    x: 0.5
+    x: 0
     y: 0
-    width: 0.5
-    height: 0.8
+    width: 1
+    height: 1
   near clip plane: 0.01
   far clip plane: 1.5
   field of view: 107.4
-  orthographic: 0
-  orthographic size: 5
+  orthographic: 1
+  orthographic size: 2
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 8
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 8400000, guid: 6be3020aefdd34065b6236ace0b803ac, type: 2}
   m_TargetDisplay: 0
@@ -11918,7 +11934,7 @@ GameObject:
   - component: {fileID: 1031182600}
   - component: {fileID: 1031182599}
   - component: {fileID: 1031182603}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -12177,7 +12193,7 @@ GameObject:
   - component: {fileID: 1034038539}
   - component: {fileID: 1034038538}
   - component: {fileID: 1034038542}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A18
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -12436,7 +12452,7 @@ GameObject:
   - component: {fileID: 1035773247}
   - component: {fileID: 1035773246}
   - component: {fileID: 1035773250}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -12695,7 +12711,7 @@ GameObject:
   - component: {fileID: 1040372772}
   - component: {fileID: 1040372771}
   - component: {fileID: 1040372775}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -12954,7 +12970,7 @@ GameObject:
   - component: {fileID: 1059408585}
   - component: {fileID: 1059408584}
   - component: {fileID: 1059408588}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D5
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -13603,7 +13619,7 @@ GameObject:
   - component: {fileID: 1176271674}
   - component: {fileID: 1176271673}
   - component: {fileID: 1176271677}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D17
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -13862,7 +13878,7 @@ GameObject:
   - component: {fileID: 1185564743}
   - component: {fileID: 1185564742}
   - component: {fileID: 1185564746}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C18
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -14121,7 +14137,7 @@ GameObject:
   - component: {fileID: 1203603262}
   - component: {fileID: 1203603261}
   - component: {fileID: 1203603265}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G4
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -14802,7 +14818,7 @@ GameObject:
   - component: {fileID: 1268845019}
   - component: {fileID: 1268845018}
   - component: {fileID: 1268845022}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I18
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -15227,7 +15243,7 @@ GameObject:
   - component: {fileID: 1339171601}
   - component: {fileID: 1339171600}
   - component: {fileID: 1339171604}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K18
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -15486,7 +15502,7 @@ GameObject:
   - component: {fileID: 1369358517}
   - component: {fileID: 1369358516}
   - component: {fileID: 1369358520}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B4
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -16133,7 +16149,7 @@ GameObject:
   - component: {fileID: 1457332138}
   - component: {fileID: 1457332137}
   - component: {fileID: 1457332141}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -16460,7 +16476,7 @@ GameObject:
   - component: {fileID: 1483945101}
   - component: {fileID: 1483945100}
   - component: {fileID: 1483945104}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K3
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -16855,7 +16871,7 @@ GameObject:
   - component: {fileID: 1499456635}
   - component: {fileID: 1499456634}
   - component: {fileID: 1499456633}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K11
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -17112,7 +17128,7 @@ GameObject:
   - component: {fileID: 1511088871}
   - component: {fileID: 1511088870}
   - component: {fileID: 1511088869}
-  m_Layer: 5
+  m_Layer: 3
   m_Name: Button
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17506,7 +17522,7 @@ GameObject:
   - component: {fileID: 1525517118}
   - component: {fileID: 1525517117}
   - component: {fileID: 1525517121}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C4
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -18605,7 +18621,7 @@ GameObject:
   - component: {fileID: 1574075627}
   - component: {fileID: 1574075626}
   - component: {fileID: 1574075630}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -18864,7 +18880,7 @@ GameObject:
   - component: {fileID: 1612568756}
   - component: {fileID: 1612568755}
   - component: {fileID: 1612568759}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G18
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -19123,7 +19139,7 @@ GameObject:
   - component: {fileID: 1665379543}
   - component: {fileID: 1665379542}
   - component: {fileID: 1665379546}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I3
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -19382,7 +19398,7 @@ GameObject:
   - component: {fileID: 1668502723}
   - component: {fileID: 1668502722}
   - component: {fileID: 1668502726}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B12
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -19782,7 +19798,7 @@ GameObject:
   - component: {fileID: 1686314231}
   - component: {fileID: 1686314230}
   - component: {fileID: 1686314234}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B18
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -20041,7 +20057,7 @@ GameObject:
   - component: {fileID: 1705570983}
   - component: {fileID: 1705570982}
   - component: {fileID: 1705570986}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -20297,7 +20313,7 @@ GameObject:
   - component: {fileID: 1713690127}
   - component: {fileID: 1713690129}
   - component: {fileID: 1713690128}
-  m_Layer: 5
+  m_Layer: 3
   m_Name: Text (TMP)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20797,7 +20813,7 @@ GameObject:
   - component: {fileID: 1834912492}
   - component: {fileID: 1834912491}
   - component: {fileID: 1834912495}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D18
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -21320,7 +21336,7 @@ GameObject:
   - component: {fileID: 1893626012}
   - component: {fileID: 1893626011}
   - component: {fileID: 1893626015}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F4
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -21584,7 +21600,7 @@ GameObject:
   - component: {fileID: 1910541058}
   - component: {fileID: 1910541057}
   - component: {fileID: 1910541061}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -22174,7 +22190,7 @@ GameObject:
   - component: {fileID: 1944086235}
   - component: {fileID: 1944086234}
   - component: {fileID: 1944086238}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E8
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -22433,7 +22449,7 @@ GameObject:
   - component: {fileID: 1966088547}
   - component: {fileID: 1966088546}
   - component: {fileID: 1966088550}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I4
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -22909,7 +22925,7 @@ GameObject:
   - component: {fileID: 2007388911}
   - component: {fileID: 2007388910}
   - component: {fileID: 2007388914}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D3
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -23168,7 +23184,7 @@ GameObject:
   - component: {fileID: 2013433208}
   - component: {fileID: 2013433207}
   - component: {fileID: 2013433211}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -23427,7 +23443,7 @@ GameObject:
   - component: {fileID: 2057044573}
   - component: {fileID: 2057044572}
   - component: {fileID: 2057044576}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H2
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -23822,7 +23838,7 @@ GameObject:
   - component: {fileID: 2105689504}
   - component: {fileID: 2105689503}
   - component: {fileID: 2105689507}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -24081,7 +24097,7 @@ GameObject:
   - component: {fileID: 2135464015}
   - component: {fileID: 2135464014}
   - component: {fileID: 2135464018}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D1
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -24340,7 +24356,7 @@ GameObject:
   - component: {fileID: 2144736567}
   - component: {fileID: 2144736566}
   - component: {fileID: 2144736570}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F3
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -24727,7 +24743,7 @@ GameObject:
   - component: {fileID: 6317453954957614590}
   - component: {fileID: 6317453954957614589}
   - component: {fileID: 6317453954957614591}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -24914,7 +24930,7 @@ GameObject:
   - component: {fileID: 6995908987109909526}
   - component: {fileID: 6995908987109909525}
   - component: {fileID: 6995908987109909527}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -24958,7 +24974,7 @@ GameObject:
   - component: {fileID: 5398096201609318297}
   - component: {fileID: 5398096201609318296}
   - component: {fileID: 5398096201609318298}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D4.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25054,7 +25070,7 @@ GameObject:
   - component: {fileID: 9126477968310832517}
   - component: {fileID: 9126477968310832516}
   - component: {fileID: 9126477968310832518}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F9.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25137,7 +25153,7 @@ GameObject:
   - component: {fileID: 8099118729432282443}
   - component: {fileID: 8099118729432282445}
   - component: {fileID: 8099118729432282446}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25287,7 +25303,7 @@ GameObject:
   - component: {fileID: 8315881655904778182}
   - component: {fileID: 8315881655904778181}
   - component: {fileID: 8315881655904778183}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25353,7 +25369,7 @@ GameObject:
   - component: {fileID: 7568989384549468181}
   - component: {fileID: 7568989384549468180}
   - component: {fileID: 7568989384549468182}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D9.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25434,7 +25450,7 @@ GameObject:
   - component: {fileID: 3590710701271996680}
   - component: {fileID: 3590710701271996679}
   - component: {fileID: 3590710701271996681}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C5.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25561,7 +25577,7 @@ GameObject:
   - component: {fileID: 8468492209648164893}
   - component: {fileID: 8468492209648164892}
   - component: {fileID: 8468492209648164894}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25741,7 +25757,7 @@ GameObject:
   - component: {fileID: 9140271168467428565}
   - component: {fileID: 9140271168467428564}
   - component: {fileID: 9140271168467428566}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25761,7 +25777,7 @@ GameObject:
   - component: {fileID: 7097519898819136007}
   - component: {fileID: 4870494880056049742}
   - component: {fileID: 8329521757757385099}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Floor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -25948,7 +25964,7 @@ GameObject:
   - component: {fileID: 8624009003566358467}
   - component: {fileID: 8624009003566358466}
   - component: {fileID: 8624009003566358468}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K5.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25969,7 +25985,7 @@ GameObject:
   - component: {fileID: 3729656162010299292}
   - component: {fileID: 3729656162010299291}
   - component: {fileID: 3729656162010299293}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -25990,7 +26006,7 @@ GameObject:
   - component: {fileID: 5949640125268385957}
   - component: {fileID: 5949640125268385956}
   - component: {fileID: 5949640125268385958}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A8.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -26056,7 +26072,7 @@ GameObject:
   - component: {fileID: 6899020741663797858}
   - component: {fileID: 6899020741663797857}
   - component: {fileID: 6899020741663797859}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I9.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -26130,7 +26146,7 @@ GameObject:
   - component: {fileID: 8179281819583616176}
   - component: {fileID: 8179281819583616175}
   - component: {fileID: 8179281819583616177}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E18.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -26693,7 +26709,7 @@ GameObject:
   - component: {fileID: 5879139913605058745}
   - component: {fileID: 5879139913605058744}
   - component: {fileID: 5879139913605058746}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F8.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -26737,7 +26753,7 @@ GameObject:
   - component: {fileID: 5911705691668594675}
   - component: {fileID: 5911705691668594674}
   - component: {fileID: 5911705691668594676}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A9.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -26758,7 +26774,7 @@ GameObject:
   - component: {fileID: 8127286546393111514}
   - component: {fileID: 8127286546393111513}
   - component: {fileID: 8127286546393111515}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -26794,7 +26810,7 @@ GameObject:
   - component: {fileID: 7912601720847842086}
   - component: {fileID: 7912601720847842085}
   - component: {fileID: 7912601720847842087}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -26966,7 +26982,7 @@ GameObject:
   - component: {fileID: 8581520029495267384}
   - component: {fileID: 8581520029495267383}
   - component: {fileID: 8581520029495267385}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -26987,7 +27003,7 @@ GameObject:
   - component: {fileID: 8026658927841176047}
   - component: {fileID: 8026658927841176046}
   - component: {fileID: 8026658927841176048}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -27212,7 +27228,7 @@ GameObject:
   - component: {fileID: 7623438787675208134}
   - component: {fileID: 7623438787675208133}
   - component: {fileID: 7623438787675208135}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -27334,7 +27350,7 @@ GameObject:
   - component: {fileID: 3714916323273904961}
   - component: {fileID: 3714916323273904960}
   - component: {fileID: 3714916323273904962}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I16.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -27432,7 +27448,7 @@ GameObject:
   - component: {fileID: 8660247644473790221}
   - component: {fileID: 8660247644473790223}
   - component: {fileID: 8660247644473790226}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -27514,7 +27530,7 @@ GameObject:
   - component: {fileID: 8462840485263220304}
   - component: {fileID: 8462840485263220303}
   - component: {fileID: 8462840485263220305}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G17.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -27745,7 +27761,7 @@ GameObject:
   - component: {fileID: 8498856318515254764}
   - component: {fileID: 8498856318515254763}
   - component: {fileID: 8498856318515254765}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -27766,7 +27782,7 @@ GameObject:
   - component: {fileID: 8502200736886217312}
   - component: {fileID: 8502200736886217311}
   - component: {fileID: 8502200736886217313}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -27787,7 +27803,7 @@ GameObject:
   - component: {fileID: 2102710528274350734}
   - component: {fileID: 2102710528274350733}
   - component: {fileID: 2102710528274350735}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -28038,7 +28054,7 @@ GameObject:
   - component: {fileID: 8904532184665531612}
   - component: {fileID: 8904532184665531611}
   - component: {fileID: 8904532184665531613}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -28391,7 +28407,7 @@ GameObject:
   - component: {fileID: 8652328433085081034}
   - component: {fileID: 8652328433085081033}
   - component: {fileID: 8652328433085081035}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H18.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -28435,7 +28451,7 @@ GameObject:
   - component: {fileID: 6257432049276512880}
   - component: {fileID: 6257432049276512879}
   - component: {fileID: 6257432049276512881}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -28501,7 +28517,7 @@ GameObject:
   - component: {fileID: 9097955334173423861}
   - component: {fileID: 9097955334173423860}
   - component: {fileID: 9097955334173423862}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -28522,7 +28538,7 @@ GameObject:
   - component: {fileID: 3980828726668663146}
   - component: {fileID: 3980828726668663145}
   - component: {fileID: 3980828726668663147}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -28543,7 +28559,7 @@ GameObject:
   - component: {fileID: 7942512286333981055}
   - component: {fileID: 7942512286333981054}
   - component: {fileID: 7942512286333981056}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -28572,7 +28588,7 @@ GameObject:
   - component: {fileID: 7421309233267660990}
   - component: {fileID: 7421309233267660989}
   - component: {fileID: 7421309233267660991}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -28804,7 +28820,7 @@ GameObject:
   - component: {fileID: 7192340586635073128}
   - component: {fileID: 7192340586635073127}
   - component: {fileID: 7192340586635073129}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -28984,7 +29000,7 @@ GameObject:
   - component: {fileID: 3648983441095866297}
   - component: {fileID: 3648983441095866296}
   - component: {fileID: 3648983441095866298}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F16.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29058,7 +29074,7 @@ GameObject:
   - component: {fileID: 5924311952346136435}
   - component: {fileID: 5924311952346136434}
   - component: {fileID: 5924311952346136436}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29095,7 +29111,7 @@ GameObject:
   - component: {fileID: 7394407174597403036}
   - component: {fileID: 7394407174597403035}
   - component: {fileID: 7394407174597403037}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29116,7 +29132,7 @@ GameObject:
   - component: {fileID: 6706194245382182026}
   - component: {fileID: 6706194245382182025}
   - component: {fileID: 6706194245382182027}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29137,7 +29153,7 @@ GameObject:
   - component: {fileID: 8140437022577372763}
   - component: {fileID: 8140437022577372762}
   - component: {fileID: 8140437022577372764}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29324,7 +29340,7 @@ GameObject:
   - component: {fileID: 8926160099536666681}
   - component: {fileID: 8926160099536666680}
   - component: {fileID: 8926160099536666682}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E17.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29353,7 +29369,7 @@ GameObject:
   - component: {fileID: 4805491316084307823}
   - component: {fileID: 4805491316084307822}
   - component: {fileID: 4805491316084307824}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29409,7 +29425,7 @@ GameObject:
   - component: {fileID: 9072881678642903591}
   - component: {fileID: 9072881678642903590}
   - component: {fileID: 9072881678642903592}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29476,7 +29492,7 @@ GameObject:
   - component: {fileID: 7684628965224011075}
   - component: {fileID: 7684628965224011074}
   - component: {fileID: 7684628965224011076}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29542,7 +29558,7 @@ GameObject:
   - component: {fileID: 6886964951178336371}
   - component: {fileID: 6886964951178336370}
   - component: {fileID: 6886964951178336372}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29586,7 +29602,7 @@ GameObject:
   - component: {fileID: 4211329191228679004}
   - component: {fileID: 4211329191228679003}
   - component: {fileID: 4211329191228679005}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H5.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29892,7 +29908,7 @@ GameObject:
   - component: {fileID: 7705143765917879222}
   - component: {fileID: 7705143765917879221}
   - component: {fileID: 7705143765917879223}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29913,7 +29929,7 @@ GameObject:
   - component: {fileID: 6439781895261784068}
   - component: {fileID: 6439781895261784067}
   - component: {fileID: 6439781895261784069}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29934,7 +29950,7 @@ GameObject:
   - component: {fileID: 5798148354840549672}
   - component: {fileID: 5798148354840549671}
   - component: {fileID: 5798148354840549673}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -29985,7 +30001,7 @@ GameObject:
   - component: {fileID: 8708300624292683984}
   - component: {fileID: 8708300624292683983}
   - component: {fileID: 8708300624292683985}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D16.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -30104,7 +30120,7 @@ GameObject:
   - component: {fileID: 6238410275253046385}
   - component: {fileID: 6238410275253046384}
   - component: {fileID: 6238410275253046386}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A5.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -30186,7 +30202,7 @@ GameObject:
   - component: {fileID: 9171011942235031315}
   - component: {fileID: 9171011942235031314}
   - component: {fileID: 9171011942235031316}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -30207,7 +30223,7 @@ GameObject:
   - component: {fileID: 8618823977831100676}
   - component: {fileID: 8618823977831100675}
   - component: {fileID: 8618823977831100677}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -30228,7 +30244,7 @@ GameObject:
   - component: {fileID: 5731600486690117610}
   - component: {fileID: 5731600486690117609}
   - component: {fileID: 5731600486690117611}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -30249,7 +30265,7 @@ GameObject:
   - component: {fileID: 7837873387236671726}
   - component: {fileID: 7837873387236671725}
   - component: {fileID: 7837873387236671727}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J5.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -30820,7 +30836,7 @@ GameObject:
   - component: {fileID: 7996359493886375213}
   - component: {fileID: 7996359493886375212}
   - component: {fileID: 7996359493886375214}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -31559,7 +31575,7 @@ GameObject:
   - component: {fileID: 8468843882749613714}
   - component: {fileID: 8468843882749613713}
   - component: {fileID: 8468843882749613715}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H3.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -31625,7 +31641,7 @@ GameObject:
   - component: {fileID: 8943897176112058803}
   - component: {fileID: 8943897176112058802}
   - component: {fileID: 8943897176112058804}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -31646,7 +31662,7 @@ GameObject:
   - component: {fileID: 6177669624332574189}
   - component: {fileID: 6177669624332574188}
   - component: {fileID: 6177669624332574190}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32140,7 +32156,7 @@ GameObject:
   - component: {fileID: 5835225335619806832}
   - component: {fileID: 5835225335619806831}
   - component: {fileID: 5835225335619806833}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32176,7 +32192,7 @@ GameObject:
   - component: {fileID: 8758512928616492171}
   - component: {fileID: 8758512928616492170}
   - component: {fileID: 8758512928616492172}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H16.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32242,7 +32258,7 @@ GameObject:
   - component: {fileID: 8476959721717821953}
   - component: {fileID: 8476959721717821952}
   - component: {fileID: 8476959721717821954}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32263,7 +32279,7 @@ GameObject:
   - component: {fileID: 4162991774909216225}
   - component: {fileID: 4162991774909216224}
   - component: {fileID: 4162991774909216226}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32730,7 +32746,7 @@ GameObject:
   - component: {fileID: 8340361505971542618}
   - component: {fileID: 8340361505971542617}
   - component: {fileID: 8340361505971542619}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32751,7 +32767,7 @@ GameObject:
   - component: {fileID: 6076176683799487516}
   - component: {fileID: 6076176683799487515}
   - component: {fileID: 6076176683799487517}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32772,7 +32788,7 @@ GameObject:
   - component: {fileID: 8639863559207253100}
   - component: {fileID: 8639863559207253099}
   - component: {fileID: 8639863559207253101}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32809,7 +32825,7 @@ GameObject:
   - component: {fileID: 6796010217792519167}
   - component: {fileID: 6796010217792519166}
   - component: {fileID: 6796010217792519168}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F5.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32838,7 +32854,7 @@ GameObject:
   - component: {fileID: 8212645001657726362}
   - component: {fileID: 8212645001657726361}
   - component: {fileID: 8212645001657726363}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32874,7 +32890,7 @@ GameObject:
   - component: {fileID: 8025235663889096001}
   - component: {fileID: 8025235663889096000}
   - component: {fileID: 8025235663889096002}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F17.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -32895,7 +32911,7 @@ GameObject:
   - component: {fileID: 5567709040207738779}
   - component: {fileID: 5567709040207738778}
   - component: {fileID: 5567709040207738780}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -33040,7 +33056,7 @@ GameObject:
   - component: {fileID: 7841280152378892373}
   - component: {fileID: 7841280152378892372}
   - component: {fileID: 7841280152378892374}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -33212,7 +33228,7 @@ GameObject:
   - component: {fileID: 8703375079054697471}
   - component: {fileID: 8703375079054697470}
   - component: {fileID: 8703375079054697472}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -33300,7 +33316,7 @@ GameObject:
   - component: {fileID: 5856872890647950381}
   - component: {fileID: 5856872890647950380}
   - component: {fileID: 5856872890647950382}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C16.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -33514,7 +33530,7 @@ GameObject:
   - component: {fileID: 4805808419458891201}
   - component: {fileID: 4805808419458891200}
   - component: {fileID: 4805808419458891202}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G8.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -33705,7 +33721,7 @@ GameObject:
   - component: {fileID: 4816010765102477596}
   - component: {fileID: 4816010765102477595}
   - component: {fileID: 4816010765102477597}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J17.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -33941,7 +33957,7 @@ GameObject:
   - component: {fileID: 7328906030442722493}
   - component: {fileID: 7328906030442722492}
   - component: {fileID: 7328906030442722494}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -33999,7 +34015,7 @@ GameObject:
   - component: {fileID: 6167446884960893681}
   - component: {fileID: 6167446884960893680}
   - component: {fileID: 6167446884960893682}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H4.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -34050,7 +34066,7 @@ GameObject:
   - component: {fileID: 8790133025056559516}
   - component: {fileID: 8790133025056559515}
   - component: {fileID: 8790133025056559517}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -34071,7 +34087,7 @@ GameObject:
   - component: {fileID: 6032877756029548089}
   - component: {fileID: 6032877756029548088}
   - component: {fileID: 6032877756029548090}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -34152,7 +34168,7 @@ GameObject:
   - component: {fileID: 7478655776769397177}
   - component: {fileID: 7478655776769397176}
   - component: {fileID: 7478655776769397178}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F18.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -34332,7 +34348,7 @@ GameObject:
   - component: {fileID: 5893972797181335900}
   - component: {fileID: 5893972797181335899}
   - component: {fileID: 5893972797181335901}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -34376,7 +34392,7 @@ GameObject:
   - component: {fileID: 6997640222913034747}
   - component: {fileID: 6997640222913034746}
   - component: {fileID: 6997640222913034748}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -34899,7 +34915,7 @@ GameObject:
   - component: {fileID: 8871923275599654987}
   - component: {fileID: 8871923275599654986}
   - component: {fileID: 8871923275599654988}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B8.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -34965,7 +34981,7 @@ GameObject:
   - component: {fileID: 6416179450002919278}
   - component: {fileID: 6416179450002919277}
   - component: {fileID: 6416179450002919279}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -35049,7 +35065,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3701675587732694189}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Holds
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -35100,7 +35116,7 @@ GameObject:
   - component: {fileID: 6232879693645980553}
   - component: {fileID: 6232879693645980552}
   - component: {fileID: 6232879693645980554}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E5.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -35299,7 +35315,7 @@ GameObject:
   - component: {fileID: 6165108255972778696}
   - component: {fileID: 6165108255972778695}
   - component: {fileID: 6165108255972778697}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K16.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -35774,7 +35790,7 @@ GameObject:
   - component: {fileID: 5819879996892208782}
   - component: {fileID: 5819879996892208781}
   - component: {fileID: 5819879996892208783}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -36343,7 +36359,7 @@ GameObject:
   - component: {fileID: 8578865630258918039}
   - component: {fileID: 8578865630258918038}
   - component: {fileID: 8578865630258918040}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -37120,7 +37136,7 @@ GameObject:
   - component: {fileID: 5937478821619868362}
   - component: {fileID: 5937478821619868361}
   - component: {fileID: 5937478821619868363}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -37511,7 +37527,7 @@ GameObject:
   - component: {fileID: 5963664446683692458}
   - component: {fileID: 5963664446683692457}
   - component: {fileID: 5963664446683692459}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J3.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -37702,7 +37718,7 @@ GameObject:
   - component: {fileID: 6824193935328246019}
   - component: {fileID: 6824193935328246018}
   - component: {fileID: 6824193935328246020}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -38059,7 +38075,7 @@ GameObject:
   - component: {fileID: 6058722793321739434}
   - component: {fileID: 6058722793321739433}
   - component: {fileID: 6058722793321739435}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -39110,7 +39126,7 @@ GameObject:
   - component: {fileID: 2910033659130989121}
   - component: {fileID: 1257105543178659603}
   - component: {fileID: 4786010545915160144}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Moonboard
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -39131,7 +39147,7 @@ GameObject:
   - component: {fileID: 6202692677135772926}
   - component: {fileID: 6202692677135772925}
   - component: {fileID: 6202692677135772927}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -39945,7 +39961,7 @@ GameObject:
   - component: {fileID: 8240594272325421791}
   - component: {fileID: 8240594272325421790}
   - component: {fileID: 8240594272325421792}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -40212,7 +40228,7 @@ GameObject:
   - component: {fileID: 7151195136815286845}
   - component: {fileID: 7151195136815286844}
   - component: {fileID: 7151195136815286846}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -40434,7 +40450,7 @@ GameObject:
   - component: {fileID: 6434022510741552896}
   - component: {fileID: 6434022510741552895}
   - component: {fileID: 6434022510741552897}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -40855,7 +40871,7 @@ GameObject:
   - component: {fileID: 6484958476919264323}
   - component: {fileID: 6484958476919264322}
   - component: {fileID: 6484958476919264324}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -41138,7 +41154,7 @@ GameObject:
   - component: {fileID: 6619747450246208403}
   - component: {fileID: 6619747450246208402}
   - component: {fileID: 6619747450246208404}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -41329,7 +41345,7 @@ GameObject:
   - component: {fileID: 8349337389378993408}
   - component: {fileID: 8349337389378993407}
   - component: {fileID: 8349337389378993409}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -41350,7 +41366,7 @@ GameObject:
   - component: {fileID: 6703921236375145184}
   - component: {fileID: 6703921236375145183}
   - component: {fileID: 6703921236375145185}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -41774,7 +41790,7 @@ GameObject:
   - component: {fileID: 6761397287746855211}
   - component: {fileID: 6761397287746855210}
   - component: {fileID: 6761397287746855212}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B9.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -41973,7 +41989,7 @@ GameObject:
   - component: {fileID: 6774635786961433895}
   - component: {fileID: 6774635786961433894}
   - component: {fileID: 6774635786961433896}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E13.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -42579,7 +42595,7 @@ GameObject:
   - component: {fileID: 6826154402983207313}
   - component: {fileID: 6826154402983207312}
   - component: {fileID: 6826154402983207314}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -43179,7 +43195,7 @@ GameObject:
   - component: {fileID: 8018924692715785525}
   - component: {fileID: 8018924692715785524}
   - component: {fileID: 8018924692715785526}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -43200,7 +43216,7 @@ GameObject:
   - component: {fileID: 6910850091383109500}
   - component: {fileID: 6910850091383109499}
   - component: {fileID: 6910850091383109501}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G9.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -43852,7 +43868,7 @@ GameObject:
   - component: {fileID: 7061228546384690593}
   - component: {fileID: 7061228546384690592}
   - component: {fileID: 7061228546384690594}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D6.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -44058,7 +44074,7 @@ GameObject:
   - component: {fileID: 8162766475928028503}
   - component: {fileID: 8162766475928028502}
   - component: {fileID: 8162766475928028504}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -44132,7 +44148,7 @@ GameObject:
   - component: {fileID: 8467292068457198427}
   - component: {fileID: 8467292068457198426}
   - component: {fileID: 8467292068457198428}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K12.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -44338,7 +44354,7 @@ GameObject:
   - component: {fileID: 7747566341610424566}
   - component: {fileID: 7747566341610424565}
   - component: {fileID: 7747566341610424567}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H14.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -44589,7 +44605,7 @@ GameObject:
   - component: {fileID: 7284037945874149689}
   - component: {fileID: 7284037945874149688}
   - component: {fileID: 7284037945874149690}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K4.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -45382,7 +45398,7 @@ GameObject:
   - component: {fileID: 8401893511819004838}
   - component: {fileID: 8401893511819004837}
   - component: {fileID: 8401893511819004839}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: K9.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -45611,7 +45627,7 @@ GameObject:
   - component: {fileID: 7505775131179039117}
   - component: {fileID: 7505775131179039116}
   - component: {fileID: 7505775131179039118}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C9.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -45802,7 +45818,7 @@ GameObject:
   - component: {fileID: 7528924527380267483}
   - component: {fileID: 7528924527380267482}
   - component: {fileID: 7528924527380267484}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I8.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -45993,7 +46009,7 @@ GameObject:
   - component: {fileID: 7539817725853808519}
   - component: {fileID: 7539817725853808518}
   - component: {fileID: 7539817725853808520}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: C8.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -46979,7 +46995,7 @@ GameObject:
   - component: {fileID: 7716498161438808172}
   - component: {fileID: 7716498161438808171}
   - component: {fileID: 7716498161438808173}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J9.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -47891,7 +47907,7 @@ GameObject:
   - component: {fileID: 7849476623470889328}
   - component: {fileID: 7849476623470889327}
   - component: {fileID: 7849476623470889329}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: G5.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -48490,7 +48506,7 @@ GameObject:
   - component: {fileID: 7945380613187518162}
   - component: {fileID: 7945380613187518161}
   - component: {fileID: 7945380613187518163}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: H8.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -49089,7 +49105,7 @@ GameObject:
   - component: {fileID: 8019080741399279452}
   - component: {fileID: 8019080741399279451}
   - component: {fileID: 8019080741399279453}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J10.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -49725,7 +49741,7 @@ GameObject:
   - component: {fileID: 8091079037181667714}
   - component: {fileID: 8091079037181667713}
   - component: {fileID: 8091079037181667715}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J8.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -50685,7 +50701,7 @@ GameObject:
   - component: {fileID: 8170289128339646184}
   - component: {fileID: 8170289128339646183}
   - component: {fileID: 8170289128339646185}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -51559,7 +51575,7 @@ GameObject:
   - component: {fileID: 8274530898311715668}
   - component: {fileID: 8274530898311715667}
   - component: {fileID: 8274530898311715669}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I5.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -51962,7 +51978,7 @@ GameObject:
   - component: {fileID: 8330480580420754616}
   - component: {fileID: 8330480580420754615}
   - component: {fileID: 8330480580420754617}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: A15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -52153,7 +52169,7 @@ GameObject:
   - component: {fileID: 8337432797080148092}
   - component: {fileID: 8337432797080148091}
   - component: {fileID: 8337432797080148093}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: F15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -52745,7 +52761,7 @@ GameObject:
   - component: {fileID: 8379454482504812235}
   - component: {fileID: 8379454482504812234}
   - component: {fileID: 8379454482504812236}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -53118,7 +53134,7 @@ GameObject:
   - component: {fileID: 5689715387809009278}
   - component: {fileID: 2603596671324950004}
   - component: {fileID: 1265433254925929155}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Plane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -54859,7 +54875,7 @@ GameObject:
   - component: {fileID: 8583595135274738515}
   - component: {fileID: 8583595135274738514}
   - component: {fileID: 8583595135274738516}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D11.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -55050,7 +55066,7 @@ GameObject:
   - component: {fileID: 8589178730026324054}
   - component: {fileID: 8589178730026324053}
   - component: {fileID: 8589178730026324055}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: E16.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -55241,7 +55257,7 @@ GameObject:
   - component: {fileID: 8614452478529512509}
   - component: {fileID: 8614452478529512508}
   - component: {fileID: 8614452478529512510}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J16.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -56379,7 +56395,7 @@ GameObject:
   - component: {fileID: 8663823916237379637}
   - component: {fileID: 8663823916237379636}
   - component: {fileID: 8663823916237379638}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B7.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -57726,7 +57742,7 @@ GameObject:
   - component: {fileID: 8925375216323075419}
   - component: {fileID: 8925375216323075418}
   - component: {fileID: 8925375216323075420}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: I15.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -58280,7 +58296,7 @@ GameObject:
   - component: {fileID: 9035350370562694891}
   - component: {fileID: 9035350370562694890}
   - component: {fileID: 9035350370562694892}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: J4.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -59271,7 +59287,7 @@ GameObject:
   - component: {fileID: 9160961024624086255}
   - component: {fileID: 9160961024624086254}
   - component: {fileID: 9160961024624086256}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: D8.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
@@ -59677,7 +59693,7 @@ GameObject:
   - component: {fileID: 9175393310334485941}
   - component: {fileID: 9175393310334485940}
   - component: {fileID: 9175393310334485942}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: B16.001
   m_TagString: ClimbingHold
   m_Icon: {fileID: 0}
