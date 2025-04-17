@@ -11,6 +11,10 @@ using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
 
 public class SceneConfiguror : MonoBehaviour
 {
+    [Header("Minimap")]
+    public GameObject highlightCirclePrefab;
+    private List<GameObject> activeHighlightCircles = new();
+
     [Header("Scene References")]
     public GameObject holdsParentGameObject;
     public Dictionary<string, GameObject> holdsDictionary;
@@ -331,6 +335,7 @@ public class SceneConfiguror : MonoBehaviour
     }
     void SetUpRouteByHoldList(List<string> holdsList)
     {
+        ClearHighlightCircles();
         // Disable all holds
         activeHoldsList = new List<GameObject>();
         foreach (var hold in holdsDictionary.Values)
@@ -398,6 +403,12 @@ public class SceneConfiguror : MonoBehaviour
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
+
+            if (highlightCirclePrefab != null)
+            {
+                GameObject circle = Instantiate(highlightCirclePrefab, holdsDictionary[holdName].transform.position, Quaternion.identity, holdsDictionary[holdName].transform);
+                activeHighlightCircles.Add(circle);
+            }
         }
     }
     void PreviewAllHolds()
@@ -455,4 +466,13 @@ public class SceneConfiguror : MonoBehaviour
             activeHoldsList.Add(holdsDictionary[holdName]);
         }
     }
+    private void ClearHighlightCircles()
+    {
+        foreach (var circle in activeHighlightCircles)
+        {
+            Destroy(circle);
+        }
+        activeHighlightCircles.Clear();
+    }
+
 }
