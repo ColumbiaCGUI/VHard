@@ -8,12 +8,19 @@ using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
+using Debug = UnityEngine.Debug;
 
 public class SceneConfiguror : MonoBehaviour
 {
     [Header("Minimap")]
     public GameObject highlightCirclePrefab;
     private List<GameObject> activeHighlightCircles = new();
+
+    [Header("Minimap Settings")]
+    public Camera mainCamera;     // assign your main/world camera here
+    public Camera minimapCamera;  // assign your minimap camera here
+    public string indicatorLayerName = "HighlightCircle"; // assign your highlight circle layer here
+    private int indicatorLayer;
 
     [Header("Scene References")]
     public GameObject holdsParentGameObject;
@@ -58,6 +65,38 @@ public class SceneConfiguror : MonoBehaviour
 
     void Start()
     {
+            // 1) layer lookup
+        indicatorLayer = LayerMask.NameToLayer(indicatorLayerName);
+        Debug.Log($"[SC] indicatorLayerName='{indicatorLayerName}' → layerIndex={indicatorLayer}");
+        if (indicatorLayer < 0)
+        {
+            Debug.LogError($"[SC] Layer '{indicatorLayerName}' not found! Check Project Settings > Tags & Layers.");
+        }
+
+        // 2) camera culling masks
+        if (indicatorLayer >= 0)
+        {
+            int mask = 1 << indicatorLayer;
+            Debug.Log($"[SC] mainCamera mask before:    {mainCamera.cullingMask:X8}");
+            mainCamera.cullingMask    &= ~mask;
+            Debug.Log($"[SC] mainCamera mask after:     {mainCamera.cullingMask:X8}");
+            Debug.Log($"[SC] minimapCamera mask before: {minimapCamera.cullingMask:X8}");
+            minimapCamera.cullingMask |=  mask;
+            Debug.Log($"[SC] minimapCamera mask after:  {minimapCamera.cullingMask:X8}");
+        }
+        indicatorLayer = LayerMask.NameToLayer(indicatorLayerName);
+        if (indicatorLayer == -1)
+        {
+            UnityEngine.Debug.LogError("Layer " + indicatorLayerName + " not found!");
+        }
+        else
+        {
+            int mask = 1 << indicatorLayer;
+            // exclude from main camera
+            mainCamera.cullingMask &= ~mask;
+            // include on minimap camera
+            minimapCamera.cullingMask |= mask;
+        }
         // Add all the children of the holds parent to the holds dictionary, to be accessed using the string [A-K][1-18]
         // Jace: Note that the holds are currently named [A-K][1-18].[001/002/003]
         holdsDictionary = new Dictionary<string, GameObject>();
@@ -79,6 +118,8 @@ public class SceneConfiguror : MonoBehaviour
 
         // DEV: Turn on all holds by default
         SetUpRouteByName("[PREVIEW ALL (SHADER OFF)]");
+                // --- NEW: configure minimap layer & camera culling ---
+
     }
 
     void TraverseBones(GameObject rootBone, List<GameObject> bones)
@@ -406,11 +447,56 @@ public class SceneConfiguror : MonoBehaviour
 
             if (highlightCirclePrefab != null)
             {
-                GameObject circle = Instantiate(highlightCirclePrefab, holdsDictionary[holdName].transform.position, Quaternion.identity, holdsDictionary[holdName].transform);
+                // 1) Instantiate as a child of the hold, preserving the prefab's local transform
+                var circle = Instantiate(
+                highlightCirclePrefab,
+                 holdsDictionary[holdName].transform,      // parent
+                false                  // worldPositionStays = false
+                );
+
+                // 2) Zero out localPosition & localRotation (so it sits exactly on the hold)
+                circle.transform.localPosition = Vector3.zero;
+                circle.transform.localRotation = Quaternion.identity;
+
+                // 3) Nudge it *just* off the wall along its local +Z to avoid z‑fighting
+                circle.transform.localPosition += Vector3.forward * 0.01f;
+
+                // 4) Scale it to match the hold’s size
+                if ( holdsDictionary[holdName].TryGetComponent<Renderer>(out var rdr))
+                {
+                    float maxDim = Mathf.Max(
+                    rdr.bounds.size.x,
+                    rdr.bounds.size.y,
+                    rdr.bounds.size.z
+                    );
+                    circle.transform.localScale = Vector3.one * (maxDim * 0.01f);
+                }
+                else
+                {
+                    circle.transform.localScale = Vector3.one * 0.01f;
+                }
+
+                // 5) Layermask it
+                SetLayerRecursively(circle, indicatorLayer);
+
+
                 activeHighlightCircles.Add(circle);
+
+                Debug.Log($"[SC] Spawned circle at {circle.transform.position} on layer '{LayerMask.LayerToName(indicatorLayer)}'");
+
             }
         }
     }
+    /// <summary>
+    /// Recursively sets go and all its children to the given layer.
+    /// </summary>
+    void SetLayerRecursively(GameObject go, int layer)
+    {
+        go.layer = layer;
+        foreach (Transform child in go.transform)
+            SetLayerRecursively(child.gameObject, layer);
+    }
+
     void PreviewAllHolds()
     {
         // Disable all holds

@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "VHard.sln"
+    "dotnet.defaultSolution": "VHard_.sln"
 }
