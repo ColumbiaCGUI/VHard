@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using Fusion;
-using UnityEditor.SearchService;
+//using UnityEditor.SearchService;
 using UnityEngine;
 
 public class NetworkedHands : NetworkBehaviour
