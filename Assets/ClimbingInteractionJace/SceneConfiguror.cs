@@ -20,6 +20,8 @@ public enum GameMode
 
 public class SceneConfiguror : MonoBehaviour
 {
+    [Header("Action Recorder")]
+    public ActionRecorder actionRecorder;
     [Header("Minimap")]
     public GameObject highlightCirclePrefab;
     private List<GameObject> activeHighlightCircles = new();
@@ -373,7 +375,11 @@ public class SceneConfiguror : MonoBehaviour
                 // "Wasn't gripping, now gripping"
                 // Save the start pose of the hand (joint positions).
                 leftHandGripStartPose = new List<Vector3>(leftHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
-                                                                                  // Save "relative positions" by subtracting the base position (index 0) from all other positions.
+                actionRecorder?.Record(
+                    "GripStart",
+                    "Left",
+                    leftHandInteractingClimbingHold
+                );                                                                  // Save "relative positions" by subtracting the base position (index 0) from all other positions.
                 leftHandGripStartPose = leftHandGripStartPose.Select((pos, i) => pos - leftHandBonePositions[0]).ToList();
             }
         }
@@ -390,6 +396,11 @@ public class SceneConfiguror : MonoBehaviour
             if (rightHandIsGripping)
             {
                 rightHandGripStartPose = new List<Vector3>(rightHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
+                actionRecorder?.Record(
+                    "GripStart",
+                    "Right",
+                    rightHandInteractingClimbingHold
+                );
                 rightHandGripStartPose = rightHandGripStartPose.Select((pos, i) => pos - rightHandBonePositions[0]).ToList();
             }
         }
@@ -410,6 +421,12 @@ public class SceneConfiguror : MonoBehaviour
             {
                 UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now not gripping with either hand. Stopping movement.");
             }
+            actionRecorder?.Record(
+                "LocomotionStop",
+                "",
+                null,
+                "grip locomotion stopped"
+            );
             isGripLocomotionActive = false;
             return;
         }
@@ -421,6 +438,12 @@ public class SceneConfiguror : MonoBehaviour
             {
                 UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now gripping with both hands. Stopping movement.");
             }
+            actionRecorder?.Record(
+                "LocomotionStop",
+                "",
+                null,
+                "grip locomotion stopped"
+            );
             isGripLocomotionActive = false;
             return;
         }
@@ -430,6 +453,12 @@ public class SceneConfiguror : MonoBehaviour
         if (!isGripLocomotionActive)
         {
             UnityEngine.Debug.Log("Started gripping with only one hand, now moving!");
+            actionRecorder?.Record(
+                "LocomotionStart",
+                leftHandIsGripping ? "Left" : "Right",
+                leftHandIsGripping ? leftHandInteractingClimbingHold : rightHandInteractingClimbingHold,
+                "one-hand grip locomotion started"
+            );
             isGripLocomotionActive = true;
             leftHandGripStartPosition = leftHandBonePositions[0];
             leftHandGripLastPosition = leftHandGripStartPosition;
@@ -537,7 +566,11 @@ public class SceneConfiguror : MonoBehaviour
             if (activeHoldsList.Contains(hoveredGameObject))
             {
                 UnityEngine.Debug.Log("Hand hover enter: " + handOVRHand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
-
+                actionRecorder?.Record(
+                    "HoverEnter",
+                    hand == 0 ? "Left" : "Right",
+                    hoveredGameObject
+                );
                 MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
                 meshRenderer.material.SetInt("_IsBeingInteracted", 1);
 
@@ -560,7 +593,11 @@ public class SceneConfiguror : MonoBehaviour
         if (hoveredGameObject.tag == "ClimbingHold")
         {
             UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with Climbing Hold " + hoveredGameObject.name);
-
+            actionRecorder?.Record(
+                "HoverExit",
+                hand == 0 ? "Left" : "Right",
+                hoveredGameObject
+            );
             MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
             meshRenderer.material.SetInt("_IsBeingInteracted", 0);
 
