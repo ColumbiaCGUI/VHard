@@ -7,7 +7,7 @@ using UnityEditor.SceneManagement;
  * Find the corresponding decimated holds FBX files and replace the meshes of New Holds with the ones in the decimated files, also assign materials.
  * To use, the New_Holds GameObject should be selected in the Hierarchy before running the script (and enable Debugger).
  * The decimated holds are located in Assets/Resources/Decimated_Holds, e.g. B126_dec50.fbx,
- * original holds located in Assets/Resources/New_Holds.fbx.
+ * original holds located in Assets/Resources/New_Holds.fbx. (=> now in Assets/Resources/New_Reoriented_Holds)
  */
 public class ChangeNewHoldsMeshes
 {
@@ -102,13 +102,13 @@ public class ChangeNewHoldsMeshes
 
         Debug.Log(
             $"\n===============================================\n" +
-            $"Finished hold replacement under {root.name}.\n" +
+            $"\nFinished hold replacement under {root.name}.\n" +
             $"Meshes replaced: {replacedMeshes}\n" +
             $"Materials replaced: {replacedMaterials}\n" +
             $"Missing FBX: {missingFbx}\n" +
             $"Missing Mesh: {missingMesh}\n" +
             $"Missing Material: {missingMaterial} " +
-            $"================================\n"
+            $"\n================================"
         );
     }
 }
