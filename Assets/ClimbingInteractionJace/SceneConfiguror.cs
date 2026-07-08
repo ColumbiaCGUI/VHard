@@ -22,13 +22,13 @@ public class SceneConfiguror : MonoBehaviour
 {
     [Header("Action Recorder")]
     public ActionRecorder actionRecorder;
-    [Header("Minimap")]
+    [Header("HighlightCircle")]
     public GameObject highlightCirclePrefab;
     private List<GameObject> activeHighlightCircles = new();
 
     [Header("Minimap Settings")]
     public Camera mainCamera;     // assign your main/world camera here
-    public Camera minimapCamera;  // assign your minimap camera here
+    //public Camera minimapCamera;  // assign your minimap camera here [Update 7/7/2026: we don't need a minimap anymore. CAROLINE]
     public string indicatorLayerName = "HighlightCircle"; // assign your highlight circle layer here
     private int indicatorLayer;
 
@@ -115,18 +115,19 @@ public class SceneConfiguror : MonoBehaviour
             Debug.LogError($"[SC] Layer '{indicatorLayerName}' not found! Check Project Settings > Tags & Layers.");
         }
 
-        // 2) camera culling masks
+        // 2) camera culling masks [Update 7/7/2026: Culling mask for circles on main camera might still be useful,
+        // feel free to comment out the entire section so that the highlight circles can be shown. CAROLINE]
         if (indicatorLayer >= 0)
         {
             int mask = 1 << indicatorLayer;
             Debug.Log($"[SC] mainCamera mask before:    {mainCamera.cullingMask:X8}");
             mainCamera.cullingMask    &= ~mask;
             Debug.Log($"[SC] mainCamera mask after:     {mainCamera.cullingMask:X8}");
-            Debug.Log($"[SC] minimapCamera mask before: {minimapCamera.cullingMask:X8}");
+            /*Debug.Log($"[SC] minimapCamera mask before: {minimapCamera.cullingMask:X8}");
             minimapCamera.cullingMask |=  mask;
-            Debug.Log($"[SC] minimapCamera mask after:  {minimapCamera.cullingMask:X8}");
+            Debug.Log($"[SC] minimapCamera mask after:  {minimapCamera.cullingMask:X8}");*/
         }
-        indicatorLayer = LayerMask.NameToLayer(indicatorLayerName);
+        /*indicatorLayer = LayerMask.NameToLayer(indicatorLayerName);
         if (indicatorLayer == -1)
         {
             UnityEngine.Debug.LogError("Layer " + indicatorLayerName + " not found!");
@@ -137,8 +138,9 @@ public class SceneConfiguror : MonoBehaviour
             // exclude from main camera
             mainCamera.cullingMask &= ~mask;
             // include on minimap camera
-            minimapCamera.cullingMask |= mask;
-        }
+            //minimapCamera.cullingMask |= mask;
+        }*/
+
         UnityEngine.Debug.Log("SceneConfiguror initializing.");
 
         // Add all the children of the holds parent to the holds dictionary, to be accessed using the string [A-K][1-18]
@@ -148,7 +150,7 @@ public class SceneConfiguror : MonoBehaviour
         {
             string holdName = child.name.Split('.')[0];
             holdsDictionary[holdName] = child.gameObject;
-            // UnityEngine.Debug.Log("Found and added hold " + holdName);
+            //UnityEngine.Debug.Log("Found and added hold " + holdName);
         }
 
         // Set up compute shader
@@ -225,6 +227,7 @@ public class SceneConfiguror : MonoBehaviour
         // as well as the distances of each bone to the closest vertex of the climbing hold
         foreach (var interaction in climbingHoldsBeingInteracted)
         {
+
             GameObject climbingHold = interaction.climbingHold;
             int hand = interaction.handIndex;
             // Get information about the climbing hold
@@ -232,6 +235,8 @@ public class SceneConfiguror : MonoBehaviour
             Mesh climbingHoldMesh = climbingHoldMeshFilter.mesh;
             Vector3[] climbingHoldVertices = climbingHoldMesh.vertices;
             int climbingHoldVerticesCount = climbingHoldVertices.Length;
+
+            UnityEngine.Debug.Log($"[DistComputeShader] hand={hand}, hold={climbingHold.name}, vertices={climbingHoldVerticesCount}, bones={numBonesPerHand}");
 
             // Initialize buffers for compute shader
             climbingHoldVerticesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float) * 3); // World position of each vertex of the climbing hold
@@ -485,6 +490,7 @@ public class SceneConfiguror : MonoBehaviour
         }
         // cameraOffset.transform.position -= vectorToMovePlayer; // Move player
         moonBoardEnv.transform.position += vectorToMovePlayer;
+        UnityEngine.Debug.Log($"[LocomotionMove] moving moonBoardEnv by {vectorToMovePlayer}, newPos={moonBoardEnv.transform.position}");
     }
     public bool CheckIfHandIsGrippingHold(int handIndex, GameObject climbingHold)
     {
@@ -517,6 +523,14 @@ public class SceneConfiguror : MonoBehaviour
         if (isGripping)
         {
             // UnityEngine.Debug.Log("[SceneConfiguror] DEV: Hand " + handIndex + " is gripping hold " + climbingHold.name);
+            UnityEngine.Debug.Log(
+                        $"[GripCheck] hand={handIndex}, hold={climbingHold.name}, " +
+                        $"range={gripFingertipRange}, " +
+                        $"thumb={handBoneToHoldMinDistances[5]:F4}, " +
+                        $"index={handBoneToHoldMinDistances[10]:F4}, " +
+                        $"middle={handBoneToHoldMinDistances[15]:F4}, " +
+                        $"ring={handBoneToHoldMinDistances[20]:F4}, " +
+                        $"pinky={handBoneToHoldMinDistances[25]:F4}");
             return true;
         }
         else
@@ -558,7 +572,7 @@ public class SceneConfiguror : MonoBehaviour
     }
     public void HandHoverEnter(int hand, GameObject hoveredGameObject)
     {
-        // UnityEngine.Debug.Log("SceneConfiguror: HandHoverEnter() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
+        UnityEngine.Debug.Log("SceneConfiguror: HandHoverEnter() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
         OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
         OVRHand handOVRHand = handOVRSkeleton.GetComponent<OVRHand>();
         if (hoveredGameObject.tag == "ClimbingHold")
@@ -587,7 +601,7 @@ public class SceneConfiguror : MonoBehaviour
     }
     public void HandHoverExit(int hand, GameObject hoveredGameObject)
     {
-        // UnityEngine.Debug.Log("SceneConfiguror: HandHoverExit() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
+        UnityEngine.Debug.Log("SceneConfiguror: HandHoverExit() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
         OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
         OVRHand ovrHand = handOVRSkeleton.GetComponent<OVRHand>();
         if (hoveredGameObject.tag == "ClimbingHold")
@@ -744,7 +758,7 @@ public class SceneConfiguror : MonoBehaviour
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
-
+            /*
             if (highlightCirclePrefab != null)
             {
                 // 1) Instantiate as a child of the hold, preserving the prefab's local transform
@@ -784,7 +798,7 @@ public class SceneConfiguror : MonoBehaviour
 
                 Debug.Log($"[SC] Spawned circle at {circle.transform.position} on layer '{LayerMask.LayerToName(indicatorLayer)}'");
 
-            }
+            }*/
         }
     }
     /// <summary>
