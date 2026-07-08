@@ -10,6 +10,7 @@ using Debug = UnityEngine.Debug;
 using System.ComponentModel;
 using System;
 using System.Net;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class ProcessMoonboardObjects : MonoBehaviour
 {
@@ -71,11 +72,12 @@ public class ProcessMoonboardObjects : MonoBehaviour
     [MenuItem("Custom/Add CoACD to remaining meshes")]
     static void AddcoACDToAll()
     {
-        Transform holdsGroup = GameObject.Find("Environment/Moonboard/Holds")?.transform;
+        String holdsGroupPath = "Environment/Moonboard/New_Decimated_Holds"; //CAROLINE 7/7/2026: hardcoded here. changed from "~/Holds" to "~/New_Decimated_Holds"
+        Transform holdsGroup = GameObject.Find(holdsGroupPath)?.transform; 
 
         if (holdsGroup == null)
         {
-            UnityEngine.Debug.LogError("Could not find Moonboard/Environment/Moonboard/Holds group!");
+            UnityEngine.Debug.LogError("Could not find " + holdsGroupPath + " you entered! Check holdsGroupPath in script.");
             return;
         }
 
@@ -155,6 +157,83 @@ public class ProcessMoonboardObjects : MonoBehaviour
         }
 
         UnityEngine.Debug.Log($"Processed object: {obj.name}");
+    }
+    [MenuItem("Custom/Holds/Add Sphere Collider and XRGrabInteractable")]
+    static void AddSphereCollider()
+    {
+        string holdsGroupPath = "Environment/Moonboard/New_Decimated_Holds"; //CAROLINE 7/7/2026: hardcoded here.
+        Transform holdsGroup = GameObject.Find(holdsGroupPath)?.transform;
+
+        if (holdsGroup == null)
+        {
+            UnityEngine.Debug.LogError("Could not find " + holdsGroupPath + " you entered! Check holdsGroupPath in script.");
+            return;
+        }
+
+        int processedCount = 0;
+        int skippedCount = 0;
+        int errorCount = 0;
+
+        foreach (Transform child in holdsGroup)
+        {
+
+            // Skip non-holds
+            if (child.name.Length < 2 || !char.IsDigit(child.name[1]) || child.GetComponent<SphereCollider>() != null) 
+            {
+                UnityEngine.Debug.Log($"Skipped object: {child.name}");
+                skippedCount++;
+                continue;
+            }
+
+            try
+            {
+                Debug.Log($"Processing object: {child.name}");
+                AddSphereCollider(child.gameObject);
+                processedCount++;
+            }
+            catch (System.Exception e)
+            {
+                UnityEngine.Debug.LogError($"Error processing object {child.name}: {e.Message}");
+                errorCount++;
+            }
+        }
+
+        UnityEngine.Debug.Log($"Processing complete. Processed {processedCount} objects. Encountered {errorCount} errors.");
+
+        // Save the changes
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+    }
+
+    static void AddSphereCollider(GameObject obj)
+    {
+        // Attach Sphere Collider
+        SphereCollider sphereCollider = obj.AddComponent<SphereCollider>();
+        if (sphereCollider != null)
+        {
+            // Set any necessary parameters
+            sphereCollider.isTrigger = false;
+            sphereCollider.radius = 0.0022f;
+        }
+
+        if (obj.GetComponent<XRGrabInteractable>() == null)
+        {
+            XRGrabInteractable grabInteractable = obj.AddComponent<XRGrabInteractable>();
+            if (grabInteractable != null)
+            {
+                // Set any necessary parameters for XRGrabInteractable
+                grabInteractable.movementType = XRBaseInteractable.MovementType.Instantaneous;
+                grabInteractable.trackPosition = true;
+                grabInteractable.colliders.Add(sphereCollider);
+            }
+            else
+            {
+                Debug.LogWarning($"XRGrabInteractable component could not be added to {obj.name}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"SphereCollider component could not be added to {obj.name}");
+        }
     }
 
     static UnityEngine.Component AddComponentByName(GameObject obj, string fullTypeName)
