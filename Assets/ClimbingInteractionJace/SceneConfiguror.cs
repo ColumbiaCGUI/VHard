@@ -16,10 +16,13 @@ public enum GameMode
 {
     Basic = 0, // Only shader
     Grip = 1, // JACE: In development, fixed-grip movement mode
+    Ghost = 2,
 }
 
 public class SceneConfiguror : MonoBehaviour
 {
+    private const int TrackedBoneCount = 26;
+    private static readonly int[] FingertipBoneIndices = { 5, 10, 15, 20, 25 };
     [Header("Action Recorder")]
     public ActionRecorder actionRecorder;
     [Header("HighlightCircle")]
@@ -60,6 +63,8 @@ public class SceneConfiguror : MonoBehaviour
 
     [Header("Climb Settings")]
     public GameMode gameMode;
+    public string currentRouteName = "DEATH STAR";
+    public GhostHoldController ghostHoldController;
 
     [Header("Interaction Settings")]
     public float interactionColorMaxDistanceOverride;
@@ -75,20 +80,12 @@ public class SceneConfiguror : MonoBehaviour
     public ComputeShader distanceToClosestBoneComputeShader;
     public int kernelHandle;
 
-    [Header("Interaction Compute Shader State")]
-    public ComputeBuffer climbingHoldVerticesBuffer;
-    public ComputeBuffer leftHandBonesBuffer;
-    public ComputeBuffer rightHandBonesBuffer;
-    public ComputeBuffer leftHandDistancesBuffer;
-    public ComputeBuffer rightHandDistancesBuffer;
-    public ComputeBuffer leftHandBoneToHoldMinDistancesBuffer;
-    public ComputeBuffer rightHandBoneToHoldMinDistancesBuffer;
-
     [Header("Grip Settings")]
     public GameObject moonBoardEnv;
     public float gripFingertipRange;
     public GameObject leftHandGripStatusDisplayHelper;
     public GameObject rightHandGripStatusDisplayHelper;
+    public GripScoreConfig gripScoreConfig;
 
     [Header("Grip State")]
     public float[] leftHandBoneToHoldMinDistances;
@@ -96,6 +93,12 @@ public class SceneConfiguror : MonoBehaviour
     public bool isGripLocomotionActive;
     public bool leftHandIsGripping;
     public bool rightHandIsGripping;
+    public int perFingerContactMask = -1;
+    public float currentGripScore = -1f;
+    public int leftFingerContactMask;
+    public int rightFingerContactMask;
+    public float leftHandGripScore;
+    public float rightHandGripScore;
     public Vector3 leftHandGripStartPosition;
     public Vector3 leftHandGripLastPosition;
     public Vector3 rightHandGripStartPosition;
@@ -104,6 +107,19 @@ public class SceneConfiguror : MonoBehaviour
     public List<Vector3> leftHandGripCurrentPose;
     public List<Vector3> rightHandGripStartPose;
     public List<Vector3> rightHandGripCurrentPose;
+    private GripContactPipeline gripContactPipeline;
+    private Vector3 initialMoonBoardLocalPosition;
+    private Quaternion initialMoonBoardLocalRotation;
+    private Vector3 initialMoonBoardLocalScale;
+    private bool hasInitialMoonBoardTransform;
+    private OVRHand leftTrackedHand;
+    private OVRHand rightTrackedHand;
+    private Hand? gripLocomotionHand;
+
+    private void Awake()
+    {
+        EnsureRuntimeControllers();
+    }
 
     void Start()
     {
@@ -142,23 +158,20 @@ public class SceneConfiguror : MonoBehaviour
         }*/
 
         UnityEngine.Debug.Log("SceneConfiguror initializing.");
+        CacheMoonBoardTransform();
 
         // Add all the children of the holds parent to the holds dictionary, to be accessed using the string [A-K][1-18]
         // Jace: Note that the holds are currently named [A-K][1-18].[001/002/003]
-        holdsDictionary = new Dictionary<string, GameObject>();
-        foreach (Transform child in holdsParentGameObject.transform)
-        {
-            string holdName = child.name.Split('.')[0];
-            holdsDictionary[holdName] = child.gameObject;
-            //UnityEngine.Debug.Log("Found and added hold " + holdName);
-        }
-
-        // Set up compute shader
-        kernelHandle = distanceToClosestBoneComputeShader.FindKernel("CSMain");
+        EnsureHoldsDictionary();
+        EnsureGripPipeline();
 
         // DEV: Turn on all holds by default
         // SetUpRouteByName("[PREVIEW ALL (SHADER OFF)]");
-        SetUpRouteByName("DEATH STAR");
+        SetUpRouteByName(currentRouteName);
+
+        EnsureRuntimeControllers();
+        ghostHoldController.Initialize(this);
+        SetGameMode(gameMode);
     }
 
     void TraverseBones(GameObject rootBone, List<GameObject> bones)
@@ -172,166 +185,66 @@ public class SceneConfiguror : MonoBehaviour
 
     void Update()
     {
+        EnsureHoldsDictionary();
+        EnsureGripPipeline();
         centerEyePosition = centerEyeAnchor.transform.position;
 
         // Override interaction color max distance, update interaction status
         if (leftHandInteractingClimbingHold != null)
         {
             MeshRenderer meshRenderer = leftHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 1);
+            meshRenderer.material.SetInt("_IsBeingInteracted", gripContactPipeline == null ? 1 : 0);
             meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
         }
         if (rightHandInteractingClimbingHold != null)
         {
             MeshRenderer meshRenderer = rightHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 1);
+            meshRenderer.material.SetInt("_IsBeingInteracted", gripContactPipeline == null ? 1 : 0);
             meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
         }
 
-        // Update hand bone info
-        numBonesPerHand = leftHandOVRSkeleton.Bones.Count;
-        // Immediately give up if no bones (this happens if hand tracking is not enabled or if the user is holding controllers at the moment)
-        if (numBonesPerHand == 0)
+        bool leftTrackingValid = IsHandTrackingValid(leftHandOVRSkeleton, ref leftTrackedHand);
+        bool rightTrackingValid = IsHandTrackingValid(rightHandOVRSkeleton, ref rightTrackedHand);
+        if (!leftTrackingValid)
+        {
+            ClearHandInteractionState(0);
+        }
+        if (!rightTrackingValid)
+        {
+            ClearHandInteractionState(1);
+        }
+        numBonesPerHand = leftTrackingValid || rightTrackingValid ? TrackedBoneCount : 0;
+        if (leftTrackingValid)
+        {
+            CopyHandBones(leftHandOVRSkeleton, leftHandBonePositions, leftHandBoneQuaternions, TrackedBoneCount);
+        }
+        if (rightTrackingValid)
+        {
+            CopyHandBones(rightHandOVRSkeleton, rightHandBonePositions, rightHandBoneQuaternions, TrackedBoneCount);
+        }
+        EnsureGripDistanceArrays(TrackedBoneCount);
+        gripContactPipeline?.Process(
+            leftHandInteractingClimbingHold,
+            rightHandInteractingClimbingHold,
+            leftHandBonePositions,
+            rightHandBonePositions,
+            leftTrackingValid,
+            rightTrackingValid);
+
+        if (!leftTrackingValid && !rightTrackingValid)
         {
             return;
         }
-        leftHandBonePositions = new List<Vector3>(leftHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
-        rightHandBonePositions = new List<Vector3>(rightHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
-        leftHandBoneQuaternions = new List<Quaternion>(leftHandOVRSkeleton.Bones.Select(bone => bone.Transform.rotation));
-        rightHandBoneQuaternions = new List<Quaternion>(rightHandOVRSkeleton.Bones.Select(bone => bone.Transform.rotation));
 
-        // WARNING: Here be dragons.
-        // The big idea is that for each vertex of the climbing hold, we find the distance to the closest bone of each hand, and save to two arrays.
-        // Then, we encode these distances in the UVs (channel 2) of the climbing hold's mesh vertices, and access them in the shader.
-        // JACE DEV Nov 2024: Let's also keep the distance of each hand bone to the closest climbing hold mesh vertex and save this to the main object.
-
-        // First, we reset the grip check distances to +inf
-        leftHandBoneToHoldMinDistances = new float[numBonesPerHand];
-        rightHandBoneToHoldMinDistances = new float[numBonesPerHand];
-        Array.Fill(leftHandBoneToHoldMinDistances, float.PositiveInfinity);
-        Array.Fill(rightHandBoneToHoldMinDistances, float.PositiveInfinity);
-
-        // Then, we queue up the climbing holds that are being interacted with
-        var climbingHoldsBeingInteracted = new List<(GameObject climbingHold, int handIndex)>();
-        if (leftHandInteractingClimbingHold != null)
-        {
-            climbingHoldsBeingInteracted.Add((leftHandInteractingClimbingHold, 0));
-        }
-        if (rightHandInteractingClimbingHold != null)
-        {
-            climbingHoldsBeingInteracted.Add((rightHandInteractingClimbingHold, 1));
-        }
-
-        // For each climbing hold being interacted with, 
-        // calculate the distances to the closest bones of each hand 
-        // as well as the distances of each bone to the closest vertex of the climbing hold
-        foreach (var interaction in climbingHoldsBeingInteracted)
-        {
-
-            GameObject climbingHold = interaction.climbingHold;
-            int hand = interaction.handIndex;
-            // Get information about the climbing hold
-            MeshFilter climbingHoldMeshFilter = climbingHold.GetComponent<MeshFilter>();
-            Mesh climbingHoldMesh = climbingHoldMeshFilter.mesh;
-            Vector3[] climbingHoldVertices = climbingHoldMesh.vertices;
-            int climbingHoldVerticesCount = climbingHoldVertices.Length;
-
-            UnityEngine.Debug.Log($"[DistComputeShader] hand={hand}, hold={climbingHold.name}, vertices={climbingHoldVerticesCount}, bones={numBonesPerHand}");
-
-            // Initialize buffers for compute shader
-            climbingHoldVerticesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float) * 3); // World position of each vertex of the climbing hold
-            leftHandBonesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(float) * 3); // World position of each bone of the left hand
-            rightHandBonesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(float) * 3); // World position of each bone of the right hand
-            leftHandDistancesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float)); // Distance from each vertex of the climbing hold to the closest bone of the left hand
-            rightHandDistancesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float)); // Distance from each vertex of the climbing hold to the closest bone of the right hand
-
-            // Distance from each vertex of the climbing hold to the closest bone of the right hand
-            // NOTE: We use uint here because the ComputeBuffer HLSL InterlockedMin() method does not support floats, and we will decode this later.
-            leftHandBoneToHoldMinDistancesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(uint));
-            // Distance from each vertex of the climbing hold to the closest bone of the right hand
-            // NOTE: We use uint here because the ComputeBuffer HLSL InterlockedMin() method does not support floats, and we will decode this later.
-            rightHandBoneToHoldMinDistancesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(uint));
-            // Initialize the bone distance buffers with +inf
-            uint[] infArray = new uint[numBonesPerHand];
-            uint positiveInfinityAsUint = BitConverter.ToUInt32(BitConverter.GetBytes(float.PositiveInfinity), 0);
-            for (int i = 0; i < numBonesPerHand; i++)
-            {
-                infArray[i] = positiveInfinityAsUint;
-            }
-            leftHandBoneToHoldMinDistancesBuffer.SetData(infArray);
-            rightHandBoneToHoldMinDistancesBuffer.SetData(infArray);
-
-            // Calculate input buffer data
-            for (int i = 0; i < climbingHoldVertices.Length; i++)
-            {
-                climbingHoldVertices[i] = climbingHold.transform.TransformPoint(climbingHoldVertices[i]); // Convert to world position
-            }
-            climbingHoldVerticesBuffer.SetData(climbingHoldVertices);
-            leftHandBonesBuffer.SetData(leftHandBonePositions.ToArray());
-            rightHandBonesBuffer.SetData(rightHandBonePositions.ToArray());
-
-            // Pass buffers to compute shader
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "climbingHoldVertices", climbingHoldVerticesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandBones", leftHandBonesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandBones", rightHandBonesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandDistances", leftHandDistancesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandDistances", rightHandDistancesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandBoneToHoldMinDistances", leftHandBoneToHoldMinDistancesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandBoneToHoldMinDistances", rightHandBoneToHoldMinDistancesBuffer);
-
-            // Dispatch compute shader (Blocking!)
-            // UnityEngine.Debug.Log("[SceneConfiguror] Thread Group Size: " + climbingHoldVerticesCount / 128);
-            distanceToClosestBoneComputeShader.Dispatch(kernelHandle, Math.Max(climbingHoldVerticesCount / 128, 1), 1, 1);
-
-            // Retrieve data now that the compute shader has run
-            float[] leftHandDistances = new float[climbingHoldVerticesCount];
-            float[] rightHandDistances = new float[climbingHoldVerticesCount];
-            leftHandDistancesBuffer.GetData(leftHandDistances);
-            rightHandDistancesBuffer.GetData(rightHandDistances);
-            uint[] leftHandBoneToHoldMinDistancesUint = new uint[numBonesPerHand];
-            uint[] rightHandBoneToHoldMinDistancesUint = new uint[numBonesPerHand];
-            leftHandBoneToHoldMinDistancesBuffer.GetData(leftHandBoneToHoldMinDistancesUint);
-            rightHandBoneToHoldMinDistancesBuffer.GetData(rightHandBoneToHoldMinDistancesUint);
-
-            // Decode uints to floats and save them in the public variables
-            // Don't reset the other hand's array, because we will be using the other hand's array in the next iteration
-            for (int i = 0; i < numBonesPerHand; i++)
-            {
-                if (hand == 0)
-                {
-                    leftHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
-                        BitConverter.GetBytes(leftHandBoneToHoldMinDistancesUint[i]), 0);
-                }
-                else if (hand == 1)
-                {
-                    rightHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
-                        BitConverter.GetBytes(rightHandBoneToHoldMinDistancesUint[i]), 0);
-                }
-            }
-
-            // Release buffers
-            climbingHoldVerticesBuffer.Release();
-            leftHandBonesBuffer.Release();
-            rightHandBonesBuffer.Release();
-            leftHandDistancesBuffer.Release();
-            rightHandDistancesBuffer.Release();
-            leftHandBoneToHoldMinDistancesBuffer.Release();
-            rightHandBoneToHoldMinDistancesBuffer.Release();
-
-            // Encode the distances in the UVs and set them in the climbing hold's mesh so that in the shader
-            // This works because the order of the vertices is the same in Mesh.vertices and Mesh.uv, both in Unity and in the shader
-            Vector2[] newClimbingHoldMeshUVs = new Vector2[climbingHoldVerticesCount];
-            for (int i = 0; i < climbingHoldVerticesCount; i++)
-            {
-                newClimbingHoldMeshUVs[i] = new Vector2(leftHandDistances[i], rightHandDistances[i]);
-            }
-            climbingHoldMesh.SetUVs(2, newClimbingHoldMeshUVs.ToList());
-        }
-
-        // Grip mode
+        // Grip state is shared by in-context and detached examination. Only Grip mode may move the board.
         if (gameMode == GameMode.Grip)
         {
             UpdateGripMode();
+        }
+        else if (gameMode == GameMode.Ghost && ghostHoldController != null &&
+                 ghostHoldController.CurrentGhost != null)
+        {
+            UpdateGripMode(false);
         }
 
         // Update networked hands
@@ -368,7 +281,57 @@ public class SceneConfiguror : MonoBehaviour
 
     }
 
-    public void UpdateGripMode()
+    private static void CopyHandBones(
+        OVRSkeleton skeleton,
+        List<Vector3> positions,
+        List<Quaternion> rotations,
+        int count)
+    {
+        positions.Clear();
+        rotations.Clear();
+        if (positions.Capacity < count)
+        {
+            positions.Capacity = count;
+        }
+        if (rotations.Capacity < count)
+        {
+            rotations.Capacity = count;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            Transform bone = skeleton.Bones[i].Transform;
+            positions.Add(bone.position);
+            rotations.Add(bone.rotation);
+        }
+    }
+
+    private void EnsureGripDistanceArrays(int count)
+    {
+        if (leftHandBoneToHoldMinDistances == null || leftHandBoneToHoldMinDistances.Length != count)
+        {
+            leftHandBoneToHoldMinDistances = new float[count];
+            Array.Fill(leftHandBoneToHoldMinDistances, float.PositiveInfinity);
+        }
+        if (rightHandBoneToHoldMinDistances == null || rightHandBoneToHoldMinDistances.Length != count)
+        {
+            rightHandBoneToHoldMinDistances = new float[count];
+            Array.Fill(rightHandBoneToHoldMinDistances, float.PositiveInfinity);
+        }
+    }
+
+    private void ResetHandDistances(int hand)
+    {
+        float[] distances = hand == 0
+            ? leftHandBoneToHoldMinDistances
+            : rightHandBoneToHoldMinDistances;
+        if (distances != null)
+        {
+            Array.Fill(distances, float.PositiveInfinity);
+        }
+    }
+
+    public void UpdateGripMode(bool allowLocomotion = true)
     {
         float gripPoseBoneDriftThreshold = 0.05f;
         if (!leftHandIsGripping)
@@ -379,20 +342,22 @@ public class SceneConfiguror : MonoBehaviour
             {
                 // "Wasn't gripping, now gripping"
                 // Save the start pose of the hand (joint positions).
-                leftHandGripStartPose = new List<Vector3>(leftHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
+                CopyRelativePose(leftHandBonePositions, ref leftHandGripStartPose);
                 actionRecorder?.Record(
                     "GripStart",
                     "Left",
                     leftHandInteractingClimbingHold
                 );                                                                  // Save "relative positions" by subtracting the base position (index 0) from all other positions.
-                leftHandGripStartPose = leftHandGripStartPose.Select((pos, i) => pos - leftHandBonePositions[0]).ToList();
             }
+        }
+        else if (leftHandInteractingClimbingHold == null)
+        {
+            leftHandIsGripping = false;
         }
         else
         {
             // However, if a hand is already gripping, we instead check if the hand is still gripping by comparing the start pose and the current pose.
-            leftHandGripCurrentPose = new List<Vector3>(leftHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
-            leftHandGripCurrentPose = leftHandGripCurrentPose.Select((pos, i) => pos - leftHandBonePositions[0]).ToList();
+            CopyRelativePose(leftHandBonePositions, ref leftHandGripCurrentPose);
             leftHandIsGripping = AreHandPosesApproximatelyEqual(leftHandGripStartPose, leftHandGripCurrentPose, gripPoseBoneDriftThreshold);
         }
         if (!rightHandIsGripping)
@@ -400,20 +365,28 @@ public class SceneConfiguror : MonoBehaviour
             rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(1, rightHandInteractingClimbingHold);
             if (rightHandIsGripping)
             {
-                rightHandGripStartPose = new List<Vector3>(rightHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
+                CopyRelativePose(rightHandBonePositions, ref rightHandGripStartPose);
                 actionRecorder?.Record(
                     "GripStart",
                     "Right",
                     rightHandInteractingClimbingHold
                 );
-                rightHandGripStartPose = rightHandGripStartPose.Select((pos, i) => pos - rightHandBonePositions[0]).ToList();
             }
+        }
+        else if (rightHandInteractingClimbingHold == null)
+        {
+            rightHandIsGripping = false;
         }
         else
         {
-            rightHandGripCurrentPose = new List<Vector3>(rightHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
-            rightHandGripCurrentPose = rightHandGripCurrentPose.Select((pos, i) => pos - rightHandBonePositions[0]).ToList();
+            CopyRelativePose(rightHandBonePositions, ref rightHandGripCurrentPose);
             rightHandIsGripping = AreHandPosesApproximatelyEqual(rightHandGripStartPose, rightHandGripCurrentPose, gripPoseBoneDriftThreshold);
+        }
+
+        if (!allowLocomotion)
+        {
+            isGripLocomotionActive = false;
+            return;
         }
 
         // leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(0, leftHandInteractingClimbingHold);
@@ -425,14 +398,8 @@ public class SceneConfiguror : MonoBehaviour
             if (isGripLocomotionActive)
             {
                 UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now not gripping with either hand. Stopping movement.");
+                StopGripLocomotion();
             }
-            actionRecorder?.Record(
-                "LocomotionStop",
-                "",
-                null,
-                "grip locomotion stopped"
-            );
-            isGripLocomotionActive = false;
             return;
         }
 
@@ -442,14 +409,8 @@ public class SceneConfiguror : MonoBehaviour
             if (isGripLocomotionActive)
             {
                 UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now gripping with both hands. Stopping movement.");
+                StopGripLocomotion();
             }
-            actionRecorder?.Record(
-                "LocomotionStop",
-                "",
-                null,
-                "grip locomotion stopped"
-            );
-            isGripLocomotionActive = false;
             return;
         }
 
@@ -465,32 +426,44 @@ public class SceneConfiguror : MonoBehaviour
                 "one-hand grip locomotion started"
             );
             isGripLocomotionActive = true;
-            leftHandGripStartPosition = leftHandBonePositions[0];
-            leftHandGripLastPosition = leftHandGripStartPosition;
-            rightHandGripStartPosition = rightHandBonePositions[0];
-            rightHandGripLastPosition = rightHandGripStartPosition;
+            if (leftHandIsGripping)
+            {
+                gripLocomotionHand = Hand.Left;
+                leftHandGripStartPosition = leftHandBonePositions[0];
+                leftHandGripLastPosition = leftHandGripStartPosition;
+            }
+            else
+            {
+                gripLocomotionHand = Hand.Right;
+                rightHandGripStartPosition = rightHandBonePositions[0];
+                rightHandGripLastPosition = rightHandGripStartPosition;
+            }
         }
 
         // Finally, we are sure that the player needs to move.
         // We move by getting the distance since last frame, and moving the player by that distance, then recording the new last position.
         Vector3 vectorToMovePlayer = Vector3.zero;
-        if (leftHandIsGripping)
+        if (gripLocomotionHand == Hand.Left && leftHandIsGripping)
         {
             vectorToMovePlayer = leftHandBonePositions[0] - leftHandGripLastPosition;
             // Compensate by moving the hands back
             // leftHand.transform.position -= vectorToMovePlayer;
             leftHandGripLastPosition = leftHandBonePositions[0];
         }
-        else if (rightHandIsGripping)
+        else if (gripLocomotionHand == Hand.Right && rightHandIsGripping)
         {
             vectorToMovePlayer = rightHandBonePositions[0] - rightHandGripLastPosition;
             // Compensate by moving the hands back
             // rightHand.transform.position -= vectorToMovePlayer;
             rightHandGripLastPosition = rightHandBonePositions[0];
         }
+        else
+        {
+            StopGripLocomotion();
+            return;
+        }
         // cameraOffset.transform.position -= vectorToMovePlayer; // Move player
         moonBoardEnv.transform.position += vectorToMovePlayer;
-        UnityEngine.Debug.Log($"[LocomotionMove] moving moonBoardEnv by {vectorToMovePlayer}, newPos={moonBoardEnv.transform.position}");
     }
     public bool CheckIfHandIsGrippingHold(int handIndex, GameObject climbingHold)
     {
@@ -508,10 +481,15 @@ public class SceneConfiguror : MonoBehaviour
             handBoneToHoldMinDistances = rightHandBoneToHoldMinDistances;
         }
 
-        // TODO: Improve grip detection (possibly via shader)
+        if (handBoneToHoldMinDistances == null || handBoneToHoldMinDistances.Length <= 25)
+        {
+            return false;
+        }
+
+        // Keep the legacy all-five-fingertips event threshold for locomotion and event compatibility.
         // Currently, the following will check if each fingertip is close to the hold. (When using Meta SDK v71's new OpenXR Hand Skeleton, bone indices 5, 10, 15, 20, 25 for thumb, pointer, middle, ring, and little fingertips respectively)
         bool isGripping = true;
-        foreach (int boneIndex in new List<int> { 5, 10, 15, 20, 25 })
+        foreach (int boneIndex in FingertipBoneIndices)
         {
             if (handBoneToHoldMinDistances[boneIndex] > gripFingertipRange)
             {
@@ -575,9 +553,16 @@ public class SceneConfiguror : MonoBehaviour
         UnityEngine.Debug.Log("SceneConfiguror: HandHoverEnter() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
         OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
         OVRHand handOVRHand = handOVRSkeleton.GetComponent<OVRHand>();
-        if (hoveredGameObject.tag == "ClimbingHold")
+        if (hoveredGameObject.CompareTag("ClimbingHold"))
         {
-            if (activeHoldsList.Contains(hoveredGameObject))
+            bool isGhost = IsGhostHold(hoveredGameObject);
+            if (gameMode == GameMode.Basic || (gameMode == GameMode.Ghost && !isGhost) ||
+                (gameMode == GameMode.Grip && isGhost))
+            {
+                return;
+            }
+
+            if (IsActiveRouteHold(hoveredGameObject) || isGhost)
             {
                 UnityEngine.Debug.Log("Hand hover enter: " + handOVRHand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
                 actionRecorder?.Record(
@@ -586,15 +571,27 @@ public class SceneConfiguror : MonoBehaviour
                     hoveredGameObject
                 );
                 MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
-                meshRenderer.material.SetInt("_IsBeingInteracted", 1);
+                meshRenderer.material.SetInt("_IsBeingInteracted", gripContactPipeline == null ? 1 : 0);
 
-                if (hand == 0)
+            if (hand == 0)
+            {
+                ResetHandDistances(0);
+                if (!IsSameHold(leftHandInteractingClimbingHold, hoveredGameObject))
                 {
-                    leftHandInteractingClimbingHold = hoveredGameObject;
+                    leftHandIsGripping = false;
+                    StopGripLocomotion(Hand.Left);
                 }
-                else if (hand == 1)
+                leftHandInteractingClimbingHold = hoveredGameObject;
+            }
+            else if (hand == 1)
+            {
+                ResetHandDistances(1);
+                if (!IsSameHold(rightHandInteractingClimbingHold, hoveredGameObject))
                 {
-                    rightHandInteractingClimbingHold = hoveredGameObject;
+                    rightHandIsGripping = false;
+                    StopGripLocomotion(Hand.Right);
+                }
+                rightHandInteractingClimbingHold = hoveredGameObject;
                 }
             }
         }
@@ -604,8 +601,14 @@ public class SceneConfiguror : MonoBehaviour
         UnityEngine.Debug.Log("SceneConfiguror: HandHoverExit() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
         OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
         OVRHand ovrHand = handOVRSkeleton.GetComponent<OVRHand>();
-        if (hoveredGameObject.tag == "ClimbingHold")
+        if (hoveredGameObject.CompareTag("ClimbingHold"))
         {
+            bool isGhost = IsGhostHold(hoveredGameObject);
+            if (gameMode == GameMode.Basic || (gameMode == GameMode.Ghost && !isGhost) ||
+                (gameMode == GameMode.Grip && isGhost))
+            {
+                return;
+            }
             UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with Climbing Hold " + hoveredGameObject.name);
             actionRecorder?.Record(
                 "HoverExit",
@@ -617,11 +620,21 @@ public class SceneConfiguror : MonoBehaviour
 
             if (hand == 0)
             {
-                leftHandInteractingClimbingHold = null;
+                if (IsSameHold(leftHandInteractingClimbingHold, hoveredGameObject))
+                {
+                    leftHandInteractingClimbingHold = null;
+                    leftHandIsGripping = false;
+                    StopGripLocomotion(Hand.Left);
+                }
             }
             else if (hand == 1)
             {
-                rightHandInteractingClimbingHold = null;
+                if (IsSameHold(rightHandInteractingClimbingHold, hoveredGameObject))
+                {
+                    rightHandInteractingClimbingHold = null;
+                    rightHandIsGripping = false;
+                    StopGripLocomotion(Hand.Right);
+                }
             }
         }
         else
@@ -632,27 +645,89 @@ public class SceneConfiguror : MonoBehaviour
 
     public void SetUpRouteByName(string routeName)
     {
+        EnsureHoldsDictionary();
         UnityEngine.Debug.Log("Requested route by name: " + routeName);
-        // Set up the holds for the route
+        if (!TryGetRouteHolds(routeName, out List<string> routeHolds))
+        {
+            UnityEngine.Debug.LogError("Route name " + routeName + " not found!");
+            return;
+        }
+
+        activeRouteHoldsNamesList = routeHolds;
+        currentRouteName = routeName;
+        if (routeName != "[PREVIEW ALL (SHADER OFF)]")
+        {
+            UnityEngine.Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", activeRouteHoldsNamesList));
+            SetUpRouteByHoldList(activeRouteHoldsNamesList);
+        }
+        else
+        {
+            UnityEngine.Debug.Log("Setting up route " + routeName + " with all holds");
+            PreviewAllHolds();
+        }
+        ApplyModeToRouteHolds();
+        if (gameMode == GameMode.Grip)
+        {
+            gripContactPipeline?.Prepare(activeHoldsList);
+        }
+    }
+
+    public bool TryValidateRoute(string routeName, out string error)
+    {
+        EnsureHoldsDictionary();
+        if (!TryGetRouteHolds(routeName, out List<string> routeHolds))
+        {
+            error = "Unknown route: " + routeName + ".";
+            return false;
+        }
+
+        string[] missing = routeHolds.Where(hold => !holdsDictionary.ContainsKey(hold)).ToArray();
+        if (missing.Length > 0)
+        {
+            error = routeName + " is missing hold" + (missing.Length == 1 ? " " : "s ") +
+                    string.Join(", ", missing) + ".";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    public bool TrySelectBaselineRoute(string routeName, out string error)
+    {
+        if (!TryGetRouteHolds(routeName, out List<string> routeHolds))
+        {
+            error = "Unknown route: " + routeName + ".";
+            return false;
+        }
+
+        activeRouteHoldsNamesList = routeHolds;
+        currentRouteName = routeName;
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool TryGetRouteHolds(string routeName, out List<string> routeHolds)
+    {
         switch (routeName)
         {
             case "DEATH STAR":
-                activeRouteHoldsNamesList = new List<string> { "D15", "D18", "G13", "H11", "I4", "J6", "K9" };
-                break;
+                routeHolds = new List<string> { "D15", "D18", "G13", "H11", "I4", "J6", "K9" };
+                return true;
             case "SPEED":
-                activeRouteHoldsNamesList = new List<string> { "A5", "D5", "D15", "F12", "F18", "G8", "G10" };
-                break;
+                routeHolds = new List<string> { "A5", "D5", "D15", "F12", "F18", "G8", "G10" };
+                return true;
             case "THE CRUSH ALT":
-                activeRouteHoldsNamesList = new List<string> { "B6", "C8", "D1", "D11", "F14", "F16", "K18" };
-                break;
+                routeHolds = new List<string> { "B6", "C8", "D1", "D11", "F14", "F16", "K18" };
+                return true;
             case "TO JUG, OR NOT TO JUG...":
-                activeRouteHoldsNamesList = new List<string> { "D9", "D15", "F5", "F12", "G13", "H10", "H18" };
-                break;
+                routeHolds = new List<string> { "D9", "D15", "F5", "F12", "G13", "H10", "H18" };
+                return true;
             case "WHITE JUGHAUL":
-                activeRouteHoldsNamesList = new List<string> { "F5", "H10", "H18", "I8", "K13", "K15", "K17" };
-                break;
+                routeHolds = new List<string> { "F5", "H10", "H18", "I8", "K13", "K15", "K17" };
+                return true;
             case "[PREVIEW ALL (SHADER OFF)]":
-                activeRouteHoldsNamesList = new List<string> { // this was the fastest way to get this working, sue me
+                routeHolds = new List<string> { // this was the fastest way to get this working, sue me
                     "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1", "I1", "J1", "K1",
                     "A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "I2", "J2", "K2",
                     "A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3", "I3", "J3", "K3",
@@ -672,20 +747,254 @@ public class SceneConfiguror : MonoBehaviour
                     "A17", "B17", "C17", "D17", "E17", "F17", "G17", "H17", "I17", "J17", "K17",
                     "A18", "B18", "C18", "D18", "E18", "F18", "G18", "H18", "I18", "J18", "K18"
                 };
-                break;
+                return true;
             default:
-                UnityEngine.Debug.LogError("Route name " + routeName + " not found!");
-                break;
+                routeHolds = null;
+                return false;
         }
-        if (routeName != "[PREVIEW ALL (SHADER OFF)]")
+    }
+
+    public void SetGameMode(GameMode newMode)
+    {
+        bool leavingGhostMode = gameMode == GameMode.Ghost && newMode != GameMode.Ghost;
+        if (leavingGhostMode && ghostHoldController != null)
         {
-            UnityEngine.Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", activeRouteHoldsNamesList));
-            SetUpRouteByHoldList(activeRouteHoldsNamesList);
+            ghostHoldController.SetModeActive(false);
+        }
+        ResetInteractionState();
+        gameMode = newMode;
+        ApplyModeToRouteHolds();
+        if (!leavingGhostMode && ghostHoldController != null)
+        {
+            ghostHoldController.SetModeActive(newMode == GameMode.Ghost);
+        }
+        if (newMode == GameMode.Grip)
+        {
+            gripContactPipeline?.Prepare(activeHoldsList);
         }
         else
         {
-            UnityEngine.Debug.Log("Setting up route " + routeName + " with all holds");
-            PreviewAllHolds();
+            gripContactPipeline?.ClearFeedback();
+            gripContactPipeline?.Prepare((IReadOnlyList<GameObject>)null);
+        }
+        actionRecorder?.Record("ModeChanged", "", null, newMode.ToString());
+    }
+
+    public void PrepareGripHold(GameObject hold)
+    {
+        gripContactPipeline?.Prepare(hold);
+    }
+
+    public void ResetMoonBoardTransform()
+    {
+        CacheMoonBoardTransform();
+        if (!hasInitialMoonBoardTransform)
+        {
+            return;
+        }
+
+        moonBoardEnv.transform.SetLocalPositionAndRotation(
+            initialMoonBoardLocalPosition,
+            initialMoonBoardLocalRotation);
+        moonBoardEnv.transform.localScale = initialMoonBoardLocalScale;
+    }
+
+    public void SetStudyEnvironmentVisible(bool visible)
+    {
+        if (environment != null)
+        {
+            environment.SetActive(visible);
+        }
+    }
+
+    public bool IsGripFeedbackReady => gripContactPipeline != null && gripContactPipeline.IsSupported;
+
+    public void SetStudyFeedbackVisible(bool visible)
+    {
+        foreach (HandBoneTracker tracker in FindObjectsByType<HandBoneTracker>(
+                     FindObjectsInactive.Include,
+                     FindObjectsSortMode.None))
+        {
+            tracker.SetFeedbackVisible(visible);
+        }
+        if (!visible)
+        {
+            gripContactPipeline?.ClearFeedback();
+        }
+    }
+
+    public Transform GetGripNormalReference(GameObject hold)
+    {
+        return IsGhostHold(hold) && ghostHoldController.WallReferent != null
+            ? ghostHoldController.WallReferent.transform
+            : hold.transform;
+    }
+
+    public bool IsActiveRouteHold(GameObject candidate)
+    {
+        return GetActiveRouteHold(candidate) != null;
+    }
+
+    public GameObject GetActiveRouteHold(GameObject candidate)
+    {
+        if (candidate == null || activeHoldsList == null)
+        {
+            return null;
+        }
+
+        Transform candidateTransform = candidate.transform;
+        foreach (GameObject activeHold in activeHoldsList)
+        {
+            if (activeHold != null &&
+                (candidateTransform == activeHold.transform || candidateTransform.IsChildOf(activeHold.transform)))
+            {
+                return activeHold;
+            }
+        }
+        return null;
+    }
+
+    public bool IsGhostHold(GameObject candidate)
+    {
+        return ghostHoldController != null && ghostHoldController.IsGhostHold(candidate);
+    }
+
+    public void RegisterGhostHold(GameObject ghost)
+    {
+        if (ghost == null)
+        {
+            return;
+        }
+
+        XRGrabInteractable grab = ghost.GetComponent<XRGrabInteractable>();
+        if (grab != null)
+        {
+            grab.enabled = true;
+        }
+    }
+
+    public void UnregisterGhostHold(GameObject ghost)
+    {
+        if (ghost == null)
+        {
+            return;
+        }
+
+        if (leftHandInteractingClimbingHold != null &&
+            (leftHandInteractingClimbingHold == ghost ||
+             leftHandInteractingClimbingHold.transform.IsChildOf(ghost.transform)))
+        {
+            actionRecorder?.Record("HoverExit", "Left", ghost);
+            leftHandInteractingClimbingHold = null;
+        }
+        if (rightHandInteractingClimbingHold != null &&
+            (rightHandInteractingClimbingHold == ghost ||
+             rightHandInteractingClimbingHold.transform.IsChildOf(ghost.transform)))
+        {
+            actionRecorder?.Record("HoverExit", "Right", ghost);
+            rightHandInteractingClimbingHold = null;
+        }
+        leftHandIsGripping = false;
+        rightHandIsGripping = false;
+    }
+
+    private void ApplyModeToRouteHolds()
+    {
+        if (activeHoldsList == null)
+        {
+            return;
+        }
+
+        bool enableWallColliders = gameMode != GameMode.Basic;
+        bool enableWallGrab = gameMode == GameMode.Grip;
+        foreach (GameObject hold in activeHoldsList)
+        {
+            if (hold == null)
+            {
+                continue;
+            }
+
+            XRGrabInteractable grab = hold.GetComponent<XRGrabInteractable>();
+            if (grab != null)
+            {
+                grab.enabled = enableWallGrab;
+            }
+            foreach (Collider collider in hold.GetComponentsInChildren<Collider>(true))
+            {
+                collider.enabled = enableWallColliders;
+            }
+        }
+    }
+
+    private void ResetInteractionState()
+    {
+        StopGripLocomotion();
+        SetInteractionVisual(leftHandInteractingClimbingHold, false);
+        if (rightHandInteractingClimbingHold != leftHandInteractingClimbingHold)
+        {
+            SetInteractionVisual(rightHandInteractingClimbingHold, false);
+        }
+        leftHandInteractingClimbingHold = null;
+        rightHandInteractingClimbingHold = null;
+        leftHandIsGripping = false;
+        rightHandIsGripping = false;
+        isGripLocomotionActive = false;
+        gripLocomotionHand = null;
+    }
+
+    private void ClearHandInteractionState(int hand)
+    {
+        GameObject hold = hand == 0
+            ? leftHandInteractingClimbingHold
+            : rightHandInteractingClimbingHold;
+        if (hold != null)
+        {
+            actionRecorder?.Record(
+                "HoverExit",
+                hand == 0 ? "Left" : "Right",
+                hold,
+                "tracking_lost");
+        }
+        SetInteractionVisual(hold, false);
+        if (hand == 0)
+        {
+            leftHandInteractingClimbingHold = null;
+            leftHandIsGripping = false;
+            ResetHandDistances(0);
+        }
+        else
+        {
+            rightHandInteractingClimbingHold = null;
+            rightHandIsGripping = false;
+            ResetHandDistances(1);
+        }
+        StopGripLocomotion(hand == 0 ? Hand.Left : Hand.Right);
+    }
+
+    private void StopGripLocomotion(Hand? hand = null)
+    {
+        if (!isGripLocomotionActive || (hand.HasValue && gripLocomotionHand != hand))
+        {
+            return;
+        }
+
+        actionRecorder?.Record("LocomotionStop", "", null, "grip locomotion stopped");
+        isGripLocomotionActive = false;
+        gripLocomotionHand = null;
+    }
+
+    private static bool IsSameHold(GameObject current, GameObject candidate)
+    {
+        return current != null && candidate != null &&
+               (current == candidate || current.transform.IsChildOf(candidate.transform) ||
+                candidate.transform.IsChildOf(current.transform));
+    }
+
+    private static void SetInteractionVisual(GameObject hold, bool active)
+    {
+        if (hold != null && hold.TryGetComponent(out MeshRenderer meshRenderer))
+        {
+            meshRenderer.material.SetInt("_IsBeingInteracted", active ? 1 : 0);
         }
     }
     void SetUpRouteByHoldList(List<string> holdsList)
@@ -702,9 +1011,11 @@ public class SceneConfiguror : MonoBehaviour
             else
             {
                 Renderer renderer = hold.GetComponent<Renderer>();
-                Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
-                hold.GetComponent<XRGrabInteractable>().enabled = false;
+                if (renderer != null)
+                {
+                    renderer.material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
+                }
+                EnsureHoldInteractionComponents(hold).enabled = false;
             }
 
             CoACD coACD = hold.GetComponent<CoACD>();
@@ -730,12 +1041,13 @@ public class SceneConfiguror : MonoBehaviour
             if (!holdsDictionary.ContainsKey(holdName))
             {
                 UnityEngine.Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
+                continue;
             }
 
             holdsDictionary[holdName].SetActive(true);
             if (!disableInactiveHolds)
             {
-                holdsDictionary[holdName].GetComponent<XRGrabInteractable>().enabled = true;
+                EnsureHoldInteractionComponents(holdsDictionary[holdName]).enabled = true;
                 Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
                 Material material = renderer.material;
                 material.SetFloat("_HoldAlpha", activeHoldAlpha);
@@ -824,9 +1136,11 @@ public class SceneConfiguror : MonoBehaviour
             else
             {
                 Renderer renderer = hold.GetComponent<Renderer>();
-                Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
-                hold.GetComponent<XRGrabInteractable>().enabled = false;
+                if (renderer != null)
+                {
+                    renderer.material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
+                }
+                EnsureHoldInteractionComponents(hold).enabled = false;
             }
 
             CoACD coACD = hold.GetComponent<CoACD>();
@@ -852,12 +1166,13 @@ public class SceneConfiguror : MonoBehaviour
             if (!holdsDictionary.ContainsKey(holdName))
             {
                 UnityEngine.Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
+                continue;
             }
 
             holdsDictionary[holdName].SetActive(true);
             if (!disableInactiveHolds)
             {
-                holdsDictionary[holdName].GetComponent<XRGrabInteractable>().enabled = true;
+                EnsureHoldInteractionComponents(holdsDictionary[holdName]).enabled = true;
                 Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
                 Material material = renderer.material;
                 material.SetFloat("_HoldAlpha", activeHoldAlpha);
@@ -873,6 +1188,135 @@ public class SceneConfiguror : MonoBehaviour
             Destroy(circle);
         }
         activeHighlightCircles.Clear();
+    }
+
+    private static XRGrabInteractable EnsureHoldInteractionComponents(GameObject hold)
+    {
+        SphereCollider sphere = hold.GetComponent<SphereCollider>();
+        if (sphere == null)
+        {
+            sphere = hold.AddComponent<SphereCollider>();
+            MeshRenderer renderer = hold.GetComponent<MeshRenderer>();
+            if (renderer != null)
+            {
+                sphere.center = renderer.localBounds.center;
+                sphere.radius = renderer.localBounds.extents.magnitude;
+            }
+            sphere.isTrigger = false;
+        }
+
+        XRGrabInteractable grab = hold.GetComponent<XRGrabInteractable>();
+        if (grab == null)
+        {
+            grab = hold.AddComponent<XRGrabInteractable>();
+            grab.movementType = XRBaseInteractable.MovementType.Instantaneous;
+            grab.trackPosition = true;
+            grab.trackRotation = true;
+        }
+        if (!grab.colliders.Contains(sphere))
+        {
+            grab.colliders.Add(sphere);
+        }
+        return grab;
+    }
+
+    private void EnsureHoldsDictionary()
+    {
+        if (holdsDictionary != null && holdsDictionary.Count > 0)
+        {
+            return;
+        }
+
+        holdsDictionary = new Dictionary<string, GameObject>();
+        if (holdsParentGameObject == null)
+        {
+            return;
+        }
+        foreach (Transform child in holdsParentGameObject.transform)
+        {
+            string holdName = child.name.Split('.')[0];
+            holdsDictionary[holdName] = child.gameObject;
+        }
+    }
+
+    private void CacheMoonBoardTransform()
+    {
+        if (hasInitialMoonBoardTransform || moonBoardEnv == null)
+        {
+            return;
+        }
+
+        initialMoonBoardLocalPosition = moonBoardEnv.transform.localPosition;
+        initialMoonBoardLocalRotation = moonBoardEnv.transform.localRotation;
+        initialMoonBoardLocalScale = moonBoardEnv.transform.localScale;
+        hasInitialMoonBoardTransform = true;
+    }
+
+    private static bool IsHandTrackingValid(OVRSkeleton skeleton, ref OVRHand hand)
+    {
+        if (skeleton == null || skeleton.Bones == null || skeleton.Bones.Count < TrackedBoneCount)
+        {
+            return false;
+        }
+
+        hand ??= skeleton.GetComponent<OVRHand>();
+        return hand != null && hand.IsTracked && hand.IsDataHighConfidence;
+    }
+
+    private static void CopyRelativePose(List<Vector3> source, ref List<Vector3> destination)
+    {
+        destination ??= new List<Vector3>(source.Count);
+        destination.Clear();
+        if (destination.Capacity < source.Count)
+        {
+            destination.Capacity = source.Count;
+        }
+
+        Vector3 origin = source[0];
+        for (int i = 0; i < source.Count; i++)
+        {
+            destination.Add(source[i] - origin);
+        }
+    }
+
+    private void EnsureGripPipeline()
+    {
+        if (gripContactPipeline != null || distanceToClosestBoneComputeShader == null)
+        {
+            return;
+        }
+
+        gripScoreConfig ??= Resources.Load<GripScoreConfig>("GripScoreConfig");
+        if (gripScoreConfig == null)
+        {
+            gripScoreConfig = ScriptableObject.CreateInstance<GripScoreConfig>();
+            Debug.LogWarning("GripScoreConfig asset was not found; using runtime defaults.");
+        }
+        gripContactPipeline = new GripContactPipeline(
+            this,
+            distanceToClosestBoneComputeShader,
+            gripScoreConfig);
+    }
+
+    private void EnsureRuntimeControllers()
+    {
+        ghostHoldController = ghostHoldController != null
+            ? ghostHoldController
+            : FindAnyObjectByType<GhostHoldController>();
+        if (ghostHoldController == null)
+        {
+            GameObject controllerObject = new("GhostHoldController");
+            ghostHoldController = controllerObject.AddComponent<GhostHoldController>();
+        }
+        if (ghostHoldController.GetComponent<StudyManager>() == null)
+        {
+            ghostHoldController.gameObject.AddComponent<StudyManager>();
+        }
+    }
+
+    private void OnDestroy()
+    {
+        gripContactPipeline?.Dispose();
     }
 
 }
