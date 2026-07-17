@@ -33,6 +33,7 @@ public sealed class StudyManager : MonoBehaviour
     private bool leftWasPinching;
     private bool rightWasPinching;
     private bool blockRunning;
+    private bool panelPinned;
     private float blockStartRealtime;
     private float blockDurationSeconds;
     private StudyScheduleRow activeRow;
@@ -46,6 +47,11 @@ public sealed class StudyManager : MonoBehaviour
     private OVRHand rightHand;
     private OVRSkeleton leftSkeleton;
     private OVRSkeleton rightSkeleton;
+    private static readonly string[] AdhocConditions = { "A", "B", "C" };
+    private int adhocConditionIndex;
+    private int adhocRouteIndex;
+    private TextMesh adhocConditionLabel;
+    private TextMesh adhocRouteLabel;
 
     public bool IsBlockRunning => blockRunning;
     public string ActiveDirectory => activeDirectory;
@@ -140,26 +146,8 @@ public sealed class StudyManager : MonoBehaviour
             RefreshPanelText();
             return false;
         }
-        if (sceneConfiguror == null || actionRecorder == null)
+        if (!TryValidateRowRuntime(row))
         {
-            statusMessage = "Study runtime references are unavailable.";
-            RefreshPanelText();
-            return false;
-        }
-        if (row.condition != "A" && !sceneConfiguror.IsGripFeedbackReady)
-        {
-            statusMessage = "Grip feedback is unavailable on this device.";
-            RefreshPanelText();
-            return false;
-        }
-        bool routeReady = row.condition == "A"
-            ? sceneConfiguror.TrySelectBaselineRoute(row.route, out string routeError)
-            : sceneConfiguror.TryValidateRoute(row.route, out routeError);
-        if (!routeReady)
-        {
-            statusMessage = routeError;
-            RefreshPanelText();
-            Debug.LogError("[StudyManager] " + routeError);
             return false;
         }
 
@@ -189,9 +177,89 @@ public sealed class StudyManager : MonoBehaviour
         }
 
         retryConfirmationKey = null;
-        Directory.CreateDirectory(requestedDirectory);
+        BeginValidatedRow(row, requestedDirectory, retry, false);
+        return true;
+    }
+
+    /// <summary>
+    /// Starts a one-off block outside the schedule for testing: the panel's condition and
+    /// route cyclers pick any (condition, route) pair, including routes.json entries.
+    /// Data lands in study/ADHOC/ (never a participant folder) and the manifest is marked
+    /// adhoc so tools/check_session.py-audited study data stays unambiguous.
+    /// </summary>
+    public bool StartAdhocBlock()
+    {
+        if (blockRunning)
+        {
+            statusMessage = "End the current block first.";
+            RefreshPanelText();
+            return false;
+        }
+
+        List<string> routes = sceneConfiguror != null
+            ? sceneConfiguror.GetAvailableRouteNames()
+            : new List<string>();
+        if (routes.Count == 0)
+        {
+            statusMessage = "No routes are available.";
+            RefreshPanelText();
+            return false;
+        }
+
+        adhocRouteIndex = Mathf.Clamp(adhocRouteIndex, 0, routes.Count - 1);
+        StudyScheduleRow row = new()
+        {
+            participant = "ADHOC",
+            block = 0,
+            condition = AdhocConditions[adhocConditionIndex],
+            route = routes[adhocRouteIndex],
+        };
+        if (!TryValidateRowRuntime(row))
+        {
+            return false;
+        }
+
+        string directory = Path.Combine(
+            Application.persistentDataPath,
+            "study",
+            "ADHOC",
+            $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{row.condition}_{SanitizePathToken(row.route)}");
+        BeginValidatedRow(row, directory, 0, true);
+        return true;
+    }
+
+    private bool TryValidateRowRuntime(StudyScheduleRow row)
+    {
+        if (sceneConfiguror == null || actionRecorder == null)
+        {
+            statusMessage = "Study runtime references are unavailable.";
+            RefreshPanelText();
+            return false;
+        }
+        if (row.condition != "A" && !sceneConfiguror.IsGripFeedbackReady)
+        {
+            statusMessage = "Grip feedback is unavailable on this device.";
+            RefreshPanelText();
+            return false;
+        }
+        bool routeReady = row.condition == "A"
+            ? sceneConfiguror.TrySelectBaselineRoute(row.route, out string routeError)
+            : sceneConfiguror.TryValidateRoute(row.route, out routeError);
+        if (!routeReady)
+        {
+            statusMessage = routeError;
+            RefreshPanelText();
+            Debug.LogError("[StudyManager] " + routeError);
+            return false;
+        }
+        return true;
+    }
+
+    private void BeginValidatedRow(StudyScheduleRow row, string directory, int retry, bool adhoc)
+    {
+        Directory.CreateDirectory(directory);
         activeRow = row;
-        activeDirectory = requestedDirectory;
+        activeDirectory = directory;
         manifestPath = Path.Combine(activeDirectory, "session.json");
         activeManifest = new StudySessionManifest
         {
@@ -200,6 +268,7 @@ public sealed class StudyManager : MonoBehaviour
             condition = row.condition,
             route = row.route,
             retry = retry,
+            adhoc = adhoc,
             appVersion = Application.version,
             gitRevision = StudyBuildRevision.Current,
             startUtc = string.Empty,
@@ -229,8 +298,11 @@ public sealed class StudyManager : MonoBehaviour
 
         blockDurationSeconds = GetBlockMinutes() * 60f;
         blockStartRealtime = Time.realtimeSinceStartup;
+        panelPinned = true;
         blockRunning = true;
-        statusMessage = $"Running {row.participant} block {row.block}.";
+        statusMessage = adhoc
+            ? $"Running adhoc {row.condition} / {row.route}."
+            : $"Running {row.participant} block {row.block}.";
         if (row.condition == "A")
         {
             ShowPanel();
@@ -241,7 +313,6 @@ public sealed class StudyManager : MonoBehaviour
             SetPanelVisible(false);
         }
         RefreshPanelText();
-        return true;
     }
 
     public void EndBlockEarly()
@@ -348,6 +419,21 @@ public sealed class StudyManager : MonoBehaviour
 
         HandlePanelInput(leftHand, leftSkeleton, ref leftWasPinching, true);
         HandlePanelInput(rightHand, rightSkeleton, ref rightWasPinching, false);
+
+        // The HMD pose is not valid yet when Start() places the panel (over Link the
+        // headset may not even be worn), so keep the idle panel in front of the user
+        // until the experimenter first uses it.
+        if (!panelPinned && !blockRunning && panelRoot != null && panelRoot.activeSelf)
+        {
+            PositionPanelInFrontOfUser();
+        }
+#if UNITY_EDITOR
+        if (UnityEngine.InputSystem.Keyboard.current != null &&
+            UnityEngine.InputSystem.Keyboard.current.mKey.wasPressedThisFrame)
+        {
+            ShowPanel();
+        }
+#endif
     }
 
     private void HandlePanelInput(
@@ -377,6 +463,7 @@ public sealed class StudyManager : MonoBehaviour
             StudyPanelButton button = hit.collider.GetComponentInParent<StudyPanelButton>();
             if (button != null)
             {
+                panelPinned = true;
                 button.Press();
                 return;
             }
@@ -415,18 +502,21 @@ public sealed class StudyManager : MonoBehaviour
         GameObject background = GameObject.CreatePrimitive(PrimitiveType.Cube);
         background.name = "Panel Background";
         background.transform.SetParent(panelRoot.transform, false);
-        background.transform.localScale = new Vector3(0.64f, 0.44f, 0.012f);
+        background.transform.localScale = new Vector3(0.64f, 0.70f, 0.012f);
         background.GetComponent<MeshRenderer>().sharedMaterial = panelMaterial;
         Destroy(background.GetComponent<Collider>());
 
-        panelText = CreateText(panelRoot.transform, new Vector3(0f, 0.08f, -0.008f), 0.006f, 36);
+        panelText = CreateText(panelRoot.transform, new Vector3(0f, 0.12f, -0.008f), 0.006f, 36);
         CreateButton("Previous Participant", new Vector3(-0.22f, -0.08f, -0.02f), new Vector2(0.16f, 0.065f), "PREV P", PreviousParticipant);
         CreateButton("Next Participant", new Vector3(0.22f, -0.08f, -0.02f), new Vector2(0.16f, 0.065f), "NEXT P", NextParticipant);
         CreateButton("Previous Block", new Vector3(-0.22f, -0.16f, -0.02f), new Vector2(0.16f, 0.065f), "PREV BLOCK", PreviousBlock);
         CreateButton("Next Block", new Vector3(0.22f, -0.16f, -0.02f), new Vector2(0.16f, 0.065f), "NEXT BLOCK", NextBlock);
         CreateButton("Start Block", new Vector3(0f, -0.08f, -0.02f), new Vector2(0.20f, 0.065f), "START", () => StartSelectedBlock());
         CreateButton("End Block", new Vector3(0f, -0.16f, -0.02f), new Vector2(0.20f, 0.065f), "END EARLY", EndBlockEarly);
-        CreateButton("Hide Panel", new Vector3(0f, -0.235f, -0.02f), new Vector2(0.16f, 0.05f), "HIDE", () => SetPanelVisible(false));
+        adhocConditionLabel = CreateButton("Adhoc Condition", new Vector3(-0.22f, -0.24f, -0.02f), new Vector2(0.16f, 0.065f), "COND: A", CycleAdhocCondition);
+        CreateButton("Adhoc Start", new Vector3(0f, -0.24f, -0.02f), new Vector2(0.20f, 0.065f), "ADHOC START", () => StartAdhocBlock());
+        adhocRouteLabel = CreateButton("Adhoc Route", new Vector3(0.22f, -0.24f, -0.02f), new Vector2(0.16f, 0.065f), "ROUTE", CycleAdhocRoute);
+        CreateButton("Hide Panel", new Vector3(0f, -0.30f, -0.02f), new Vector2(0.16f, 0.05f), "HIDE", () => SetPanelVisible(false));
 
         timerChipRoot = new GameObject("Study Timer Chip");
         timerChipRoot.transform.SetParent(transform, false);
@@ -442,7 +532,7 @@ public sealed class StudyManager : MonoBehaviour
         PositionPanelInFrontOfUser();
     }
 
-    private void CreateButton(
+    private TextMesh CreateButton(
         string objectName,
         Vector3 localPosition,
         Vector2 size,
@@ -457,15 +547,19 @@ public sealed class StudyManager : MonoBehaviour
         buttonObject.GetComponent<MeshRenderer>().sharedMaterial = buttonMaterial;
         StudyPanelButton button = buttonObject.AddComponent<StudyPanelButton>();
         button.Pressed = pressed;
-        CreateText(buttonObject.transform, new Vector3(0f, 0f, -0.56f), 0.055f, 26).text = label;
+        TextMesh text = CreateText(buttonObject.transform, new Vector3(0f, 0f, -0.56f), 0.055f, 26);
+        text.text = label;
+        return text;
     }
 
+    // No Y flip: PositionPanelInFrontOfUser points the panel's +Z away from the user, which
+    // is exactly the orientation TextMesh glyphs read correctly from. The previous 180° flip
+    // mirrored every label from the user's viewpoint (review finding C1, 2026-07-16).
     private static TextMesh CreateText(Transform parent, Vector3 localPosition, float characterSize, int fontSize)
     {
         GameObject textObject = new("Label");
         textObject.transform.SetParent(parent, false);
         textObject.transform.localPosition = localPosition;
-        textObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         TextMesh text = textObject.AddComponent<TextMesh>();
         text.anchor = TextAnchor.MiddleCenter;
         text.alignment = TextAlignment.Center;
@@ -524,6 +618,44 @@ public sealed class StudyManager : MonoBehaviour
         }
     }
 
+    private void CycleAdhocCondition()
+    {
+        if (blockRunning)
+        {
+            return;
+        }
+        adhocConditionIndex = (adhocConditionIndex + 1) % AdhocConditions.Length;
+        RefreshPanelText();
+    }
+
+    private void CycleAdhocRoute()
+    {
+        if (blockRunning)
+        {
+            return;
+        }
+        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetAvailableRouteNames().Count : 0;
+        if (routeCount == 0)
+        {
+            return;
+        }
+        adhocRouteIndex = (adhocRouteIndex + 1) % routeCount;
+        RefreshPanelText();
+    }
+
+    private string GetAdhocRouteName()
+    {
+        List<string> routes = sceneConfiguror != null
+            ? sceneConfiguror.GetAvailableRouteNames()
+            : new List<string>();
+        if (routes.Count == 0)
+        {
+            return string.Empty;
+        }
+        adhocRouteIndex = Mathf.Clamp(adhocRouteIndex, 0, routes.Count - 1);
+        return routes[adhocRouteIndex];
+    }
+
     private void NextBlock()
     {
         if (!blockRunning)
@@ -552,6 +684,20 @@ public sealed class StudyManager : MonoBehaviour
                     .Append(row.condition).Append(" / ").Append(row.route).AppendLine();
             }
         }
+
+        string adhocCondition = AdhocConditions[adhocConditionIndex];
+        string adhocRoute = GetAdhocRouteName();
+        text.Append("Adhoc: ").Append(adhocCondition).Append(" / ")
+            .Append(string.IsNullOrEmpty(adhocRoute) ? "(no routes)" : adhocRoute).AppendLine();
+        if (adhocConditionLabel != null)
+        {
+            adhocConditionLabel.text = "COND: " + adhocCondition;
+        }
+        if (adhocRouteLabel != null)
+        {
+            adhocRouteLabel.text = adhocRoute.Length > 9 ? adhocRoute.Substring(0, 9) + ".." : adhocRoute;
+        }
+
         text.AppendLine(statusMessage);
         panelText.text = text.ToString();
     }

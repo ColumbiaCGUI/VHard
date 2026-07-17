@@ -27,6 +27,7 @@ public sealed class StudySessionManifest
     public string condition;
     public string route;
     public int retry;
+    public bool adhoc;
     public string appVersion;
     public string gitRevision;
     public string startUtc;

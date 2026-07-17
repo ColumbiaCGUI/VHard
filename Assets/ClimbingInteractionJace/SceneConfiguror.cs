@@ -1,11 +1,14 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Unity.VisualScripting;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
@@ -65,6 +68,16 @@ public class SceneConfiguror : MonoBehaviour
     public GameMode gameMode;
     public string currentRouteName = "DEATH STAR";
     public GhostHoldController ghostHoldController;
+
+    // Ad-hoc routes loaded from StreamingAssets/routes.json (e.g. MoonBoard benchmarks
+    // converted via tools/moonboard_to_routes.py). Built-in study routes always win;
+    // RouteLibrary rejects any file that tries to shadow them.
+    private static readonly string[] BuiltInRouteNames =
+    {
+        "DEATH STAR", "SPEED", "THE CRUSH ALT", "TO JUG, OR NOT TO JUG...", "WHITE JUGHAUL",
+    };
+    private readonly Dictionary<string, List<string>> jsonRoutes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> jsonRouteNames = new();
 
     [Header("Interaction Settings")]
     public float interactionColorMaxDistanceOverride;
@@ -164,6 +177,7 @@ public class SceneConfiguror : MonoBehaviour
         // Jace: Note that the holds are currently named [A-K][1-18].[001/002/003]
         EnsureHoldsDictionary();
         EnsureGripPipeline();
+        StartCoroutine(LoadRoutesJson());
 
         // DEV: Turn on all holds by default
         // SetUpRouteByName("[PREVIEW ALL (SHADER OFF)]");
@@ -707,7 +721,76 @@ public class SceneConfiguror : MonoBehaviour
         return true;
     }
 
-    private static bool TryGetRouteHolds(string routeName, out List<string> routeHolds)
+    private bool TryGetRouteHolds(string routeName, out List<string> routeHolds)
+    {
+        if (TryGetBuiltInRouteHolds(routeName, out routeHolds))
+        {
+            return true;
+        }
+        if (routeName != null && jsonRoutes.TryGetValue(routeName, out List<string> jsonHolds))
+        {
+            routeHolds = jsonHolds;
+            return true;
+        }
+        routeHolds = null;
+        return false;
+    }
+
+    /// <summary>Built-in study routes first, then routes.json entries, in file order.</summary>
+    public List<string> GetAvailableRouteNames()
+    {
+        List<string> names = new(BuiltInRouteNames.Length + jsonRouteNames.Count);
+        names.AddRange(BuiltInRouteNames);
+        names.AddRange(jsonRouteNames);
+        return names;
+    }
+
+    private IEnumerator LoadRoutesJson()
+    {
+        string path = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/routes.json";
+        string json = null;
+        if (path.Contains("://") || path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase))
+        {
+            using UnityWebRequest request = UnityWebRequest.Get(path);
+            yield return request.SendWebRequest();
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                json = request.downloadHandler.text;
+            }
+            else if (request.responseCode != 404)
+            {
+                Debug.LogError("[SceneConfiguror] routes.json load failed: " + request.error);
+            }
+        }
+        else if (File.Exists(path))
+        {
+            json = File.ReadAllText(path);
+        }
+
+        if (json == null)
+        {
+            Debug.Log("[SceneConfiguror] No routes.json in StreamingAssets; only built-in routes are available.");
+            yield break;
+        }
+
+        if (!RouteLibrary.TryParseJson(json, BuiltInRouteNames, out List<RouteDefinition> parsed, out string error))
+        {
+            Debug.LogError("[SceneConfiguror] routes.json rejected: " + error);
+            yield break;
+        }
+
+        jsonRoutes.Clear();
+        jsonRouteNames.Clear();
+        foreach (RouteDefinition route in parsed)
+        {
+            jsonRoutes[route.name] = new List<string>(route.holds);
+            jsonRouteNames.Add(route.name);
+        }
+        Debug.Log("[SceneConfiguror] Loaded " + jsonRouteNames.Count + " route(s) from routes.json: " +
+                  string.Join(", ", jsonRouteNames));
+    }
+
+    private static bool TryGetBuiltInRouteHolds(string routeName, out List<string> routeHolds)
     {
         switch (routeName)
         {
@@ -1196,13 +1279,7 @@ public class SceneConfiguror : MonoBehaviour
         if (sphere == null)
         {
             sphere = hold.AddComponent<SphereCollider>();
-            MeshRenderer renderer = hold.GetComponent<MeshRenderer>();
-            if (renderer != null)
-            {
-                sphere.center = renderer.localBounds.center;
-                sphere.radius = renderer.localBounds.extents.magnitude;
-            }
-            sphere.isTrigger = false;
+            FitHoldHoverCollider(hold);
         }
 
         XRGrabInteractable grab = hold.GetComponent<XRGrabInteractable>();
@@ -1236,7 +1313,30 @@ public class SceneConfiguror : MonoBehaviour
         {
             string holdName = child.name.Split('.')[0];
             holdsDictionary[holdName] = child.gameObject;
+            FitHoldHoverCollider(child.gameObject);
         }
+    }
+
+    // The scene's baked hold SphereColliders are authored with a hardcoded local radius that
+    // the FBX import scale inflates to ~2 m world (measured live 2026-07-16): every hover
+    // volume overlapped most of the board, hover targeting was last-enter-wins from meters
+    // away, and the solid spheres intercepted the experimenter panel's pinch raycast. Fit the
+    // sphere to the actual mesh bounds instead (the same math GhostHoldController applies to
+    // ghost clones) and make it a trigger so HandHoverCollider still fires while
+    // Physics.Raycast(..., QueryTriggerInteraction.Ignore) passes straight through.
+    private static void FitHoldHoverCollider(GameObject hold)
+    {
+        SphereCollider sphere = hold.GetComponent<SphereCollider>();
+        MeshFilter meshFilter = hold.GetComponent<MeshFilter>();
+        if (sphere == null || meshFilter == null || meshFilter.sharedMesh == null)
+        {
+            return;
+        }
+
+        Bounds meshBounds = meshFilter.sharedMesh.bounds;
+        sphere.center = meshBounds.center;
+        sphere.radius = meshBounds.extents.magnitude;
+        sphere.isTrigger = true;
     }
 
     private void CacheMoonBoardTransform()

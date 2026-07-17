@@ -8831,6 +8831,8 @@ MonoBehaviour:
   leftHandBoneQuaternions: []
   rightHandBoneQuaternions: []
   gameMode: 1
+  currentRouteName: DEATH STAR
+  ghostHoldController: {fileID: 0}
   interactionColorMaxDistanceOverride: 0.02
   disableInactiveHolds: 0
   inactiveHoldAlpha: 0.05
@@ -8843,11 +8845,18 @@ MonoBehaviour:
   gripFingertipRange: 0.02
   leftHandGripStatusDisplayHelper: {fileID: 1550360847}
   rightHandGripStatusDisplayHelper: {fileID: 730769970}
+  gripScoreConfig: {fileID: 0}
   leftHandBoneToHoldMinDistances: []
   rightHandBoneToHoldMinDistances: []
   isGripLocomotionActive: 0
   leftHandIsGripping: 0
   rightHandIsGripping: 0
+  perFingerContactMask: -1
+  currentGripScore: -1
+  leftFingerContactMask: 0
+  rightFingerContactMask: 0
+  leftHandGripScore: 0
+  rightHandGripScore: 0
   leftHandGripStartPosition: {x: 0, y: 0, z: 0}
   leftHandGripLastPosition: {x: 0, y: 0, z: 0}
   rightHandGripStartPosition: {x: 0, y: 0, z: 0}
@@ -11253,6 +11262,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerHead: {fileID: 1900862373}
+  sceneConfiguror: {fileID: 0}
   recordToConsole: 1
   recordToCsv: 1
 --- !u!4 &480846056
@@ -25472,7 +25482,7 @@ Transform:
   m_GameObject: {fileID: 1305493029}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.4, y: 0, z: -2.1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

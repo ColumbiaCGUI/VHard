@@ -1,0 +1,9 @@
+{
+ "routes": [
+  {
+   "name": "EXAMPLE TRAVERSE (SCANNED HOLDS)",
+   "grade": "V4",
+   "holds": ["I4", "J6", "K9", "H11", "G13", "D15", "D18"]
+  }
+ ]
+}

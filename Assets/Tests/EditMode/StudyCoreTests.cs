@@ -167,4 +167,72 @@ public sealed class StudyCoreTests
             normalZ = Mathf.RoundToInt(normal.z * area * config.fixedPointScale),
         };
     }
+
+    private static readonly string[] ReservedRouteNames = { "DEATH STAR", "SPEED" };
+
+    [Test]
+    public void RouteLibraryParsesRoutesAndNormalizesHoldTokens()
+    {
+        const string json =
+            "{\"routes\":[{\"name\":\"EXAMPLE TRAVERSE\",\"grade\":\"6B+\"," +
+            "\"holds\":[\"d15\",\" g13 \",\"K9\"]}]}";
+
+        bool parsed = RouteLibrary.TryParseJson(
+            json, ReservedRouteNames, out List<RouteDefinition> routes, out string error);
+
+        Assert.That(parsed, Is.True, error);
+        Assert.That(routes, Has.Count.EqualTo(1));
+        Assert.That(routes[0].name, Is.EqualTo("EXAMPLE TRAVERSE"));
+        Assert.That(routes[0].grade, Is.EqualTo("6B+"));
+        Assert.That(routes[0].holds, Is.EqualTo(new[] { "D15", "G13", "K9" }));
+    }
+
+    [Test]
+    public void RouteLibraryRejectsInvalidHoldToken()
+    {
+        const string json = "{\"routes\":[{\"name\":\"BAD\",\"holds\":[\"L5\"]}]}";
+
+        bool parsed = RouteLibrary.TryParseJson(json, ReservedRouteNames, out _, out string error);
+
+        Assert.That(parsed, Is.False);
+        Assert.That(error, Does.Contain("L5"));
+    }
+
+    [Test]
+    public void RouteLibraryRejectsRowNineteenAndRepeatedHold()
+    {
+        const string rowTooHigh = "{\"routes\":[{\"name\":\"HIGH\",\"holds\":[\"A19\"]}]}";
+        const string repeated = "{\"routes\":[{\"name\":\"DUP HOLD\",\"holds\":[\"A5\",\"a5\"]}]}";
+
+        Assert.That(RouteLibrary.TryParseJson(rowTooHigh, ReservedRouteNames, out _, out string highError), Is.False);
+        Assert.That(highError, Does.Contain("A19"));
+        Assert.That(RouteLibrary.TryParseJson(repeated, ReservedRouteNames, out _, out string dupError), Is.False);
+        Assert.That(dupError, Does.Contain("repeats hold"));
+    }
+
+    [Test]
+    public void RouteLibraryRejectsBuiltInShadowAndDuplicateNames()
+    {
+        const string shadow = "{\"routes\":[{\"name\":\"death star\",\"holds\":[\"A5\"]}]}";
+        const string duplicate =
+            "{\"routes\":[{\"name\":\"MINE\",\"holds\":[\"A5\"]},{\"name\":\"mine\",\"holds\":[\"B6\"]}]}";
+
+        Assert.That(RouteLibrary.TryParseJson(shadow, ReservedRouteNames, out _, out string shadowError), Is.False);
+        Assert.That(shadowError, Does.Contain("shadows a built-in"));
+        Assert.That(RouteLibrary.TryParseJson(duplicate, ReservedRouteNames, out _, out string dupError), Is.False);
+        Assert.That(dupError, Does.Contain("duplicates"));
+    }
+
+    [Test]
+    public void RouteLibraryRejectsEmptyOrMalformedFiles()
+    {
+        Assert.That(RouteLibrary.TryParseJson("", ReservedRouteNames, out _, out string emptyError), Is.False);
+        Assert.That(emptyError, Does.Contain("empty"));
+        Assert.That(RouteLibrary.TryParseJson("{}", ReservedRouteNames, out _, out string noArrayError), Is.False);
+        Assert.That(noArrayError, Does.Contain("routes"));
+        Assert.That(
+            RouteLibrary.TryParseJson("{\"routes\":[{\"name\":\"X\"}]}", ReservedRouteNames, out _, out string noHoldsError),
+            Is.False);
+        Assert.That(noHoldsError, Does.Contain("no holds"));
+    }
 }
