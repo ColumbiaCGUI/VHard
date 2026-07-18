@@ -67,9 +67,10 @@ public class SceneConfiguror : MonoBehaviour
     };
     private readonly Dictionary<GameObject, bool> supplementalSceneryActiveStates = new();
     private bool studyEnvironmentHidden;
-    private Camera studyEnvironmentCamera;
-    private CameraClearFlags studyEnvironmentCameraClearFlags;
-    private Color studyEnvironmentCameraBackground;
+    // The inspector mainCamera reference is a disabled legacy camera; the participant renders
+    // through the OVR rig eye anchors, so background suppression must cover every live camera.
+    private readonly Dictionary<Camera, (CameraClearFlags flags, Color background)>
+        studyEnvironmentCameraStates = new();
 
     [Header("Hands References")]
     public GameObject centerEyeAnchor;
@@ -1085,26 +1086,33 @@ public class SceneConfiguror : MonoBehaviour
 
     private void CaptureAndHideStudyCameraBackground()
     {
-        studyEnvironmentCamera = mainCamera != null ? mainCamera : Camera.main;
-        if (studyEnvironmentCamera == null)
+        studyEnvironmentCameraStates.Clear();
+        foreach (Camera camera in FindObjectsByType<Camera>(FindObjectsSortMode.None))
         {
-            return;
+            if (camera == null || !camera.isActiveAndEnabled ||
+                camera.targetTexture != null)
+            {
+                continue;
+            }
+            studyEnvironmentCameraStates[camera] = (camera.clearFlags, camera.backgroundColor);
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.black;
         }
-        studyEnvironmentCameraClearFlags = studyEnvironmentCamera.clearFlags;
-        studyEnvironmentCameraBackground = studyEnvironmentCamera.backgroundColor;
-        studyEnvironmentCamera.clearFlags = CameraClearFlags.SolidColor;
-        studyEnvironmentCamera.backgroundColor = Color.black;
     }
 
     private void RestoreStudyCameraBackground()
     {
-        if (studyEnvironmentCamera == null)
+        foreach (KeyValuePair<Camera, (CameraClearFlags flags, Color background)> entry
+                 in studyEnvironmentCameraStates)
         {
-            return;
+            if (entry.Key == null)
+            {
+                continue;
+            }
+            entry.Key.clearFlags = entry.Value.flags;
+            entry.Key.backgroundColor = entry.Value.background;
         }
-        studyEnvironmentCamera.clearFlags = studyEnvironmentCameraClearFlags;
-        studyEnvironmentCamera.backgroundColor = studyEnvironmentCameraBackground;
-        studyEnvironmentCamera = null;
+        studyEnvironmentCameraStates.Clear();
     }
 
     public bool IsGripFeedbackReady => !IsGripFeedbackDegraded &&

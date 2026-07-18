@@ -716,7 +716,7 @@ public sealed class GripContactPipeline : IDisposable
         private static readonly GripContactAccumulator[] EmptyStats = new GripContactAccumulator[TipCount];
         private static readonly uint[] InfinityDistances = CreateInfinityDistances();
         private readonly GripContactPipeline owner;
-        private readonly HoldContactState state;
+        public readonly HoldContactState state;
         private readonly Action<AsyncGPUReadbackRequest> statsCallback;
         private readonly Action<AsyncGPUReadbackRequest> bonesCallback;
         private int pendingRequests;
