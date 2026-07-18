@@ -33,6 +33,8 @@ public enum RoutesLoadState
 public class SceneConfiguror : MonoBehaviour
 {
     private const int TrackedBoneCount = 26;
+    private const string StudyHoldsLayerName = "StudyHolds";
+    private const string StudyGhostHoldsLayerName = "StudyGhostHolds";
     private static readonly int[] FingertipBoneIndices = { 5, 10, 15, 20, 25 };
     [Header("Action Recorder")]
     public ActionRecorder actionRecorder;
@@ -56,6 +58,9 @@ public class SceneConfiguror : MonoBehaviour
     public Dictionary<string, GameObject> holdsDictionary;
     public List<string> activeRouteHoldsNamesList;
     public List<GameObject> activeHoldsList;
+    private Light examinationHeadlamp;
+    private int studyHoldsLayer = -1;
+    private int studyGhostHoldsLayer = -1;
 
     [Header("Hands References")]
     public GameObject centerEyeAnchor;
@@ -148,6 +153,7 @@ public class SceneConfiguror : MonoBehaviour
     private void Awake()
     {
         EnsureRuntimeControllers();
+        EnsureExaminationHeadlamp();
     }
 
     void Start()
@@ -913,6 +919,7 @@ public class SceneConfiguror : MonoBehaviour
 
     public void SetGameMode(GameMode newMode)
     {
+        EnsureExaminationHeadlamp();
         bool leavingGhostMode = gameMode == GameMode.Ghost && newMode != GameMode.Ghost;
         if (leavingGhostMode && ghostHoldController != null)
         {
@@ -923,6 +930,10 @@ public class SceneConfiguror : MonoBehaviour
         if (newMode == GameMode.Basic)
         {
             ClearHighlightCircles();
+        }
+        if (examinationHeadlamp != null)
+        {
+            examinationHeadlamp.enabled = newMode == GameMode.Grip || newMode == GameMode.Ghost;
         }
         ApplyModeToRouteHolds();
         if (!leavingGhostMode && ghostHoldController != null)
@@ -1025,6 +1036,12 @@ public class SceneConfiguror : MonoBehaviour
         if (ghost == null)
         {
             return;
+        }
+
+        ResolveStudyLayers();
+        if (studyGhostHoldsLayer >= 0)
+        {
+            SetLayerRecursively(ghost, studyGhostHoldsLayer);
         }
 
         XRGrabInteractable grab = ghost.GetComponent<XRGrabInteractable>();
@@ -1479,11 +1496,69 @@ public class SceneConfiguror : MonoBehaviour
         {
             return;
         }
+        ResolveStudyLayers();
         foreach (Transform child in holdsParentGameObject.transform)
         {
             string holdName = child.name.Split('.')[0];
             holdsDictionary[holdName] = child.gameObject;
+            if (studyHoldsLayer >= 0)
+            {
+                SetLayerRecursively(child.gameObject, studyHoldsLayer);
+            }
             FitHoldHoverCollider(child.gameObject);
+        }
+    }
+
+    private void EnsureExaminationHeadlamp()
+    {
+        if (examinationHeadlamp != null || centerEyeAnchor == null)
+        {
+            return;
+        }
+
+        ResolveStudyLayers();
+        Transform existing = centerEyeAnchor.transform.Find("Examination Headlamp");
+        GameObject headlampObject;
+        if (existing != null)
+        {
+            headlampObject = existing.gameObject;
+            examinationHeadlamp = headlampObject.GetComponent<Light>();
+        }
+        else
+        {
+            headlampObject = new GameObject("Examination Headlamp");
+            headlampObject.transform.SetParent(centerEyeAnchor.transform, false);
+        }
+
+        examinationHeadlamp ??= headlampObject.AddComponent<Light>();
+        headlampObject.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+        examinationHeadlamp.type = LightType.Spot;
+        examinationHeadlamp.color = Color.white;
+        examinationHeadlamp.intensity = 2f;
+        examinationHeadlamp.range = 3.5f;
+        examinationHeadlamp.spotAngle = 70f;
+        examinationHeadlamp.innerSpotAngle = 55f;
+        examinationHeadlamp.shadows = LightShadows.None;
+        examinationHeadlamp.renderMode = LightRenderMode.ForcePixel;
+        examinationHeadlamp.cullingMask =
+            (studyHoldsLayer >= 0 ? 1 << studyHoldsLayer : 0) |
+            (studyGhostHoldsLayer >= 0 ? 1 << studyGhostHoldsLayer : 0);
+        examinationHeadlamp.enabled = false;
+    }
+
+    private void ResolveStudyLayers()
+    {
+        if (studyHoldsLayer < 0)
+        {
+            studyHoldsLayer = LayerMask.NameToLayer(StudyHoldsLayerName);
+        }
+        if (studyGhostHoldsLayer < 0)
+        {
+            studyGhostHoldsLayer = LayerMask.NameToLayer(StudyGhostHoldsLayerName);
+        }
+        if (studyHoldsLayer < 0 || studyGhostHoldsLayer < 0)
+        {
+            Debug.LogError("Study hold layers are missing; the examination headlamp cannot be isolated.");
         }
     }
 

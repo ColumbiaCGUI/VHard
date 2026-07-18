@@ -617,6 +617,7 @@ public sealed class GripContactPipeline : IDisposable
                 overlay = overlayTransform.gameObject;
             }
 
+            overlay.layer = hold.layer;
             overlay.transform.localPosition = Vector3.zero;
             overlay.transform.localRotation = Quaternion.identity;
             overlay.transform.localScale = Vector3.one;
