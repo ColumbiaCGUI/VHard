@@ -19,24 +19,32 @@ public sealed class GripContactPipeline : IDisposable
     private readonly int kernel;
     private readonly Dictionary<int, HoldContactState> holdStates = new();
     private readonly List<int> staleStateIds = new();
+    private readonly Queue<OutputSet> pendingEpochs = new();
     private readonly Vector3[] leftBones = new Vector3[BoneCount];
     private readonly Vector3[] rightBones = new Vector3[BoneCount];
     private readonly bool supported;
+    private readonly GripReadbackHealth readbackHealth;
     private bool disposed;
-    private bool failed;
-    private bool readbackFailureReported;
+    private bool dispatchPaused;
+    private GripReadbackAction pendingAction;
+    private long nextEpoch;
+    private int failedEpochCount;
+    private int debugFailuresRemaining;
+    private bool debugForceFailures;
     private float lastLeftScoreTime;
     private float lastRightScoreTime;
 
     public GripContactPipeline(
         SceneConfiguror sceneConfiguror,
         ComputeShader computeShader,
-        GripScoreConfig config)
+        GripScoreConfig config,
+        bool recoveryAttempted = false)
     {
         this.sceneConfiguror = sceneConfiguror;
         this.computeShader = computeShader;
         this.config = config;
         supported = SystemInfo.supportsAsyncGPUReadback;
+        readbackHealth = new GripReadbackHealth(recoveryAttempted, Time.unscaledTime);
         if (!supported)
         {
             Debug.LogError("Grip feedback requires asynchronous GPU readback support.");
@@ -44,7 +52,40 @@ public sealed class GripContactPipeline : IDisposable
         kernel = computeShader.FindKernel("CSMain");
     }
 
-    public bool IsSupported => supported && !failed;
+    public bool IsSupported => supported && !disposed;
+    public bool IsRecoveryReady => pendingAction == GripReadbackAction.Recover && pendingEpochs.Count == 0;
+    public bool IsDegradationReady => pendingAction == GripReadbackAction.Degrade && pendingEpochs.Count == 0;
+
+    public void Update(float now)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        ProcessCompletedEpochs(now);
+        if (pendingAction == GripReadbackAction.None)
+        {
+            BeginHealthAction(readbackHealth.Evaluate(now));
+        }
+    }
+
+    public void DebugInjectReadbackFailures(int epochCount)
+    {
+        if (!Debug.isDebugBuild || epochCount <= 0)
+        {
+            return;
+        }
+        debugFailuresRemaining += epochCount;
+    }
+
+    public void DebugSetReadbackFailures(bool enabled)
+    {
+        if (Debug.isDebugBuild)
+        {
+            debugForceFailures = enabled;
+        }
+    }
 
     public void Process(
         GameObject leftHold,
@@ -59,9 +100,13 @@ public sealed class GripContactPipeline : IDisposable
             return;
         }
         EnsureDistanceArrays();
-        if (!supported || failed)
+        if (!supported)
         {
             ClearFeedback();
+            return;
+        }
+        if (dispatchPaused)
+        {
             return;
         }
 
@@ -245,18 +290,6 @@ public sealed class GripContactPipeline : IDisposable
             sceneConfiguror.rightHandGripScore);
     }
 
-    private void HandleReadbackFailure(HoldContactState state, OutputSet output, string bufferName)
-    {
-        failed = true;
-        state.InvalidateContactData();
-        ClearFeedback();
-        if (!readbackFailureReported)
-        {
-            Debug.LogError("Grip feedback GPU readback failed for " + bufferName + ".");
-            readbackFailureReported = true;
-        }
-    }
-
     private void ProcessHold(GameObject hold, int handMask)
     {
         if (!hold.TryGetComponent(out MeshFilter meshFilter) || meshFilter.sharedMesh == null)
@@ -279,7 +312,12 @@ public sealed class GripContactPipeline : IDisposable
 
         state.leftHandBones.SetData(leftBones);
         state.rightHandBones.SetData(rightBones);
-        output.Reset(handMask);
+        bool forceFailure = debugForceFailures || debugFailuresRemaining > 0;
+        if (!debugForceFailures && forceFailure)
+        {
+            debugFailuresRemaining--;
+        }
+        output.Reset(handMask, ++nextEpoch, forceFailure);
 
         computeShader.SetFloat("_ContactThreshold", config.contactThreshold);
         computeShader.SetFloat("_FixedPointScale", config.fixedPointScale);
@@ -301,101 +339,142 @@ public sealed class GripContactPipeline : IDisposable
         state.SetContactBuffer(output.vertexContactData);
         state.SetOverlayVisible(true);
         output.RequestReadback();
+        pendingEpochs.Enqueue(output);
     }
 
-    private void OnStatsReadback(HoldContactState state, OutputSet output, AsyncGPUReadbackRequest request)
+    private void OnStatsReadback(OutputSet output, AsyncGPUReadbackRequest request)
     {
+        bool succeeded = !disposed && !output.forceFailure && !request.hasError;
         try
         {
-            if (disposed || failed || state.hold == null)
+            if (succeeded)
             {
-                return;
+                NativeArray<GripContactAccumulator> data = request.GetData<GripContactAccumulator>();
+                for (int i = 0; i < TipCount; i++)
+                {
+                    output.accumulators[i] = data[i];
+                }
             }
-            if (request.hasError)
+        }
+        catch (Exception)
+        {
+            succeeded = false;
+        }
+        output.RecordStatsResult(succeeded);
+    }
+
+    private void OnBoneReadback(OutputSet output, AsyncGPUReadbackRequest request)
+    {
+        bool succeeded = !disposed && !output.forceFailure && !request.hasError;
+        try
+        {
+            if (succeeded)
             {
-                HandleReadbackFailure(state, output, "contact statistics");
-                return;
+                NativeArray<uint> data = request.GetData<uint>();
+                for (int i = 0; i < output.boneDistanceValues.Length; i++)
+                {
+                    output.boneDistanceValues[i] = data[i];
+                }
+            }
+        }
+        catch (Exception)
+        {
+            succeeded = false;
+        }
+        output.RecordBonesResult(succeeded);
+    }
+
+    private void ProcessCompletedEpochs(float now)
+    {
+        while (pendingEpochs.Count > 0 && pendingEpochs.Peek().IsReadbackComplete)
+        {
+            OutputSet output = pendingEpochs.Dequeue();
+            if (output.IsCanceled || pendingAction != GripReadbackAction.None)
+            {
+                output.MarkProcessed();
+                continue;
             }
 
-            NativeArray<GripContactAccumulator> data = request.GetData<GripContactAccumulator>();
-            for (int i = 0; i < TipCount; i++)
+            bool succeeded = output.Succeeded;
+            if (succeeded)
             {
-                output.accumulators[i] = data[i];
+                ApplyCompletedEpoch(output);
+            }
+            else
+            {
+                failedEpochCount++;
+                if (failedEpochCount == 1 || failedEpochCount % 30 == 0)
+                {
+                    Debug.LogError("Grip feedback GPU readback epoch " + output.epoch +
+                                   " failed (failure " + failedEpochCount + ").");
+                }
             }
 
-            float holdScore = 0f;
-            if ((output.handMask & LeftHandMask) != 0 &&
-                sceneConfiguror.leftHandInteractingClimbingHold == state.hold)
-            {
-                GripScoreResult result = GripScoreCalculator.Calculate(output.accumulators, 0, config);
-                sceneConfiguror.leftFingerContactMask = result.contactMask;
-                sceneConfiguror.leftHandGripScore = SmoothScore(
-                    sceneConfiguror.leftHandGripScore,
-                    result.score,
-                    ref lastLeftScoreTime);
-                holdScore = Mathf.Max(holdScore, sceneConfiguror.leftHandGripScore);
-            }
-            if ((output.handMask & RightHandMask) != 0 &&
-                sceneConfiguror.rightHandInteractingClimbingHold == state.hold)
-            {
-                GripScoreResult result = GripScoreCalculator.Calculate(output.accumulators, 5, config);
-                sceneConfiguror.rightFingerContactMask = result.contactMask;
-                sceneConfiguror.rightHandGripScore = SmoothScore(
-                    sceneConfiguror.rightHandGripScore,
-                    result.score,
-                    ref lastRightScoreTime);
-                holdScore = Mathf.Max(holdScore, sceneConfiguror.rightHandGripScore);
-            }
+            GripReadbackAction action = readbackHealth.RecordEpoch(succeeded, now);
+            output.MarkProcessed();
+            BeginHealthAction(action);
+        }
+    }
 
-            sceneConfiguror.perFingerContactMask = sceneConfiguror.leftFingerContactMask |
-                                                   (sceneConfiguror.rightFingerContactMask << 5);
-            sceneConfiguror.currentGripScore = Mathf.Max(
+    private void ApplyCompletedEpoch(OutputSet output)
+    {
+        HoldContactState state = output.state;
+        if (state.hold == null)
+        {
+            return;
+        }
+
+        float holdScore = 0f;
+        if ((output.handMask & LeftHandMask) != 0 &&
+            sceneConfiguror.leftHandInteractingClimbingHold == state.hold)
+        {
+            GripScoreResult result = GripScoreCalculator.Calculate(output.accumulators, 0, config);
+            sceneConfiguror.leftFingerContactMask = result.contactMask;
+            sceneConfiguror.leftHandGripScore = SmoothScore(
                 sceneConfiguror.leftHandGripScore,
-                sceneConfiguror.rightHandGripScore);
-            state.SetGripScore(holdScore);
+                result.score,
+                ref lastLeftScoreTime);
+            for (int index = 0; index < BoneCount; index++)
+            {
+                sceneConfiguror.leftHandBoneToHoldMinDistances[index] =
+                    UIntFloat.ToFloat(output.boneDistanceValues[index]);
+            }
+            holdScore = Mathf.Max(holdScore, sceneConfiguror.leftHandGripScore);
         }
-        finally
+        if ((output.handMask & RightHandMask) != 0 &&
+            sceneConfiguror.rightHandInteractingClimbingHold == state.hold)
         {
-            output.CompleteRequest();
+            GripScoreResult result = GripScoreCalculator.Calculate(output.accumulators, 5, config);
+            sceneConfiguror.rightFingerContactMask = result.contactMask;
+            sceneConfiguror.rightHandGripScore = SmoothScore(
+                sceneConfiguror.rightHandGripScore,
+                result.score,
+                ref lastRightScoreTime);
+            for (int index = 0; index < BoneCount; index++)
+            {
+                sceneConfiguror.rightHandBoneToHoldMinDistances[index] =
+                    UIntFloat.ToFloat(output.boneDistanceValues[BoneCount + index]);
+            }
+            holdScore = Mathf.Max(holdScore, sceneConfiguror.rightHandGripScore);
         }
+
+        sceneConfiguror.perFingerContactMask = sceneConfiguror.leftFingerContactMask |
+                                               (sceneConfiguror.rightFingerContactMask << 5);
+        sceneConfiguror.currentGripScore = Mathf.Max(
+            sceneConfiguror.leftHandGripScore,
+            sceneConfiguror.rightHandGripScore);
+        state.SetGripScore(holdScore);
     }
 
-    private void OnBoneReadback(HoldContactState state, OutputSet output, AsyncGPUReadbackRequest request)
+    private void BeginHealthAction(GripReadbackAction action)
     {
-        try
+        if (pendingAction != GripReadbackAction.None || action == GripReadbackAction.None)
         {
-            if (disposed || failed || state.hold == null)
-            {
-                return;
-            }
-            if (request.hasError)
-            {
-                HandleReadbackFailure(state, output, "bone distances");
-                return;
-            }
+            return;
+        }
 
-            NativeArray<uint> data = request.GetData<uint>();
-            if ((output.handMask & LeftHandMask) != 0 &&
-                sceneConfiguror.leftHandInteractingClimbingHold == state.hold)
-            {
-                for (int i = 0; i < BoneCount; i++)
-                {
-                    sceneConfiguror.leftHandBoneToHoldMinDistances[i] = UIntFloat.ToFloat(data[i]);
-                }
-            }
-            if ((output.handMask & RightHandMask) != 0 &&
-                sceneConfiguror.rightHandInteractingClimbingHold == state.hold)
-            {
-                for (int i = 0; i < BoneCount; i++)
-                {
-                    sceneConfiguror.rightHandBoneToHoldMinDistances[i] = UIntFloat.ToFloat(data[BoneCount + i]);
-                }
-            }
-        }
-        finally
-        {
-            output.CompleteRequest();
-        }
+        pendingAction = action;
+        dispatchPaused = true;
     }
 
     private float SmoothScore(float current, float target, ref float lastUpdateTime)
@@ -642,33 +721,50 @@ public sealed class GripContactPipeline : IDisposable
         private readonly Action<AsyncGPUReadbackRequest> bonesCallback;
         private int pendingRequests;
         private bool hasRequests;
+        private bool epochPending;
+        private bool canceled;
+        private bool resourcesDisposed;
+        private readonly GripReadbackEpochState epochState = new();
         public readonly ComputeBuffer vertexContactData;
         public readonly ComputeBuffer tipContactStats;
         public readonly ComputeBuffer boneDistances;
         public readonly GripContactAccumulator[] accumulators = new GripContactAccumulator[TipCount];
+        public readonly uint[] boneDistanceValues = new uint[BoneCount * 2];
         public int handMask;
+        public long epoch;
+        public bool forceFailure;
         public AsyncGPUReadbackRequest statsRequest;
         public AsyncGPUReadbackRequest bonesRequest;
 
-        public bool IsPending => pendingRequests > 0;
+        public bool IsPending => epochPending;
+        public bool IsReadbackComplete => epochPending && (canceled || pendingRequests == 0);
+        public bool Succeeded => epochState.Succeeded;
+        public bool IsCanceled => canceled;
 
         public OutputSet(GripContactPipeline owner, HoldContactState state)
         {
             this.owner = owner;
             this.state = state;
-            statsCallback = request => owner.OnStatsReadback(state, this, request);
-            bonesCallback = request => owner.OnBoneReadback(state, this, request);
+            statsCallback = request => owner.OnStatsReadback(this, request);
+            bonesCallback = request => owner.OnBoneReadback(this, request);
             vertexContactData = new ComputeBuffer(state.vertexCount, sizeof(float) * 4);
             tipContactStats = new ComputeBuffer(TipCount, sizeof(int) * 4);
             boneDistances = new ComputeBuffer(BoneCount * 2, sizeof(uint));
         }
 
-        public void Reset(int requestedHandMask)
+        public void Reset(int requestedHandMask, long epochId, bool injectFailure)
         {
             handMask = requestedHandMask;
+            epoch = epochId;
+            forceFailure = injectFailure;
             tipContactStats.SetData(EmptyStats);
             boneDistances.SetData(InfinityDistances);
+            Array.Copy(InfinityDistances, boneDistanceValues, InfinityDistances.Length);
             pendingRequests = 2;
+            hasRequests = false;
+            epochPending = true;
+            epochState.Reset();
+            canceled = false;
         }
 
         public void RequestReadback()
@@ -678,13 +774,29 @@ public sealed class GripContactPipeline : IDisposable
             bonesRequest = AsyncGPUReadback.Request(boneDistances, bonesCallback);
         }
 
-        public void CompleteRequest()
+        public void RecordStatsResult(bool succeeded)
         {
+            epochState.RecordStatistics(succeeded);
             pendingRequests = Mathf.Max(0, pendingRequests - 1);
+        }
+
+        public void RecordBonesResult(bool succeeded)
+        {
+            epochState.RecordBones(succeeded);
+            pendingRequests = Mathf.Max(0, pendingRequests - 1);
+        }
+
+        public void MarkProcessed()
+        {
+            epochPending = false;
         }
 
         public void Dispose()
         {
+            if (resourcesDisposed)
+            {
+                return;
+            }
             if (hasRequests && !statsRequest.done)
             {
                 statsRequest.WaitForCompletion();
@@ -693,9 +805,12 @@ public sealed class GripContactPipeline : IDisposable
             {
                 bonesRequest.WaitForCompletion();
             }
+            canceled = true;
+            pendingRequests = 0;
             vertexContactData.Release();
             tipContactStats.Release();
             boneDistances.Release();
+            resourcesDisposed = true;
         }
 
         private static uint[] CreateInfinityDistances()

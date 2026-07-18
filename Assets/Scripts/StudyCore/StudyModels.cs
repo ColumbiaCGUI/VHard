@@ -35,6 +35,7 @@ public sealed class StudySessionManifest
     public bool endedEarly;
     public string endReason;
     public string routesJsonSha256;
+    public string gripFeedback;
     public int droppedCaptureFrames;
     public HoldAggregateData[] holdAggregates = Array.Empty<HoldAggregateData>();
 }

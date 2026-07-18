@@ -10,6 +10,7 @@ using UnityEngine.Networking;
 public sealed class StudyManager : MonoBehaviour
 {
     private const float ReleaseBlockMinutes = 20f;
+    private const string NullRoutesHashSentinel = "__NULL_ROUTES_JSON_SHA256__";
 
     [Header("Study References")]
     [SerializeField] private SceneConfiguror sceneConfiguror;
@@ -288,6 +289,9 @@ public sealed class StudyManager : MonoBehaviour
             routesJsonSha256 = sceneConfiguror.IsBuiltInRoute(row.route)
                 ? null
                 : sceneConfiguror.RoutesJsonSha256,
+            gripFeedback = sceneConfiguror.IsGripFeedbackDegraded
+                ? "degraded_at_" + sceneConfiguror.GripFeedbackDegradedUtc
+                : "ok",
         };
 
         sceneConfiguror.ResetMoonBoardTransform();
@@ -422,13 +426,7 @@ public sealed class StudyManager : MonoBehaviour
 
         if (blockRunning)
         {
-            if (activeRow.condition != "A" && !sceneConfiguror.IsGripFeedbackReady)
-            {
-                EndBlock(true, "grip_feedback_failed");
-                statusMessage = "Block stopped: grip feedback failed.";
-                RefreshPanelText();
-                return;
-            }
+            HandleGripFeedbackDegradation();
             float remaining = blockDurationSeconds - (Time.realtimeSinceStartup - blockStartRealtime);
             if (remaining <= 0f)
             {
@@ -809,6 +807,10 @@ public sealed class StudyManager : MonoBehaviour
             ? sceneConfiguror.GetRoutesLoadStatusLine()
             : "UNAVAILABLE";
         text.Append("Routes: ").Append(lastRoutesStatusLine).AppendLine();
+        if (sceneConfiguror != null && sceneConfiguror.IsGripFeedbackDegraded)
+        {
+            text.AppendLine("GRIP CUE OFF");
+        }
         text.AppendLine(statusMessage);
         panelText.text = text.ToString();
     }
@@ -821,7 +823,33 @@ public sealed class StudyManager : MonoBehaviour
         }
 
         int totalSeconds = Mathf.CeilToInt(remainingSeconds);
-        timerText.text = $"{activeRow.participant} B{activeRow.block}  {totalSeconds / 60:00}:{totalSeconds % 60:00}";
+        timerText.text = $"{activeRow.participant} B{activeRow.block}  {totalSeconds / 60:00}:{totalSeconds % 60:00}" +
+                         (sceneConfiguror != null && sceneConfiguror.IsGripFeedbackDegraded
+                             ? "\nGRIP CUE OFF"
+                             : string.Empty);
+    }
+
+    private void HandleGripFeedbackDegradation()
+    {
+        if (activeManifest == null || sceneConfiguror == null ||
+            !sceneConfiguror.IsGripFeedbackDegraded ||
+            !string.Equals(activeManifest.gripFeedback, "ok", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        string degradedUtc = string.IsNullOrEmpty(sceneConfiguror.GripFeedbackDegradedUtc)
+            ? DateTime.UtcNow.ToString("o")
+            : sceneConfiguror.GripFeedbackDegradedUtc;
+        activeManifest.gripFeedback = "degraded_at_" + degradedUtc;
+        actionRecorder?.Record(
+            "GripFeedbackDegraded",
+            "",
+            null,
+            "GRIP CUE OFF at " + degradedUtc + "; block continues");
+        statusMessage = "Grip feedback degraded; block continues.";
+        WriteManifest();
+        RefreshPanelText();
     }
 
     private void PositionPanelInFrontOfUser()
@@ -898,7 +926,25 @@ public sealed class StudyManager : MonoBehaviour
         }
 
         string temporaryPath = manifestPath + ".tmp";
-        File.WriteAllText(temporaryPath, JsonUtility.ToJson(activeManifest, true));
+        string routesHash = activeManifest.routesJsonSha256;
+        string manifestJson = string.Empty;
+        try
+        {
+            if (routesHash == null)
+            {
+                activeManifest.routesJsonSha256 = NullRoutesHashSentinel;
+            }
+            manifestJson = JsonUtility.ToJson(activeManifest, true);
+        }
+        finally
+        {
+            activeManifest.routesJsonSha256 = routesHash;
+        }
+        if (routesHash == null)
+        {
+            manifestJson = manifestJson.Replace('"' + NullRoutesHashSentinel + '"', "null");
+        }
+        File.WriteAllText(temporaryPath, manifestJson);
         if (File.Exists(manifestPath))
         {
             File.Delete(manifestPath);

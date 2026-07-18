@@ -44,6 +44,8 @@ class SessionValidationTests(unittest.TestCase):
             "endUtc": end.isoformat(),
             "endedEarly": True,
             "endReason": end_reason,
+            "routesJsonSha256": None,
+            "gripFeedback": "ok",
             "droppedCaptureFrames": 0,
             "holdAggregates": [],
         }

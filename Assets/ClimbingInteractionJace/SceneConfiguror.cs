@@ -149,6 +149,10 @@ public class SceneConfiguror : MonoBehaviour
     private OVRHand leftTrackedHand;
     private OVRHand rightTrackedHand;
     private Hand? gripLocomotionHand;
+    private bool gripRecoveryAttempted;
+    private bool debugForceGripReadbackFailures;
+    public bool IsGripFeedbackDegraded { get; private set; }
+    public string GripFeedbackDegradedUtc { get; private set; }
 
     private void Awake()
     {
@@ -206,19 +210,25 @@ public class SceneConfiguror : MonoBehaviour
     {
         EnsureHoldsDictionary();
         EnsureGripPipeline();
+        gripContactPipeline?.Update(Time.unscaledTime);
+        HandleGripPipelineHealth();
         centerEyePosition = centerEyeAnchor.transform.position;
 
         // Override interaction color max distance, update interaction status
         if (leftHandInteractingClimbingHold != null)
         {
             MeshRenderer meshRenderer = leftHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", gripContactPipeline == null ? 1 : 0);
+            meshRenderer.material.SetInt(
+                "_IsBeingInteracted",
+                gripContactPipeline == null && !IsGripFeedbackDegraded ? 1 : 0);
             meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
         }
         if (rightHandInteractingClimbingHold != null)
         {
             MeshRenderer meshRenderer = rightHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", gripContactPipeline == null ? 1 : 0);
+            meshRenderer.material.SetInt(
+                "_IsBeingInteracted",
+                gripContactPipeline == null && !IsGripFeedbackDegraded ? 1 : 0);
             meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
         }
 
@@ -590,7 +600,9 @@ public class SceneConfiguror : MonoBehaviour
                     hoveredGameObject
                 );
                 MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
-                meshRenderer.material.SetInt("_IsBeingInteracted", gripContactPipeline == null ? 1 : 0);
+                meshRenderer.material.SetInt(
+                    "_IsBeingInteracted",
+                    gripContactPipeline == null && !IsGripFeedbackDegraded ? 1 : 0);
 
             if (hand == 0)
             {
@@ -979,20 +991,43 @@ public class SceneConfiguror : MonoBehaviour
         }
     }
 
-    public bool IsGripFeedbackReady => gripContactPipeline != null && gripContactPipeline.IsSupported;
+    public bool IsGripFeedbackReady => !IsGripFeedbackDegraded &&
+                                       gripContactPipeline != null && gripContactPipeline.IsSupported;
 
     public void SetStudyFeedbackVisible(bool visible)
     {
+        bool effectiveVisibility = visible && !IsGripFeedbackDegraded;
         foreach (HandBoneTracker tracker in FindObjectsByType<HandBoneTracker>(
                      FindObjectsInactive.Include,
                      FindObjectsSortMode.None))
         {
-            tracker.SetFeedbackVisible(visible);
+            tracker.SetFeedbackVisible(effectiveVisibility);
         }
-        if (!visible)
+        if (!effectiveVisibility)
         {
             gripContactPipeline?.ClearFeedback();
         }
+    }
+
+    public void DebugInjectGripReadbackFailures(int epochCount = 1)
+    {
+        if (!Debug.isDebugBuild)
+        {
+            return;
+        }
+        EnsureGripPipeline();
+        gripContactPipeline?.DebugInjectReadbackFailures(epochCount);
+    }
+
+    public void DebugSetGripReadbackFailures(bool enabled)
+    {
+        if (!Debug.isDebugBuild)
+        {
+            return;
+        }
+        debugForceGripReadbackFailures = enabled;
+        EnsureGripPipeline();
+        gripContactPipeline?.DebugSetReadbackFailures(enabled);
     }
 
     public Transform GetGripNormalReference(GameObject hold)
@@ -1626,7 +1661,8 @@ public class SceneConfiguror : MonoBehaviour
 
     private void EnsureGripPipeline()
     {
-        if (gripContactPipeline != null || distanceToClosestBoneComputeShader == null)
+        if (gripContactPipeline != null || IsGripFeedbackDegraded ||
+            distanceToClosestBoneComputeShader == null)
         {
             return;
         }
@@ -1640,7 +1676,60 @@ public class SceneConfiguror : MonoBehaviour
         gripContactPipeline = new GripContactPipeline(
             this,
             distanceToClosestBoneComputeShader,
-            gripScoreConfig);
+            gripScoreConfig,
+            gripRecoveryAttempted);
+        gripContactPipeline.DebugSetReadbackFailures(debugForceGripReadbackFailures);
+    }
+
+    private void HandleGripPipelineHealth()
+    {
+        if (gripContactPipeline == null)
+        {
+            return;
+        }
+
+        if (gripContactPipeline.IsRecoveryReady)
+        {
+            Debug.LogWarning("[SceneConfiguror] Grip feedback recovery attempt after sustained readback failure.");
+            actionRecorder?.Record(
+                "GripFeedbackRecoveryAttempt",
+                "",
+                null,
+                "recreating GPU readback pipeline");
+            gripContactPipeline.ClearFeedback();
+            gripContactPipeline.Dispose();
+            gripContactPipeline = null;
+            gripRecoveryAttempted = true;
+            EnsureGripPipeline();
+            PrepareCurrentGripTargets();
+        }
+        else if (gripContactPipeline.IsDegradationReady)
+        {
+            IsGripFeedbackDegraded = true;
+            GripFeedbackDegradedUtc = DateTime.UtcNow.ToString("o");
+            Debug.LogError("[SceneConfiguror] Grip feedback entered DEGRADED; block continues.");
+            SetStudyFeedbackVisible(false);
+            gripContactPipeline.Dispose();
+            gripContactPipeline = null;
+        }
+    }
+
+    private void PrepareCurrentGripTargets()
+    {
+        if (gripContactPipeline == null)
+        {
+            return;
+        }
+
+        if (gameMode == GameMode.Grip)
+        {
+            gripContactPipeline.Prepare(activeHoldsList);
+        }
+        else if (gameMode == GameMode.Ghost && ghostHoldController != null &&
+                 ghostHoldController.CurrentGhost != null)
+        {
+            gripContactPipeline.Prepare(ghostHoldController.CurrentGhost);
+        }
     }
 
     private void EnsureRuntimeControllers()

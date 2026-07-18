@@ -17,7 +17,8 @@ def validate_session(directory: Path) -> int:
     manifest = json.loads((directory / "session.json").read_text(encoding="utf-8"))
     required = {
         "participant", "block", "condition", "route", "retry", "appVersion", "gitRevision",
-        "startUtc", "endUtc", "endedEarly", "endReason", "droppedCaptureFrames", "holdAggregates",
+        "startUtc", "endUtc", "endedEarly", "endReason", "routesJsonSha256", "gripFeedback",
+        "droppedCaptureFrames", "holdAggregates",
     }
     missing = required - set(manifest)
     if missing:
@@ -28,6 +29,18 @@ def validate_session(directory: Path) -> int:
         raise SystemExit("Manifest is missing build provenance")
     if manifest["gitRevision"] == "development":
         raise SystemExit("Manifest was produced by an unstamped development run")
+    routes_hash = manifest["routesJsonSha256"]
+    if routes_hash is not None and not re.fullmatch(r"[0-9a-f]{64}", routes_hash):
+        raise SystemExit("Manifest routesJsonSha256 is not null or a lowercase SHA-256")
+    grip_feedback = manifest["gripFeedback"]
+    if grip_feedback != "ok":
+        if not isinstance(grip_feedback, str) or not grip_feedback.startswith("degraded_at_"):
+            raise SystemExit("Manifest gripFeedback is not 'ok' or a degraded_at_<utcISO> value")
+        try:
+            degraded_timestamp = grip_feedback[len("degraded_at_"):]
+            datetime.fromisoformat(degraded_timestamp.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise SystemExit("Manifest gripFeedback has an invalid degradation timestamp") from error
     if manifest["droppedCaptureFrames"] != 0:
         raise SystemExit(f"Capture dropped {manifest['droppedCaptureFrames']} frames")
     expected_prefix = f"block{manifest['block']}_{manifest['condition']}_"

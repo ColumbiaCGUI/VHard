@@ -35,6 +35,68 @@ public sealed class StudyCoreTests
     }
 
     [Test]
+    public void GripReadbackHealthWaitsForThresholdAndElapsedSecond()
+    {
+        GripReadbackHealth health = new(false, 0f);
+        for (int epoch = 0; epoch < GripReadbackHealth.FailureThreshold; epoch++)
+        {
+            Assert.That(health.RecordEpoch(false, 0.5f), Is.EqualTo(GripReadbackAction.None));
+        }
+
+        Assert.That(health.Evaluate(0.99f), Is.EqualTo(GripReadbackAction.None));
+        Assert.That(health.Evaluate(1f), Is.EqualTo(GripReadbackAction.Recover));
+    }
+
+    [Test]
+    public void GripReadbackEpochRequiresBothSuccessfulReadbacks()
+    {
+        GripReadbackEpochState epoch = new();
+        epoch.Reset();
+        epoch.RecordStatistics(true);
+        Assert.That(epoch.IsComplete, Is.False);
+
+        epoch.RecordBones(false);
+        Assert.That(epoch.IsComplete, Is.True);
+        Assert.That(epoch.Succeeded, Is.False);
+
+        epoch.Reset();
+        epoch.RecordBones(true);
+        epoch.RecordStatistics(true);
+        Assert.That(epoch.Succeeded, Is.True);
+    }
+
+    [Test]
+    public void GripReadbackHealthSuccessResetsConsecutiveFailures()
+    {
+        GripReadbackHealth health = new(false, 0f);
+        for (int epoch = 0; epoch < GripReadbackHealth.FailureThreshold - 1; epoch++)
+        {
+            health.RecordEpoch(false, 1.1f);
+        }
+
+        Assert.That(health.RecordEpoch(true, 1.2f), Is.EqualTo(GripReadbackAction.None));
+        for (int epoch = 0; epoch < GripReadbackHealth.FailureThreshold - 1; epoch++)
+        {
+            Assert.That(health.RecordEpoch(false, 2.3f), Is.EqualTo(GripReadbackAction.None));
+        }
+        Assert.That(health.ConsecutiveFailures,
+            Is.EqualTo(GripReadbackHealth.FailureThreshold - 1));
+    }
+
+    [Test]
+    public void GripReadbackHealthDegradesAfterRecoveryWasAttempted()
+    {
+        GripReadbackHealth health = new(true, 0f);
+        GripReadbackAction action = GripReadbackAction.None;
+        for (int epoch = 0; epoch < GripReadbackHealth.FailureThreshold; epoch++)
+        {
+            action = health.RecordEpoch(false, 0.1f);
+        }
+
+        Assert.That(action, Is.EqualTo(GripReadbackAction.Degrade));
+    }
+
+    [Test]
     public void ScheduleRejectsDuplicateBlock()
     {
         const string csv =
