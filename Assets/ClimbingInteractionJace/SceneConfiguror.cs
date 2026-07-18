@@ -39,6 +39,10 @@ public class SceneConfiguror : MonoBehaviour
     [Header("HighlightCircle")]
     public GameObject highlightCirclePrefab;
     private List<GameObject> activeHighlightCircles = new();
+    private Material highlightCircleMaterial;
+    private static readonly Color StartHaloColor = new(0f, 0.85f, 0.25f, 1f);
+    private static readonly Color IntermediateHaloColor = new(0.2f, 0.55f, 1f, 1f);
+    private static readonly Color FinishHaloColor = new(0.95f, 0.15f, 0.1f, 1f);
 
     [Header("Minimap Settings")]
     public Camera mainCamera;     // assign your main/world camera here
@@ -156,31 +160,14 @@ public class SceneConfiguror : MonoBehaviour
             Debug.LogError($"[SC] Layer '{indicatorLayerName}' not found! Check Project Settings > Tags & Layers.");
         }
 
-        // 2) camera culling masks [Update 7/7/2026: Culling mask for circles on main camera might still be useful,
-        // feel free to comment out the entire section so that the highlight circles can be shown. CAROLINE]
+        // Route halos are a world-space board cue and must be visible in the main camera.
         if (indicatorLayer >= 0)
         {
             int mask = 1 << indicatorLayer;
             Debug.Log($"[SC] mainCamera mask before:    {mainCamera.cullingMask:X8}");
-            mainCamera.cullingMask    &= ~mask;
+            mainCamera.cullingMask |= mask;
             Debug.Log($"[SC] mainCamera mask after:     {mainCamera.cullingMask:X8}");
-            /*Debug.Log($"[SC] minimapCamera mask before: {minimapCamera.cullingMask:X8}");
-            minimapCamera.cullingMask |=  mask;
-            Debug.Log($"[SC] minimapCamera mask after:  {minimapCamera.cullingMask:X8}");*/
         }
-        /*indicatorLayer = LayerMask.NameToLayer(indicatorLayerName);
-        if (indicatorLayer == -1)
-        {
-            UnityEngine.Debug.LogError("Layer " + indicatorLayerName + " not found!");
-        }
-        else
-        {
-            int mask = 1 << indicatorLayer;
-            // exclude from main camera
-            mainCamera.cullingMask &= ~mask;
-            // include on minimap camera
-            //minimapCamera.cullingMask |= mask;
-        }*/
 
         UnityEngine.Debug.Log("SceneConfiguror initializing.");
         CacheMoonBoardTransform();
@@ -933,6 +920,10 @@ public class SceneConfiguror : MonoBehaviour
         }
         ResetInteractionState();
         gameMode = newMode;
+        if (newMode == GameMode.Basic)
+        {
+            ClearHighlightCircles();
+        }
         ApplyModeToRouteHolds();
         if (!leavingGhostMode && ghostHoldController != null)
         {
@@ -1242,48 +1233,138 @@ public class SceneConfiguror : MonoBehaviour
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
-            /*
-            if (highlightCirclePrefab != null)
-            {
-                // 1) Instantiate as a child of the hold, preserving the prefab's local transform
-                var circle = Instantiate(
-                highlightCirclePrefab,
-                 holdsDictionary[holdName].transform,      // parent
-                false                  // worldPositionStays = false
-                );
-
-                // 2) Zero out localPosition & localRotation (so it sits exactly on the hold)
-                circle.transform.localPosition = Vector3.zero;
-                circle.transform.localRotation = Quaternion.identity;
-
-                // 3) Nudge it *just* off the wall along its local +Z to avoid z‑fighting
-                circle.transform.localPosition += Vector3.forward * 0.01f;
-
-                // 4) Scale it to match the hold’s size
-                if ( holdsDictionary[holdName].TryGetComponent<Renderer>(out var rdr))
-                {
-                    float maxDim = Mathf.Max(
-                    rdr.bounds.size.x,
-                    rdr.bounds.size.y,
-                    rdr.bounds.size.z
-                    );
-                    circle.transform.localScale = Vector3.one * (maxDim * 0.01f);
-                }
-                else
-                {
-                    circle.transform.localScale = Vector3.one * 0.01f;
-                }
-
-                // 5) Layermask it
-                SetLayerRecursively(circle, indicatorLayer);
-
-
-                activeHighlightCircles.Add(circle);
-
-                Debug.Log($"[SC] Spawned circle at {circle.transform.position} on layer '{LayerMask.LayerToName(indicatorLayer)}'");
-
-            }*/
         }
+        SpawnRouteHalos(route);
+    }
+
+    private void SpawnRouteHalos(RouteDefinition route)
+    {
+        if (highlightCirclePrefab == null || holdsParentGameObject == null || route?.holds == null)
+        {
+            return;
+        }
+
+        Transform board = holdsParentGameObject.transform;
+        // The imported MoonBoard grid lies in the holds parent's local XZ plane; local Y is
+        // the trusted wall-normal axis used by the scanned-hold seating offsets.
+        Vector3 boardNormal = board.up.normalized;
+        Vector3 boardHorizontal = board.right.normalized;
+        Vector3 boardVertical = board.forward.normalized;
+        Vector3 boardPlanePoint = board.position;
+        Transform viewer = centerEyeAnchor != null ? centerEyeAnchor.transform : mainCamera?.transform;
+        if (viewer != null && Vector3.Dot(boardNormal, viewer.position - boardPlanePoint) < 0f)
+        {
+            boardNormal = -boardNormal;
+        }
+
+        bool hasRoles = route.start != null && route.start.Length > 0 &&
+                        route.finish != null && route.finish.Length > 0;
+        HashSet<string> starts = hasRoles
+            ? new HashSet<string>(route.start, StringComparer.OrdinalIgnoreCase)
+            : null;
+        HashSet<string> finishes = hasRoles
+            ? new HashSet<string>(route.finish, StringComparer.OrdinalIgnoreCase)
+            : null;
+
+        foreach (string holdName in route.holds)
+        {
+            if (!holdsDictionary.TryGetValue(holdName, out GameObject hold) ||
+                !TryGetCombinedRendererBounds(hold, out Bounds bounds))
+            {
+                continue;
+            }
+
+            float width = ProjectedBoundsDiameter(bounds, boardHorizontal);
+            float height = ProjectedBoundsDiameter(bounds, boardVertical);
+            float outerDiameter = Mathf.Clamp(Mathf.Max(width, height) * 1.35f, 0.14f, 0.30f);
+            Vector3 projectedCenter = bounds.center -
+                                      boardNormal * Vector3.Dot(bounds.center - boardPlanePoint, boardNormal);
+            Vector3 position = projectedCenter + boardNormal * 0.015f;
+            Quaternion rotation = Quaternion.LookRotation(boardNormal, boardVertical);
+
+            bool isStart = hasRoles && starts.Contains(holdName);
+            bool isFinish = hasRoles && finishes.Contains(holdName);
+            Color color = isStart
+                ? StartHaloColor
+                : isFinish
+                    ? FinishHaloColor
+                    : IntermediateHaloColor;
+            CreateHaloRing(holdName, position, rotation, outerDiameter, color, 0);
+            if (isStart || isFinish)
+            {
+                CreateHaloRing(holdName, position, rotation, outerDiameter * 0.65f, color, 1);
+            }
+        }
+    }
+
+    private void CreateHaloRing(
+        string holdName,
+        Vector3 position,
+        Quaternion rotation,
+        float diameter,
+        Color color,
+        int ringIndex)
+    {
+        GameObject circle = Instantiate(highlightCirclePrefab);
+        circle.name = holdName + (ringIndex == 0 ? " Route Halo" : " Route Halo Inner");
+        circle.transform.SetPositionAndRotation(position, rotation);
+        if (circle.TryGetComponent(out SpriteRenderer spriteRenderer))
+        {
+            spriteRenderer.color = color;
+            spriteRenderer.sharedMaterial = GetHighlightCircleMaterial();
+            spriteRenderer.sortingLayerName = "Default";
+            spriteRenderer.sortingOrder = -100 + ringIndex;
+            if (spriteRenderer.sprite != null)
+            {
+                Vector3 spriteSize = spriteRenderer.sprite.bounds.size;
+                float sourceDiameter = Mathf.Max(spriteSize.x, spriteSize.y);
+                circle.transform.localScale = Vector3.one * (diameter / sourceDiameter);
+            }
+        }
+        if (indicatorLayer >= 0)
+        {
+            SetLayerRecursively(circle, indicatorLayer);
+        }
+        circle.transform.SetParent(holdsParentGameObject.transform, true);
+        activeHighlightCircles.Add(circle);
+    }
+
+    private Material GetHighlightCircleMaterial()
+    {
+        if (highlightCircleMaterial == null)
+        {
+            UnityEngine.Shader shader = UnityEngine.Shader.Find("Sprites/Default");
+            if (shader != null)
+            {
+                highlightCircleMaterial = new Material(shader) { name = "Route Halo Material" };
+            }
+        }
+        return highlightCircleMaterial;
+    }
+
+    private static float ProjectedBoundsDiameter(Bounds bounds, Vector3 axis)
+    {
+        Vector3 extents = bounds.extents;
+        return 2f * (Mathf.Abs(axis.x) * extents.x +
+                     Mathf.Abs(axis.y) * extents.y +
+                     Mathf.Abs(axis.z) * extents.z);
+    }
+
+    private static bool TryGetCombinedRendererBounds(GameObject target, out Bounds bounds)
+    {
+        Renderer[] renderers = target.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+        {
+            bounds = default;
+            return false;
+        }
+
+        bounds = renderers[0].bounds;
+        for (int index = 1; index < renderers.Length; index++)
+        {
+            bounds.Encapsulate(renderers[index].bounds);
+        }
+        return true;
     }
     /// <summary>
     /// Recursively sets go and all its children to the given layer.
@@ -1506,6 +1587,10 @@ public class SceneConfiguror : MonoBehaviour
     private void OnDestroy()
     {
         gripContactPipeline?.Dispose();
+        if (highlightCircleMaterial != null)
+        {
+            Destroy(highlightCircleMaterial);
+        }
     }
 
 }
