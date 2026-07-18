@@ -33,7 +33,12 @@ public sealed class GhostHoldController : MonoBehaviour
     private LineRenderer wallMarker;
     private LineRenderer leftRay;
     private LineRenderer rightRay;
-    private Material lineMaterial;
+    private Material wallMarkerMaterial;
+    private Material leftRayMaterial;
+    private Material rightRayMaterial;
+    private MaterialPropertyBlock wallMarkerProperties;
+    private MaterialPropertyBlock leftRayProperties;
+    private MaterialPropertyBlock rightRayProperties;
 
     public GameObject CurrentGhost => currentGhost;
     public GameObject WallReferent => wallReferent;
@@ -454,10 +459,13 @@ public sealed class GhostHoldController : MonoBehaviour
         wallMarker.positionCount = 48;
         wallMarker.startWidth = markerWidth;
         wallMarker.endWidth = markerWidth;
-        wallMarker.startColor = markerColor;
-        wallMarker.endColor = markerColor;
+        wallMarker.startColor = Color.white;
+        wallMarker.endColor = Color.white;
         wallMarker.numCornerVertices = 3;
-        wallMarker.sharedMaterial = GetLineMaterial();
+        wallMarkerMaterial ??= CreateLineMaterial("Ghost Referent Ring Material");
+        wallMarkerProperties ??= new MaterialPropertyBlock();
+        wallMarker.sharedMaterial = wallMarkerMaterial;
+        SetLineColor(wallMarker, wallMarkerProperties, markerColor);
         UpdateWallMarker();
     }
 
@@ -473,8 +481,7 @@ public sealed class GhostHoldController : MonoBehaviour
         float pulse = 0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 4f);
         Color color = markerColor;
         color.a *= pulse;
-        wallMarker.startColor = color;
-        wallMarker.endColor = color;
+        SetLineColor(wallMarker, wallMarkerProperties, color);
 
         Vector3 center = bounds.center - userCamera.transform.forward * 0.006f;
         for (int i = 0; i < wallMarker.positionCount; i++)
@@ -488,11 +495,24 @@ public sealed class GhostHoldController : MonoBehaviour
 
     private void EnsureRayVisuals()
     {
-        leftRay ??= CreateRay("Left Ghost Selection Ray");
-        rightRay ??= CreateRay("Right Ghost Selection Ray");
+        if (leftRay == null)
+        {
+            leftRayMaterial = CreateLineMaterial("Left Ghost Selection Ray Material");
+            leftRayProperties = new MaterialPropertyBlock();
+            leftRay = CreateRay("Left Ghost Selection Ray", leftRayMaterial, leftRayProperties);
+        }
+        if (rightRay == null)
+        {
+            rightRayMaterial = CreateLineMaterial("Right Ghost Selection Ray Material");
+            rightRayProperties = new MaterialPropertyBlock();
+            rightRay = CreateRay("Right Ghost Selection Ray", rightRayMaterial, rightRayProperties);
+        }
     }
 
-    private LineRenderer CreateRay(string objectName)
+    private LineRenderer CreateRay(
+        string objectName,
+        Material material,
+        MaterialPropertyBlock properties)
     {
         GameObject rayObject = new(objectName);
         rayObject.transform.SetParent(transform, false);
@@ -501,27 +521,53 @@ public sealed class GhostHoldController : MonoBehaviour
         ray.useWorldSpace = true;
         ray.startWidth = 0.0025f;
         ray.endWidth = 0.001f;
-        ray.startColor = rayColor;
-        ray.endColor = rayColor;
-        ray.sharedMaterial = GetLineMaterial();
+        ray.startColor = Color.white;
+        ray.endColor = Color.white;
+        ray.sharedMaterial = material;
+        SetLineColor(ray, properties, rayColor);
         ray.enabled = false;
         return ray;
     }
 
-    private Material GetLineMaterial()
+    private static Material CreateLineMaterial(string materialName)
     {
-        if (lineMaterial != null)
-        {
-            return lineMaterial;
-        }
-
-        UnityEngine.Shader shader = UnityEngine.Shader.Find("Universal Render Pipeline/Unlit") ??
-                                    UnityEngine.Shader.Find("Sprites/Default");
+        UnityEngine.Shader shader = UnityEngine.Shader.Find("Sprites/Default") ??
+                                    UnityEngine.Shader.Find("Universal Render Pipeline/Unlit");
         if (shader != null)
         {
-            lineMaterial = new Material(shader) { name = "Ghost Interaction Lines" };
+            return new Material(shader) { name = materialName };
         }
-        return lineMaterial;
+        return null;
+    }
+
+    private static void SetLineColor(
+        LineRenderer line,
+        MaterialPropertyBlock properties,
+        Color color)
+    {
+        if (line == null || properties == null)
+        {
+            return;
+        }
+
+        Material material = line.sharedMaterial;
+        if (material == null)
+        {
+            line.startColor = color;
+            line.endColor = color;
+            return;
+        }
+
+        line.GetPropertyBlock(properties);
+        if (material.HasProperty("_Color"))
+        {
+            properties.SetColor("_Color", color);
+        }
+        if (material.HasProperty("_BaseColor"))
+        {
+            properties.SetColor("_BaseColor", color);
+        }
+        line.SetPropertyBlock(properties);
     }
 
     private static void UpdateRayVisual(
@@ -553,9 +599,17 @@ public sealed class GhostHoldController : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (lineMaterial != null)
+        if (wallMarkerMaterial != null)
         {
-            Destroy(lineMaterial);
+            Destroy(wallMarkerMaterial);
+        }
+        if (leftRayMaterial != null)
+        {
+            Destroy(leftRayMaterial);
+        }
+        if (rightRayMaterial != null)
+        {
+            Destroy(rightRayMaterial);
         }
     }
 }
