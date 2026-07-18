@@ -20,6 +20,11 @@ public sealed class StudyManager : MonoBehaviour
     [SerializeField] private bool useMockSchedule;
     [SerializeField] private float debugBlockMinutes = 2f;
 
+    [Header("Panel Interaction")]
+    [SerializeField] private float summonDwellSeconds = 1f;
+    [SerializeField] private float summonCooldownSeconds = 2f;
+    [SerializeField] private float panelSettleSeconds = 0.75f;
+
     private readonly List<StudyScheduleRow> schedule = new();
     private readonly List<string> participants = new();
     private GameObject panelRoot;
@@ -53,6 +58,10 @@ public sealed class StudyManager : MonoBehaviour
     private TextMesh adhocConditionLabel;
     private TextMesh adhocRouteLabel;
     private string lastRoutesStatusLine;
+    private float summonDwellStart = -1f;
+    private bool summonReadyForPinch;
+    private float summonCooldownUntil;
+    private float panelPressableAt;
 
     public bool IsBlockRunning => blockRunning;
     public string ActiveDirectory => activeDirectory;
@@ -357,7 +366,8 @@ public sealed class StudyManager : MonoBehaviour
     {
         PositionPanelInFrontOfUser();
         SetPanelVisible(true);
-        SetTimerChipVisible(blockRunning);
+        panelPressableAt = Time.unscaledTime + Mathf.Max(0f, panelSettleSeconds);
+        SetTimerChipVisible(ShouldShowTimerChip());
         PositionTimerChip();
         RefreshPanelText();
     }
@@ -458,7 +468,13 @@ public sealed class StudyManager : MonoBehaviour
                         hand.GetFingerIsPinching(OVRHand.HandFinger.Index);
         bool pinchStarted = pinching && !wasPinching;
         wasPinching = pinching;
-        if (!pinchStarted)
+        bool summonConsumed = UpdateSummonGesture(
+            hand,
+            skeleton,
+            pinching,
+            pinchStarted,
+            isLeft);
+        if (!pinchStarted || summonConsumed)
         {
             return;
         }
@@ -475,21 +491,94 @@ public sealed class StudyManager : MonoBehaviour
             StudyPanelButton button = hit.collider.GetComponentInParent<StudyPanelButton>();
             if (button != null)
             {
+                if (Time.unscaledTime < panelPressableAt)
+                {
+                    return;
+                }
                 panelPinned = true;
                 button.Press();
                 return;
             }
         }
+    }
 
-        if (isLeft && panelRoot != null && !panelRoot.activeSelf && IsPalmUp(skeleton))
+    private bool UpdateSummonGesture(
+        OVRHand hand,
+        OVRSkeleton skeleton,
+        bool pinching,
+        bool pinchStarted,
+        bool isLeft)
+    {
+        if (!isLeft)
         {
-            ShowPanel();
+            return false;
         }
+        if (panelRoot == null || panelRoot.activeSelf)
+        {
+            ResetSummonDwell();
+            return false;
+        }
+
+        bool trackingConfident = hand != null && hand.IsTracked && hand.IsDataHighConfidence;
+        bool palmUp = trackingConfident && IsPalmUp(skeleton);
+        if (!blockRunning)
+        {
+            ResetSummonDwell();
+            if (palmUp && pinchStarted)
+            {
+                ShowPanel();
+                return true;
+            }
+            return false;
+        }
+
+        float now = Time.unscaledTime;
+        if (now < summonCooldownUntil || !palmUp)
+        {
+            ResetSummonDwell();
+            return false;
+        }
+
+        if (summonDwellStart < 0f)
+        {
+            if (pinching)
+            {
+                return false;
+            }
+            summonDwellStart = now;
+        }
+
+        if (!summonReadyForPinch &&
+            now - summonDwellStart >= Mathf.Max(0f, summonDwellSeconds))
+        {
+            summonReadyForPinch = true;
+        }
+
+        if (summonReadyForPinch && pinchStarted)
+        {
+            summonCooldownUntil = now + Mathf.Max(0f, summonCooldownSeconds);
+            ResetSummonDwell();
+            ShowPanel();
+            return true;
+        }
+
+        if (pinching)
+        {
+            ResetSummonDwell();
+        }
+        return false;
+    }
+
+    private void ResetSummonDwell()
+    {
+        summonDwellStart = -1f;
+        summonReadyForPinch = false;
     }
 
     private static bool IsPalmUp(OVRSkeleton skeleton)
     {
-        if (skeleton == null || skeleton.Bones.Count == 0)
+        if (skeleton == null || skeleton.Bones == null || skeleton.Bones.Count == 0 ||
+            skeleton.Bones[0].Transform == null)
         {
             return false;
         }
@@ -559,7 +648,13 @@ public sealed class StudyManager : MonoBehaviour
         buttonObject.GetComponent<MeshRenderer>().sharedMaterial = buttonMaterial;
         StudyPanelButton button = buttonObject.AddComponent<StudyPanelButton>();
         button.Pressed = pressed;
-        TextMesh text = CreateText(buttonObject.transform, new Vector3(0f, 0f, -0.56f), 0.055f, 26);
+        // Keep labels under the uniformly-scaled panel root. Parenting them to the flattened
+        // cube would stretch glyphs by the button's non-uniform scale.
+        TextMesh text = CreateText(
+            panelRoot.transform,
+            localPosition + new Vector3(0f, 0f, -0.0112f),
+            0.006f,
+            26);
         text.text = label;
         return text;
     }
@@ -751,11 +846,21 @@ public sealed class StudyManager : MonoBehaviour
         }
 
         Transform cameraTransform = userCamera.transform;
-        timerChipRoot.transform.position = cameraTransform.position + cameraTransform.forward * 0.65f +
-                                           cameraTransform.right * 0.24f - cameraTransform.up * 0.20f;
-        timerChipRoot.transform.rotation = Quaternion.LookRotation(
-            timerChipRoot.transform.position - cameraTransform.position,
-            cameraTransform.up);
+        if (panelRoot != null)
+        {
+            timerChipRoot.transform.position = panelRoot.transform.position +
+                                               panelRoot.transform.up * 0.415f -
+                                               panelRoot.transform.forward * 0.01f;
+            timerChipRoot.transform.rotation = panelRoot.transform.rotation;
+        }
+        else
+        {
+            timerChipRoot.transform.position = cameraTransform.position + cameraTransform.forward * 0.75f +
+                                               cameraTransform.up * 0.415f;
+            timerChipRoot.transform.rotation = Quaternion.LookRotation(
+                timerChipRoot.transform.position - cameraTransform.position,
+                cameraTransform.up);
+        }
     }
 
     private void SetPanelVisible(bool visible)
@@ -763,13 +868,19 @@ public sealed class StudyManager : MonoBehaviour
         panelRoot?.SetActive(visible);
         if (!visible)
         {
-            SetTimerChipVisible(false);
+            ResetSummonDwell();
+            SetTimerChipVisible(ShouldShowTimerChip());
         }
     }
 
     private void SetTimerChipVisible(bool visible)
     {
         timerChipRoot?.SetActive(visible);
+    }
+
+    private bool ShouldShowTimerChip()
+    {
+        return blockRunning && activeRow != null && activeRow.condition == "A";
     }
 
     private float GetBlockMinutes()
