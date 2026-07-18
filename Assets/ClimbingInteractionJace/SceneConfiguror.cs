@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Unity.VisualScripting;
 using Unity.XR.CoreUtils;
@@ -20,6 +21,13 @@ public enum GameMode
     Basic = 0, // Only shader
     Grip = 1, // JACE: In development, fixed-grip movement mode
     Ghost = 2,
+}
+
+public enum RoutesLoadState
+{
+    Loading,
+    Ready,
+    Failed,
 }
 
 public class SceneConfiguror : MonoBehaviour
@@ -74,10 +82,14 @@ public class SceneConfiguror : MonoBehaviour
     // RouteLibrary rejects any file that tries to shadow them.
     private static readonly string[] BuiltInRouteNames =
     {
-        "DEATH STAR", "SPEED", "THE CRUSH ALT", "TO JUG, OR NOT TO JUG...", "WHITE JUGHAUL",
+        "DEATH STAR", "TO JUG, OR NOT TO JUG...",
     };
-    private readonly Dictionary<string, List<string>> jsonRoutes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RouteDefinition> jsonRoutes = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> jsonRouteNames = new();
+    public RouteDefinition ActiveRouteDefinition { get; private set; }
+    public RoutesLoadState RoutesJsonLoadState { get; private set; } = RoutesLoadState.Loading;
+    public string RoutesLoadFailureReason { get; private set; } = string.Empty;
+    public string RoutesJsonSha256 { get; private set; }
 
     [Header("Interaction Settings")]
     public float interactionColorMaxDistanceOverride;
@@ -661,18 +673,19 @@ public class SceneConfiguror : MonoBehaviour
     {
         EnsureHoldsDictionary();
         UnityEngine.Debug.Log("Requested route by name: " + routeName);
-        if (!TryGetRouteHolds(routeName, out List<string> routeHolds))
+        if (!TryGetRouteDefinition(routeName, out RouteDefinition route))
         {
             UnityEngine.Debug.LogError("Route name " + routeName + " not found!");
             return;
         }
 
-        activeRouteHoldsNamesList = routeHolds;
+        ActiveRouteDefinition = route;
+        activeRouteHoldsNamesList = new List<string>(route.holds);
         currentRouteName = routeName;
         if (routeName != "[PREVIEW ALL (SHADER OFF)]")
         {
             UnityEngine.Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", activeRouteHoldsNamesList));
-            SetUpRouteByHoldList(activeRouteHoldsNamesList);
+            SetUpRouteByHoldList(route);
         }
         else
         {
@@ -689,13 +702,17 @@ public class SceneConfiguror : MonoBehaviour
     public bool TryValidateRoute(string routeName, out string error)
     {
         EnsureHoldsDictionary();
-        if (!TryGetRouteHolds(routeName, out List<string> routeHolds))
+        if (!TryEnsureRouteSourceReady(routeName, out error))
+        {
+            return false;
+        }
+        if (!TryGetRouteDefinition(routeName, out RouteDefinition route))
         {
             error = "Unknown route: " + routeName + ".";
             return false;
         }
 
-        string[] missing = routeHolds.Where(hold => !holdsDictionary.ContainsKey(hold)).ToArray();
+        string[] missing = route.holds.Where(hold => !holdsDictionary.ContainsKey(hold)).ToArray();
         if (missing.Length > 0)
         {
             error = routeName + " is missing hold" + (missing.Length == 1 ? " " : "s ") +
@@ -709,30 +726,65 @@ public class SceneConfiguror : MonoBehaviour
 
     public bool TrySelectBaselineRoute(string routeName, out string error)
     {
-        if (!TryGetRouteHolds(routeName, out List<string> routeHolds))
+        if (!TryEnsureRouteSourceReady(routeName, out error))
+        {
+            return false;
+        }
+        if (!TryGetRouteDefinition(routeName, out RouteDefinition route))
         {
             error = "Unknown route: " + routeName + ".";
             return false;
         }
 
-        activeRouteHoldsNamesList = routeHolds;
+        ActiveRouteDefinition = route;
+        activeRouteHoldsNamesList = new List<string>(route.holds);
         currentRouteName = routeName;
         error = string.Empty;
         return true;
     }
 
-    private bool TryGetRouteHolds(string routeName, out List<string> routeHolds)
+    private bool TryGetRouteDefinition(string routeName, out RouteDefinition route)
     {
-        if (TryGetBuiltInRouteHolds(routeName, out routeHolds))
+        if (TryGetBuiltInRouteDefinition(routeName, out route))
         {
             return true;
         }
-        if (routeName != null && jsonRoutes.TryGetValue(routeName, out List<string> jsonHolds))
+        if (routeName != null && jsonRoutes.TryGetValue(routeName, out RouteDefinition jsonRoute))
         {
-            routeHolds = jsonHolds;
+            route = jsonRoute;
             return true;
         }
-        routeHolds = null;
+        route = null;
+        return false;
+    }
+
+    public bool IsBuiltInRoute(string routeName)
+    {
+        return TryGetBuiltInRouteDefinition(routeName, out _);
+    }
+
+    public string GetRoutesLoadStatusLine()
+    {
+        return RoutesJsonLoadState switch
+        {
+            RoutesLoadState.Ready => "READY (" + jsonRouteNames.Count + " imported)",
+            RoutesLoadState.Failed => "FAILED: " + RoutesLoadFailureReason,
+            _ => "LOADING",
+        };
+    }
+
+    private bool TryEnsureRouteSourceReady(string routeName, out string error)
+    {
+        if (IsBuiltInRoute(routeName) || RoutesJsonLoadState == RoutesLoadState.Ready)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        error = RoutesJsonLoadState == RoutesLoadState.Loading
+            ? "routes.json is still loading; imported route '" + routeName + "' cannot start yet."
+            : "routes.json failed to load; imported route '" + routeName + "' is unavailable: " +
+              RoutesLoadFailureReason;
         return false;
     }
 
@@ -747,8 +799,12 @@ public class SceneConfiguror : MonoBehaviour
 
     private IEnumerator LoadRoutesJson()
     {
+        RoutesJsonLoadState = RoutesLoadState.Loading;
+        RoutesLoadFailureReason = string.Empty;
+        RoutesJsonSha256 = null;
         string path = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/routes.json";
         string json = null;
+        byte[] jsonBytes = null;
         if (path.Contains("://") || path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase))
         {
             using UnityWebRequest request = UnityWebRequest.Get(path);
@@ -756,26 +812,29 @@ public class SceneConfiguror : MonoBehaviour
             if (request.result == UnityWebRequest.Result.Success)
             {
                 json = request.downloadHandler.text;
+                jsonBytes = request.downloadHandler.data;
             }
             else if (request.responseCode != 404)
             {
-                Debug.LogError("[SceneConfiguror] routes.json load failed: " + request.error);
+                SetRoutesLoadFailed("request failed: " + request.error);
+                yield break;
             }
         }
         else if (File.Exists(path))
         {
             json = File.ReadAllText(path);
+            jsonBytes = File.ReadAllBytes(path);
         }
 
         if (json == null)
         {
-            Debug.Log("[SceneConfiguror] No routes.json in StreamingAssets; only built-in routes are available.");
+            SetRoutesLoadFailed("file not found in StreamingAssets.");
             yield break;
         }
 
         if (!RouteLibrary.TryParseJson(json, BuiltInRouteNames, out List<RouteDefinition> parsed, out string error))
         {
-            Debug.LogError("[SceneConfiguror] routes.json rejected: " + error);
+            SetRoutesLoadFailed(error);
             yield break;
         }
 
@@ -783,34 +842,61 @@ public class SceneConfiguror : MonoBehaviour
         jsonRouteNames.Clear();
         foreach (RouteDefinition route in parsed)
         {
-            jsonRoutes[route.name] = new List<string>(route.holds);
+            jsonRoutes[route.name] = route;
             jsonRouteNames.Add(route.name);
         }
+        RoutesJsonSha256 = ComputeSha256(jsonBytes);
+        RoutesJsonLoadState = RoutesLoadState.Ready;
         Debug.Log("[SceneConfiguror] Loaded " + jsonRouteNames.Count + " route(s) from routes.json: " +
                   string.Join(", ", jsonRouteNames));
     }
 
-    private static bool TryGetBuiltInRouteHolds(string routeName, out List<string> routeHolds)
+    private void SetRoutesLoadFailed(string reason)
+    {
+        jsonRoutes.Clear();
+        jsonRouteNames.Clear();
+        RoutesJsonSha256 = null;
+        RoutesLoadFailureReason = reason;
+        RoutesJsonLoadState = RoutesLoadState.Failed;
+        Debug.LogError("[SceneConfiguror] routes.json failed: " + reason);
+    }
+
+    private static string ComputeSha256(byte[] value)
+    {
+        using SHA256 sha256 = SHA256.Create();
+        byte[] hash = sha256.ComputeHash(value);
+        return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+    }
+
+    private static bool TryGetBuiltInRouteDefinition(string routeName, out RouteDefinition route)
     {
         switch (routeName)
         {
             case "DEATH STAR":
-                routeHolds = new List<string> { "D15", "D18", "G13", "H11", "I4", "J6", "K9" };
-                return true;
-            case "SPEED":
-                routeHolds = new List<string> { "A5", "D5", "D15", "F12", "F18", "G8", "G10" };
-                return true;
-            case "THE CRUSH ALT":
-                routeHolds = new List<string> { "B6", "C8", "D1", "D11", "F14", "F16", "K18" };
+                // start/finish derived, confirm vs official app
+                route = new RouteDefinition
+                {
+                    name = "DEATH STAR",
+                    holds = new[] { "D15", "D18", "G13", "H11", "I4", "J6", "K9" },
+                    start = new[] { "I4", "J6" },
+                    finish = new[] { "D18" },
+                };
                 return true;
             case "TO JUG, OR NOT TO JUG...":
-                routeHolds = new List<string> { "D9", "D15", "F5", "F12", "G13", "H10", "H18" };
-                return true;
-            case "WHITE JUGHAUL":
-                routeHolds = new List<string> { "F5", "H10", "H18", "I8", "K13", "K15", "K17" };
+                // start/finish derived, confirm vs official app
+                route = new RouteDefinition
+                {
+                    name = "TO JUG, OR NOT TO JUG...",
+                    holds = new[] { "D9", "D15", "F5", "F12", "G13", "H10", "H18" },
+                    start = new[] { "F5" },
+                    finish = new[] { "H18" },
+                };
                 return true;
             case "[PREVIEW ALL (SHADER OFF)]":
-                routeHolds = new List<string> { // this was the fastest way to get this working, sue me
+                route = new RouteDefinition
+                {
+                    name = "[PREVIEW ALL (SHADER OFF)]",
+                    holds = new[] { // this was the fastest way to get this working, sue me
                     "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1", "I1", "J1", "K1",
                     "A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "I2", "J2", "K2",
                     "A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3", "I3", "J3", "K3",
@@ -829,10 +915,11 @@ public class SceneConfiguror : MonoBehaviour
                     "A16", "B16", "C16", "D16", "E16", "F16", "G16", "H16", "I16", "J16", "K16",
                     "A17", "B17", "C17", "D17", "E17", "F17", "G17", "H17", "I17", "J17", "K17",
                     "A18", "B18", "C18", "D18", "E18", "F18", "G18", "H18", "I18", "J18", "K18"
+                    },
                 };
                 return true;
             default:
-                routeHolds = null;
+                route = null;
                 return false;
         }
     }
@@ -1080,8 +1167,10 @@ public class SceneConfiguror : MonoBehaviour
             meshRenderer.material.SetInt("_IsBeingInteracted", active ? 1 : 0);
         }
     }
-    void SetUpRouteByHoldList(List<string> holdsList)
+    void SetUpRouteByHoldList(RouteDefinition route)
     {
+        ActiveRouteDefinition = route;
+        List<string> holdsList = new(route.holds);
         ClearHighlightCircles();
         // Disable all holds
         activeHoldsList = new List<GameObject>();

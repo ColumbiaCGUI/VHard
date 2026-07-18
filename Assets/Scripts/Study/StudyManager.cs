@@ -52,6 +52,7 @@ public sealed class StudyManager : MonoBehaviour
     private int adhocRouteIndex;
     private TextMesh adhocConditionLabel;
     private TextMesh adhocRouteLabel;
+    private string lastRoutesStatusLine;
 
     public bool IsBlockRunning => blockRunning;
     public string ActiveDirectory => activeDirectory;
@@ -275,6 +276,9 @@ public sealed class StudyManager : MonoBehaviour
             endUtc = string.Empty,
             endedEarly = false,
             endReason = "running",
+            routesJsonSha256 = sceneConfiguror.IsBuiltInRoute(row.route)
+                ? null
+                : sceneConfiguror.RoutesJsonSha256,
         };
 
         sceneConfiguror.ResetMoonBoardTransform();
@@ -398,6 +402,14 @@ public sealed class StudyManager : MonoBehaviour
 
     private void Update()
     {
+        string routesStatusLine = sceneConfiguror != null
+            ? sceneConfiguror.GetRoutesLoadStatusLine()
+            : "UNAVAILABLE";
+        if (routesStatusLine != lastRoutesStatusLine && panelRoot != null && panelRoot.activeSelf)
+        {
+            RefreshPanelText();
+        }
+
         if (blockRunning)
         {
             if (activeRow.condition != "A" && !sceneConfiguror.IsGripFeedbackReady)
@@ -698,6 +710,10 @@ public sealed class StudyManager : MonoBehaviour
             adhocRouteLabel.text = adhocRoute.Length > 9 ? adhocRoute.Substring(0, 9) + ".." : adhocRoute;
         }
 
+        lastRoutesStatusLine = sceneConfiguror != null
+            ? sceneConfiguror.GetRoutesLoadStatusLine()
+            : "UNAVAILABLE";
+        text.Append("Routes: ").Append(lastRoutesStatusLine).AppendLine();
         text.AppendLine(statusMessage);
         panelText.text = text.ToString();
     }

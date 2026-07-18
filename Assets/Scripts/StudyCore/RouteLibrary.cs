@@ -9,6 +9,8 @@ public sealed class RouteDefinition
     public string name;
     public string grade;
     public string[] holds;
+    public string[] start;
+    public string[] finish;
 }
 
 /// <summary>
@@ -25,6 +27,7 @@ public static class RouteLibrary
     [Serializable]
     private sealed class RouteFileModel
     {
+        public int schemaVersion;
         public RouteDefinition[] routes;
     }
 
@@ -50,6 +53,14 @@ public static class RouteLibrary
         catch (ArgumentException exception)
         {
             error = "routes.json is not valid JSON: " + exception.Message;
+            return false;
+        }
+
+        if (model == null || model.schemaVersion != 2)
+        {
+            int version = model?.schemaVersion ?? 0;
+            error = "routes.json schemaVersion must be 2; found " + version +
+                    (version == 0 ? " (missing or legacy schema)." : ".");
             return false;
         }
 
@@ -114,9 +125,84 @@ public static class RouteLibrary
                 route.holds[holdIndex] = token;
             }
 
+            if (!TryNormalizeRole(route.start, "start", label, route.name, seenHolds,
+                    out string[] normalizedStart, out error))
+            {
+                return false;
+            }
+            if (!TryNormalizeRole(route.finish, "finish", label, route.name, seenHolds,
+                    out string[] normalizedFinish, out error))
+            {
+                return false;
+            }
+            route.start = normalizedStart;
+            route.finish = normalizedFinish;
+
+            HashSet<string> starts = new(route.start, StringComparer.OrdinalIgnoreCase);
+            foreach (string finish in route.finish)
+            {
+                if (starts.Contains(finish))
+                {
+                    error = label + " ('" + route.name + "') position " + finish +
+                            " cannot be both start and finish.";
+                    return false;
+                }
+            }
+
             routes.Add(route);
         }
 
+        return true;
+    }
+
+    private static bool TryNormalizeRole(
+        string[] values,
+        string role,
+        string label,
+        string routeName,
+        HashSet<string> holds,
+        out string[] normalized,
+        out string error)
+    {
+        normalized = Array.Empty<string>();
+        error = string.Empty;
+        if (values == null || values.Length == 0)
+        {
+            error = label + " ('" + routeName + "') requires 1-2 " + role + " positions.";
+            return false;
+        }
+
+        List<string> deduped = new(2);
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        for (int index = 0; index < values.Length; index++)
+        {
+            string token = values[index]?.Trim().ToUpperInvariant() ?? string.Empty;
+            if (!HoldTokenPattern.IsMatch(token))
+            {
+                error = label + " ('" + routeName + "') " + role + " " + index +
+                        " ('" + values[index] + "') is not a MoonBoard position A1-K18.";
+                return false;
+            }
+            if (!holds.Contains(token))
+            {
+                error = label + " ('" + routeName + "') " + role + " position " + token +
+                        " is not a member of holds.";
+                return false;
+            }
+            if (seen.Add(token))
+            {
+                deduped.Add(token);
+            }
+        }
+
+        if (deduped.Count < 1 || deduped.Count > 2)
+        {
+            error = label + " ('" + routeName + "') requires 1-2 distinct " + role +
+                    " positions; found " + deduped.Count + ".";
+            return false;
+        }
+
+        normalized = deduped.ToArray();
         return true;
     }
 }

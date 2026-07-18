@@ -23,7 +23,7 @@ from pathlib import Path
 
 HOLD_TOKEN = re.compile(r"^[A-K](1[0-8]|[1-9])$")
 BUILT_IN_ROUTE_NAMES = {
-    "DEATH STAR", "SPEED", "THE CRUSH ALT", "TO JUG, OR NOT TO JUG...", "WHITE JUGHAUL",
+    "DEATH STAR", "TO JUG, OR NOT TO JUG...",
 }
 
 
@@ -60,6 +60,7 @@ def convert_problem(problem, index):
 
     holds = []
     seen = set()
+    roles = {}
     for move_index, move in enumerate(moves):
         if not isinstance(move, dict):
             raise SystemExit(f"Problem {index} ('{name}') move {move_index} is not an object.")
@@ -75,8 +76,35 @@ def convert_problem(problem, index):
             seen.add(token)
             holds.append(token)
 
+        role = roles.setdefault(token, {"start": False, "finish": False})
+        role["start"] = role["start"] or bool(field(move, "IsStart", "isStart"))
+        role["finish"] = role["finish"] or bool(field(move, "IsEnd", "isEnd"))
+
+    conflicts = [token for token in holds if roles[token]["start"] and roles[token]["finish"]]
+    if conflicts:
+        raise SystemExit(
+            f"Problem {index} ('{name}') position(s) {', '.join(conflicts)} "
+            "are flagged as both start and finish.")
+
+    starts = [token for token in holds if roles[token]["start"]]
+    finishes = [token for token in holds if roles[token]["finish"]]
+    if not starts:
+        raise SystemExit(f"Problem {index} ('{name}') has no start moves.")
+    if not finishes:
+        raise SystemExit(f"Problem {index} ('{name}') has no finish moves.")
+    if len(starts) > 2:
+        raise SystemExit(f"Problem {index} ('{name}') has more than 2 start positions.")
+    if len(finishes) > 2:
+        raise SystemExit(f"Problem {index} ('{name}') has more than 2 finish positions.")
+
     is_benchmark = bool(field(problem, "IsBenchmark", "isBenchmark"))
-    return {"name": name, "grade": str(grade), "holds": holds}, is_benchmark
+    return {
+        "name": name,
+        "grade": str(grade),
+        "holds": holds,
+        "start": starts,
+        "finish": finishes,
+    }, is_benchmark
 
 
 def main():
@@ -121,7 +149,8 @@ def main():
         raise SystemExit("No routes matched the given filters; nothing written.")
 
     args.output.write_text(
-        json.dumps({"routes": routes}, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+        json.dumps({"schemaVersion": 2, "routes": routes}, indent=1, ensure_ascii=False) + "\n",
+        encoding="utf-8")
     print(f"wrote {len(routes)} route(s) to {args.output}")
 
 
