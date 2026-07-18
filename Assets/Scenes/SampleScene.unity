@@ -9446,7 +9446,7 @@ MonoBehaviour:
   rightHandBonePositions: []
   leftHandBoneQuaternions: []
   rightHandBoneQuaternions: []
-  gameMode: 1
+  gameMode: 0
   currentRouteName: DEATH STAR
   ghostHoldController: {fileID: 0}
   interactionColorMaxDistanceOverride: 0.02
@@ -19209,7 +19209,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &871263447
 Transform:
   m_ObjectHideFlags: 0
@@ -32060,7 +32060,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1636572262
 Transform:
   m_ObjectHideFlags: 0

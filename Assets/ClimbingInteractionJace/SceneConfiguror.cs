@@ -61,6 +61,15 @@ public class SceneConfiguror : MonoBehaviour
     private Light examinationHeadlamp;
     private int studyHoldsLayer = -1;
     private int studyGhostHoldsLayer = -1;
+    private static readonly string[] SupplementalSceneryNameMarkers =
+    {
+        "water", "ocean", "terrain", "scenery", "landscape", "skybox",
+    };
+    private readonly Dictionary<GameObject, bool> supplementalSceneryActiveStates = new();
+    private bool studyEnvironmentHidden;
+    private Camera studyEnvironmentCamera;
+    private CameraClearFlags studyEnvironmentCameraClearFlags;
+    private Color studyEnvironmentCameraBackground;
 
     [Header("Hands References")]
     public GameObject centerEyeAnchor;
@@ -985,10 +994,117 @@ public class SceneConfiguror : MonoBehaviour
 
     public void SetStudyEnvironmentVisible(bool visible)
     {
+        if (!visible)
+        {
+            if (!studyEnvironmentHidden)
+            {
+                CaptureAndHideSupplementalScenery();
+                CaptureAndHideStudyCameraBackground();
+                studyEnvironmentHidden = true;
+            }
+            if (environment != null)
+            {
+                environment.SetActive(false);
+            }
+            return;
+        }
+
         if (environment != null)
         {
-            environment.SetActive(visible);
+            environment.SetActive(true);
         }
+        if (studyEnvironmentHidden)
+        {
+            RestoreSupplementalScenery();
+            RestoreStudyCameraBackground();
+            studyEnvironmentHidden = false;
+        }
+    }
+
+    private void CaptureAndHideSupplementalScenery()
+    {
+        supplementalSceneryActiveStates.Clear();
+        int waterLayer = LayerMask.NameToLayer("Water");
+        foreach (Transform candidate in FindObjectsByType<Transform>(
+                     FindObjectsInactive.Include,
+                     FindObjectsSortMode.None))
+        {
+            if (candidate == null || candidate.gameObject.scene != gameObject.scene ||
+                (environment != null &&
+                 (candidate == environment.transform || candidate.IsChildOf(environment.transform))))
+            {
+                continue;
+            }
+
+            GameObject sceneryRoot = FindSupplementalSceneryRoot(candidate, waterLayer);
+            if (sceneryRoot != null && !supplementalSceneryActiveStates.ContainsKey(sceneryRoot))
+            {
+                supplementalSceneryActiveStates.Add(sceneryRoot, sceneryRoot.activeSelf);
+            }
+        }
+
+        foreach (GameObject scenery in supplementalSceneryActiveStates.Keys)
+        {
+            if (scenery != null)
+            {
+                scenery.SetActive(false);
+            }
+        }
+    }
+
+    private GameObject FindSupplementalSceneryRoot(Transform candidate, int waterLayer)
+    {
+        Transform match = null;
+        for (Transform current = candidate; current != null; current = current.parent)
+        {
+            if (environment != null && current == environment.transform)
+            {
+                return null;
+            }
+            if ((waterLayer >= 0 && current.gameObject.layer == waterLayer) ||
+                SupplementalSceneryNameMarkers.Any(marker =>
+                    current.name.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                match = current;
+            }
+        }
+        return match != null ? match.gameObject : null;
+    }
+
+    private void RestoreSupplementalScenery()
+    {
+        foreach (KeyValuePair<GameObject, bool> entry in supplementalSceneryActiveStates)
+        {
+            if (entry.Key != null)
+            {
+                entry.Key.SetActive(entry.Value);
+            }
+        }
+        supplementalSceneryActiveStates.Clear();
+    }
+
+    private void CaptureAndHideStudyCameraBackground()
+    {
+        studyEnvironmentCamera = mainCamera != null ? mainCamera : Camera.main;
+        if (studyEnvironmentCamera == null)
+        {
+            return;
+        }
+        studyEnvironmentCameraClearFlags = studyEnvironmentCamera.clearFlags;
+        studyEnvironmentCameraBackground = studyEnvironmentCamera.backgroundColor;
+        studyEnvironmentCamera.clearFlags = CameraClearFlags.SolidColor;
+        studyEnvironmentCamera.backgroundColor = Color.black;
+    }
+
+    private void RestoreStudyCameraBackground()
+    {
+        if (studyEnvironmentCamera == null)
+        {
+            return;
+        }
+        studyEnvironmentCamera.clearFlags = studyEnvironmentCameraClearFlags;
+        studyEnvironmentCamera.backgroundColor = studyEnvironmentCameraBackground;
+        studyEnvironmentCamera = null;
     }
 
     public bool IsGripFeedbackReady => !IsGripFeedbackDegraded &&
