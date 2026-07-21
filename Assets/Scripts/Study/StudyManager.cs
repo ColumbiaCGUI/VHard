@@ -10,11 +10,14 @@ using UnityEngine.Networking;
 public sealed class StudyManager : MonoBehaviour
 {
     private const float ReleaseBlockMinutes = 20f;
+    private const float PanelSummonArmSeconds = 0.75f;
 
     [Header("Study References")]
     [SerializeField] private SceneConfiguror sceneConfiguror;
     [SerializeField] private ActionRecorder actionRecorder;
     [SerializeField] private Camera userCamera;
+    [SerializeField] private MoonBoard2016Layout boardLayout;
+    [SerializeField] private BoardAlignmentController boardAlignment;
 
     [Header("Debug")]
     [SerializeField] private bool useMockSchedule;
@@ -32,6 +35,7 @@ public sealed class StudyManager : MonoBehaviour
     private int selectedBlock = 1;
     private bool leftWasPinching;
     private bool rightWasPinching;
+    private float leftPalmUpSince = -1f;
     private bool blockRunning;
     private float blockStartRealtime;
     private float blockDurationSeconds;
@@ -46,6 +50,9 @@ public sealed class StudyManager : MonoBehaviour
     private OVRHand rightHand;
     private OVRSkeleton leftSkeleton;
     private OVRSkeleton rightSkeleton;
+    private MoonBoardStudyCatalog routeCatalog;
+    private string routeCatalogSha256 = string.Empty;
+    private string lastBoardAlignmentStatus = string.Empty;
 
     public bool IsBlockRunning => blockRunning;
     public string ActiveDirectory => activeDirectory;
@@ -54,6 +61,15 @@ public sealed class StudyManager : MonoBehaviour
     private IEnumerator Start()
     {
         ResolveReferences();
+        string catalogText = null;
+        yield return LoadStreamingAssetText("moonboard_2016_40.json", text => catalogText = text);
+        if (!LoadCatalogText(catalogText))
+        {
+            BuildPanel();
+            ShowPanel();
+            yield break;
+        }
+
         string scheduleText = null;
         if (useMockSchedule)
         {
@@ -61,28 +77,7 @@ public sealed class StudyManager : MonoBehaviour
         }
         else
         {
-            string path = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/study_schedule.csv";
-            if (path.Contains("://") || path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase))
-            {
-                using UnityWebRequest request = UnityWebRequest.Get(path);
-                yield return request.SendWebRequest();
-                if (request.result == UnityWebRequest.Result.Success)
-                {
-                    scheduleText = request.downloadHandler.text;
-                }
-                else
-                {
-                    statusMessage = "Schedule load failed: " + request.error;
-                }
-            }
-            else if (File.Exists(path))
-            {
-                scheduleText = File.ReadAllText(path);
-            }
-            else
-            {
-                statusMessage = "Schedule file not found.";
-            }
+            yield return LoadStreamingAssetText("study_schedule.csv", text => scheduleText = text);
         }
 
         LoadScheduleText(scheduleText);
@@ -96,6 +91,12 @@ public sealed class StudyManager : MonoBehaviour
         schedule.Clear();
         participants.Clear();
         if (!StudySchedule.TryParse(csv, out List<StudyScheduleRow> parsed, out string error))
+        {
+            statusMessage = error;
+            RefreshPanelText();
+            return false;
+        }
+        if (!StudySchedule.TryValidateRoutes(parsed, routeCatalog, out error))
         {
             statusMessage = error;
             RefreshPanelText();
@@ -143,6 +144,18 @@ public sealed class StudyManager : MonoBehaviour
         if (sceneConfiguror == null || actionRecorder == null)
         {
             statusMessage = "Study runtime references are unavailable.";
+            RefreshPanelText();
+            return false;
+        }
+        if (boardAlignment != null && boardAlignment.IsBusy)
+        {
+            statusMessage = "Wait for board calibration or spatial-anchor loading to finish.";
+            RefreshPanelText();
+            return false;
+        }
+        if (!sceneConfiguror.TryGetRouteDefinition(row.route, out MoonBoardRouteDefinition routeDefinition))
+        {
+            statusMessage = "Authoritative route record is unavailable: " + row.route + ".";
             RefreshPanelText();
             return false;
         }
@@ -199,6 +212,14 @@ public sealed class StudyManager : MonoBehaviour
             block = row.block,
             condition = row.condition,
             route = row.route,
+            routeName = routeDefinition.name,
+            routeSourceProblemId = routeDefinition.sourceProblemId,
+            routeCatalogSha256 = routeCatalogSha256,
+            boardSetup = routeCatalog.setupName,
+            boardOverhangAngleDegrees = routeCatalog.overhangAngleDegrees,
+            routeDefinition = routeDefinition,
+            boardAlignment = boardAlignment != null ? boardAlignment.GetSnapshot() : null,
+            boardAlignmentEnd = null,
             retry = retry,
             appVersion = Application.version,
             gitRevision = StudyBuildRevision.Current,
@@ -210,10 +231,7 @@ public sealed class StudyManager : MonoBehaviour
 
         sceneConfiguror.ResetMoonBoardTransform();
         sceneConfiguror.SetStudyEnvironmentVisible(true);
-        if (row.condition != "A")
-        {
-            sceneConfiguror.SetUpRouteByName(row.route);
-        }
+        sceneConfiguror.SetUpRouteByName(row.route);
         sceneConfiguror.SetGameMode(row.condition switch
         {
             "B" => GameMode.Grip,
@@ -269,6 +287,7 @@ public sealed class StudyManager : MonoBehaviour
         activeManifest.endReason = reason;
         activeManifest.droppedCaptureFrames = actionRecorder.DroppedCaptureFrames;
         activeManifest.holdAggregates = actionRecorder.GetHoldAggregates();
+        activeManifest.boardAlignmentEnd = boardAlignment != null ? boardAlignment.GetSnapshot() : null;
         WriteManifest();
 
         blockRunning = false;
@@ -291,6 +310,9 @@ public sealed class StudyManager : MonoBehaviour
     {
         sceneConfiguror ??= FindAnyObjectByType<SceneConfiguror>();
         actionRecorder ??= FindAnyObjectByType<ActionRecorder>();
+        boardLayout ??= FindAnyObjectByType<MoonBoard2016Layout>();
+        boardAlignment ??= FindAnyObjectByType<BoardAlignmentController>();
+        lastBoardAlignmentStatus = boardAlignment != null ? boardAlignment.StatusMessage : string.Empty;
         if (userCamera == null && sceneConfiguror != null && sceneConfiguror.centerEyeAnchor != null)
         {
             userCamera = sceneConfiguror.centerEyeAnchor.GetComponent<Camera>();
@@ -307,6 +329,14 @@ public sealed class StudyManager : MonoBehaviour
 
     private void EnsureScheduleLoadedForRuntime()
     {
+        if (routeCatalog == null)
+        {
+            string catalogPath = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/moonboard_2016_40.json";
+            if (!catalogPath.Contains("://") && File.Exists(catalogPath))
+            {
+                LoadCatalogText(File.ReadAllText(catalogPath));
+            }
+        }
         if (schedule.Count > 0)
         {
             return;
@@ -327,6 +357,11 @@ public sealed class StudyManager : MonoBehaviour
 
     private void Update()
     {
+        if (boardAlignment != null && boardAlignment.StatusMessage != lastBoardAlignmentStatus)
+        {
+            lastBoardAlignmentStatus = boardAlignment.StatusMessage;
+            RefreshPanelText();
+        }
         if (blockRunning)
         {
             if (activeRow.condition != "A" && !sceneConfiguror.IsGripFeedbackReady)
@@ -360,6 +395,25 @@ public sealed class StudyManager : MonoBehaviour
                         hand.GetFingerIsPinching(OVRHand.HandFinger.Index);
         bool pinchStarted = pinching && !wasPinching;
         wasPinching = pinching;
+        bool summonArmed = false;
+        if (isLeft)
+        {
+            bool palmUp = IsPalmUp(skeleton);
+            if (!pinching && palmUp && leftPalmUpSince < 0f)
+            {
+                leftPalmUpSince = Time.unscaledTime;
+            }
+            else if (!palmUp)
+            {
+                leftPalmUpSince = -1f;
+            }
+            summonArmed = palmUp && leftPalmUpSince >= 0f &&
+                          Time.unscaledTime - leftPalmUpSince >= PanelSummonArmSeconds;
+            if (pinchStarted)
+            {
+                leftPalmUpSince = -1f;
+            }
+        }
         if (!pinchStarted)
         {
             return;
@@ -380,9 +434,10 @@ public sealed class StudyManager : MonoBehaviour
                 button.Press();
                 return;
             }
+            return;
         }
 
-        if (isLeft && panelRoot != null && !panelRoot.activeSelf && IsPalmUp(skeleton))
+        if (summonArmed && panelRoot != null && !panelRoot.activeSelf)
         {
             ShowPanel();
         }
@@ -415,18 +470,20 @@ public sealed class StudyManager : MonoBehaviour
         GameObject background = GameObject.CreatePrimitive(PrimitiveType.Cube);
         background.name = "Panel Background";
         background.transform.SetParent(panelRoot.transform, false);
-        background.transform.localScale = new Vector3(0.64f, 0.44f, 0.012f);
+        background.transform.localScale = new Vector3(0.64f, 0.58f, 0.012f);
         background.GetComponent<MeshRenderer>().sharedMaterial = panelMaterial;
         Destroy(background.GetComponent<Collider>());
 
-        panelText = CreateText(panelRoot.transform, new Vector3(0f, 0.08f, -0.008f), 0.006f, 36);
+        panelText = CreateText(panelRoot.transform, new Vector3(0f, 0.12f, -0.008f), 0.0055f, 34);
         CreateButton("Previous Participant", new Vector3(-0.22f, -0.08f, -0.02f), new Vector2(0.16f, 0.065f), "PREV P", PreviousParticipant);
         CreateButton("Next Participant", new Vector3(0.22f, -0.08f, -0.02f), new Vector2(0.16f, 0.065f), "NEXT P", NextParticipant);
         CreateButton("Previous Block", new Vector3(-0.22f, -0.16f, -0.02f), new Vector2(0.16f, 0.065f), "PREV BLOCK", PreviousBlock);
         CreateButton("Next Block", new Vector3(0.22f, -0.16f, -0.02f), new Vector2(0.16f, 0.065f), "NEXT BLOCK", NextBlock);
         CreateButton("Start Block", new Vector3(0f, -0.08f, -0.02f), new Vector2(0.20f, 0.065f), "START", () => StartSelectedBlock());
         CreateButton("End Block", new Vector3(0f, -0.16f, -0.02f), new Vector2(0.20f, 0.065f), "END EARLY", EndBlockEarly);
-        CreateButton("Hide Panel", new Vector3(0f, -0.235f, -0.02f), new Vector2(0.16f, 0.05f), "HIDE", () => SetPanelVisible(false));
+        CreateButton("Align Board", new Vector3(-0.18f, -0.24f, -0.02f), new Vector2(0.20f, 0.055f), "ALIGN BOARD", BeginBoardAlignment);
+        CreateButton("Clear Alignment", new Vector3(0.18f, -0.24f, -0.02f), new Vector2(0.20f, 0.055f), "CLEAR ALIGN", ClearBoardAlignment);
+        CreateButton("Hide Panel", new Vector3(0f, -0.31f, -0.02f), new Vector2(0.16f, 0.05f), "HIDE", () => SetPanelVisible(false));
 
         timerChipRoot = new GameObject("Study Timer Chip");
         timerChipRoot.transform.SetParent(transform, false);
@@ -465,7 +522,7 @@ public sealed class StudyManager : MonoBehaviour
         GameObject textObject = new("Label");
         textObject.transform.SetParent(parent, false);
         textObject.transform.localPosition = localPosition;
-        textObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+        textObject.transform.localRotation = Quaternion.identity;
         TextMesh text = textObject.AddComponent<TextMesh>();
         text.anchor = TextAnchor.MiddleCenter;
         text.alignment = TextAlignment.Center;
@@ -549,10 +606,16 @@ public sealed class StudyManager : MonoBehaviour
             {
                 text.Append(row.block == selectedBlock ? "> " : "  ")
                     .Append("Block ").Append(row.block).Append(": ")
-                    .Append(row.condition).Append(" / ").Append(row.route).AppendLine();
+                    .Append(row.condition).Append(" / ")
+                    .Append(sceneConfiguror != null ? sceneConfiguror.GetRouteDisplayName(row.route) : row.route)
+                    .AppendLine();
             }
         }
         text.AppendLine(statusMessage);
+        if (boardAlignment != null)
+        {
+            text.AppendLine(boardAlignment.StatusMessage);
+        }
         panelText.text = text.ToString();
     }
 
@@ -643,12 +706,109 @@ public sealed class StudyManager : MonoBehaviour
         return output.ToString().Trim('_');
     }
 
-    private static string BuildMockSchedule()
+    private string BuildMockSchedule()
     {
+        if (routeCatalog == null || routeCatalog.routes == null || routeCatalog.routes.Length != 3)
+        {
+            return string.Empty;
+        }
         return "participant,block,condition,route\n" +
-               "P07,1,B,DEATH STAR\n" +
-               "P07,2,C,SPEED\n" +
-               "P07,3,A,THE CRUSH ALT\n";
+               "P07,1,B," + routeCatalog.routes[0].id + "\n" +
+               "P07,2,C," + routeCatalog.routes[1].id + "\n" +
+               "P07,3,A," + routeCatalog.routes[2].id + "\n";
+    }
+
+    private bool LoadCatalogText(string json)
+    {
+        string catalogSha256 = MoonBoardStudyCatalog.ComputeSha256(json);
+        if (catalogSha256 != MoonBoardStudyCatalog.ApprovedCatalogSha256)
+        {
+            statusMessage = "MoonBoard catalog does not match the approved study content.";
+            return false;
+        }
+        if (!MoonBoardStudyCatalog.TryParse(json, out MoonBoardStudyCatalog parsed, out string error))
+        {
+            statusMessage = error;
+            return false;
+        }
+        if (boardLayout == null || !boardLayout.ApplyCatalog(parsed, out error))
+        {
+            statusMessage = boardLayout == null ? "MoonBoard metric layout is unavailable." : error;
+            return false;
+        }
+        if (sceneConfiguror == null || !sceneConfiguror.SetRouteCatalog(parsed, out error))
+        {
+            statusMessage = sceneConfiguror == null ? "Scene configurator is unavailable." : error;
+            return false;
+        }
+
+        routeCatalog = parsed;
+        routeCatalogSha256 = catalogSha256;
+        boardAlignment?.SetCatalog(parsed);
+        return true;
+    }
+
+    private IEnumerator LoadStreamingAssetText(string fileName, Action<string> loaded)
+    {
+        string path = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/" + fileName;
+        if (path.Contains("://") || path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase))
+        {
+            using UnityWebRequest request = UnityWebRequest.Get(path);
+            yield return request.SendWebRequest();
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                loaded(request.downloadHandler.text);
+            }
+            else
+            {
+                statusMessage = fileName + " load failed: " + request.error;
+            }
+            yield break;
+        }
+        if (File.Exists(path))
+        {
+            loaded(File.ReadAllText(path));
+        }
+        else
+        {
+            statusMessage = fileName + " not found.";
+        }
+    }
+
+    private void BeginBoardAlignment()
+    {
+        if (blockRunning)
+        {
+            statusMessage = "End the current block before aligning the board.";
+        }
+        else if (boardAlignment == null)
+        {
+            statusMessage = "Board alignment is unavailable.";
+        }
+        else if (!boardAlignment.BeginCalibration(out string error))
+        {
+            statusMessage = error;
+        }
+        else
+        {
+            statusMessage = "Board alignment started.";
+        }
+        RefreshPanelText();
+    }
+
+    private void ClearBoardAlignment()
+    {
+        if (!blockRunning && boardAlignment != null)
+        {
+            if (!boardAlignment.ClearAlignment())
+            {
+                statusMessage = boardAlignment.StatusMessage;
+                RefreshPanelText();
+                return;
+            }
+            statusMessage = boardAlignment.StatusMessage;
+            RefreshPanelText();
+        }
     }
 
     private void OnDestroy()

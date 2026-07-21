@@ -515,8 +515,8 @@ public sealed class GhostHoldController : MonoBehaviour
             return lineMaterial;
         }
 
-        UnityEngine.Shader shader = UnityEngine.Shader.Find("Universal Render Pipeline/Unlit") ??
-                                    UnityEngine.Shader.Find("Sprites/Default");
+        UnityEngine.Shader shader = UnityEngine.Shader.Find("Sprites/Default") ??
+                                    UnityEngine.Shader.Find("Universal Render Pipeline/Unlit");
         if (shader != null)
         {
             lineMaterial = new Material(shader) { name = "Ghost Interaction Lines" };

@@ -63,7 +63,7 @@ public class SceneConfiguror : MonoBehaviour
 
     [Header("Climb Settings")]
     public GameMode gameMode;
-    public string currentRouteName = "DEATH STAR";
+    public string currentRouteName = string.Empty;
     public GhostHoldController ghostHoldController;
 
     [Header("Interaction Settings")]
@@ -115,6 +115,10 @@ public class SceneConfiguror : MonoBehaviour
     private OVRHand leftTrackedHand;
     private OVRHand rightTrackedHand;
     private Hand? gripLocomotionHand;
+    private MoonBoardStudyCatalog routeCatalog;
+    private string holdsDictionaryError = string.Empty;
+    private MaterialPropertyBlock holdProperties;
+    private MaterialPropertyBlock HoldProperties => holdProperties ??= new MaterialPropertyBlock();
 
     private void Awake()
     {
@@ -133,7 +137,7 @@ public class SceneConfiguror : MonoBehaviour
 
         // 2) camera culling masks [Update 7/7/2026: Culling mask for circles on main camera might still be useful,
         // feel free to comment out the entire section so that the highlight circles can be shown. CAROLINE]
-        if (indicatorLayer >= 0)
+        if (indicatorLayer >= 0 && mainCamera != null)
         {
             int mask = 1 << indicatorLayer;
             Debug.Log($"[SC] mainCamera mask before:    {mainCamera.cullingMask:X8}");
@@ -165,10 +169,6 @@ public class SceneConfiguror : MonoBehaviour
         EnsureHoldsDictionary();
         EnsureGripPipeline();
 
-        // DEV: Turn on all holds by default
-        // SetUpRouteByName("[PREVIEW ALL (SHADER OFF)]");
-        SetUpRouteByName(currentRouteName);
-
         EnsureRuntimeControllers();
         ghostHoldController.Initialize(this);
         SetGameMode(gameMode);
@@ -192,15 +192,17 @@ public class SceneConfiguror : MonoBehaviour
         // Override interaction color max distance, update interaction status
         if (leftHandInteractingClimbingHold != null)
         {
-            MeshRenderer meshRenderer = leftHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", gripContactPipeline == null ? 1 : 0);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
+            SetInteractionVisual(
+                leftHandInteractingClimbingHold,
+                gripContactPipeline == null,
+                interactionColorMaxDistanceOverride);
         }
         if (rightHandInteractingClimbingHold != null)
         {
-            MeshRenderer meshRenderer = rightHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", gripContactPipeline == null ? 1 : 0);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
+            SetInteractionVisual(
+                rightHandInteractingClimbingHold,
+                gripContactPipeline == null,
+                interactionColorMaxDistanceOverride);
         }
 
         bool leftTrackingValid = IsHandTrackingValid(leftHandOVRSkeleton, ref leftTrackedHand);
@@ -570,8 +572,7 @@ public class SceneConfiguror : MonoBehaviour
                     hand == 0 ? "Left" : "Right",
                     hoveredGameObject
                 );
-                MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
-                meshRenderer.material.SetInt("_IsBeingInteracted", gripContactPipeline == null ? 1 : 0);
+                SetInteractionVisual(hoveredGameObject, gripContactPipeline == null);
 
             if (hand == 0)
             {
@@ -615,8 +616,7 @@ public class SceneConfiguror : MonoBehaviour
                 hand == 0 ? "Left" : "Right",
                 hoveredGameObject
             );
-            MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 0);
+            SetInteractionVisual(hoveredGameObject, false);
 
             if (hand == 0)
             {
@@ -672,9 +672,75 @@ public class SceneConfiguror : MonoBehaviour
         }
     }
 
+    public bool SetRouteCatalog(MoonBoardStudyCatalog catalog, out string error)
+    {
+        if (catalog == null)
+        {
+            error = "MoonBoard route catalog is unavailable.";
+            return false;
+        }
+        if (!catalog.TryValidate(out error))
+        {
+            return false;
+        }
+
+        routeCatalog = catalog;
+        holdsDictionary = null;
+        EnsureHoldsDictionary();
+        if (!string.IsNullOrEmpty(holdsDictionaryError))
+        {
+            error = holdsDictionaryError;
+            return false;
+        }
+        if (holdsDictionary.Count != catalog.holds.Length)
+        {
+            error = $"Scene contains {holdsDictionary.Count} holds; catalog requires {catalog.holds.Length}.";
+            return false;
+        }
+        foreach (MoonBoardHoldDefinition hold in catalog.holds)
+        {
+            if (!holdsDictionary.TryGetValue(hold.coordinate, out GameObject sceneHold) ||
+                sceneHold.GetComponent<MeshFilter>() == null ||
+                sceneHold.GetComponent<MeshRenderer>() == null)
+            {
+                error = "Scene is missing usable MoonBoard 2016 hold " + hold.coordinate + ".";
+                return false;
+            }
+        }
+        foreach (string coordinate in holdsDictionary.Keys)
+        {
+            if (!catalog.TryGetHold(coordinate, out _))
+            {
+                error = "Scene contains hold outside the MoonBoard 2016 catalog: " + coordinate + ".";
+                return false;
+            }
+        }
+
+        currentRouteName = catalog.routes[0].id;
+        SetUpRouteByName(currentRouteName);
+        error = string.Empty;
+        return true;
+    }
+
+    public bool TryGetRouteDefinition(string routeId, out MoonBoardRouteDefinition route)
+    {
+        route = null;
+        return routeCatalog != null && routeCatalog.TryGetRoute(routeId, out route);
+    }
+
+    public string GetRouteDisplayName(string routeId)
+    {
+        return TryGetRouteDefinition(routeId, out MoonBoardRouteDefinition route) ? route.name : routeId;
+    }
+
     public bool TryValidateRoute(string routeName, out string error)
     {
         EnsureHoldsDictionary();
+        if (!string.IsNullOrEmpty(holdsDictionaryError))
+        {
+            error = holdsDictionaryError;
+            return false;
+        }
         if (!TryGetRouteHolds(routeName, out List<string> routeHolds))
         {
             error = "Unknown route: " + routeName + ".";
@@ -695,9 +761,8 @@ public class SceneConfiguror : MonoBehaviour
 
     public bool TrySelectBaselineRoute(string routeName, out string error)
     {
-        if (!TryGetRouteHolds(routeName, out List<string> routeHolds))
+        if (!TryValidateRoute(routeName, out error) || !TryGetRouteHolds(routeName, out List<string> routeHolds))
         {
-            error = "Unknown route: " + routeName + ".";
             return false;
         }
 
@@ -707,51 +772,21 @@ public class SceneConfiguror : MonoBehaviour
         return true;
     }
 
-    private static bool TryGetRouteHolds(string routeName, out List<string> routeHolds)
+    private bool TryGetRouteHolds(string routeName, out List<string> routeHolds)
     {
-        switch (routeName)
+        if (routeName == "[PREVIEW ALL (SHADER OFF)]")
         {
-            case "DEATH STAR":
-                routeHolds = new List<string> { "D15", "D18", "G13", "H11", "I4", "J6", "K9" };
-                return true;
-            case "SPEED":
-                routeHolds = new List<string> { "A5", "D5", "D15", "F12", "F18", "G8", "G10" };
-                return true;
-            case "THE CRUSH ALT":
-                routeHolds = new List<string> { "B6", "C8", "D1", "D11", "F14", "F16", "K18" };
-                return true;
-            case "TO JUG, OR NOT TO JUG...":
-                routeHolds = new List<string> { "D9", "D15", "F5", "F12", "G13", "H10", "H18" };
-                return true;
-            case "WHITE JUGHAUL":
-                routeHolds = new List<string> { "F5", "H10", "H18", "I8", "K13", "K15", "K17" };
-                return true;
-            case "[PREVIEW ALL (SHADER OFF)]":
-                routeHolds = new List<string> { // this was the fastest way to get this working, sue me
-                    "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1", "I1", "J1", "K1",
-                    "A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "I2", "J2", "K2",
-                    "A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3", "I3", "J3", "K3",
-                    "A4", "B4", "C4", "D4", "E4", "F4", "G4", "H4", "I4", "J4", "K4",
-                    "A5", "B5", "C5", "D5", "E5", "F5", "G5", "H5", "I5", "J5", "K5",
-                    "A6", "B6", "C6", "D6", "E6", "F6", "G6", "H6", "I6", "J6", "K6",
-                    "A7", "B7", "C7", "D7", "E7", "F7", "G7", "H7", "I7", "J7", "K7",
-                    "A8", "B8", "C8", "D8", "E8", "F8", "G8", "H8", "I8", "J8", "K8",
-                    "A9", "B9", "C9", "D9", "E9", "F9", "G9", "H9", "I9", "J9", "K9",
-                    "A10", "B10", "C10", "D10", "E10", "F10", "G10", "H10", "I10", "J10", "K10",
-                    "A11", "B11", "C11", "D11", "E11", "F11", "G11", "H11", "I11", "J11", "K11",
-                    "A12", "B12", "C12", "D12", "E12", "F12", "G12", "H12", "I12", "J12", "K12",
-                    "A13", "B13", "C13", "D13", "E13", "F13", "G13", "H13", "I13", "J13", "K13",
-                    "A14", "B14", "C14", "D14", "E14", "F14", "G14", "H14", "I14", "J14", "K14",
-                    "A15", "B15", "C15", "D15", "E15", "F15", "G15", "H15", "I15", "J15", "K15",
-                    "A16", "B16", "C16", "D16", "E16", "F16", "G16", "H16", "I16", "J16", "K16",
-                    "A17", "B17", "C17", "D17", "E17", "F17", "G17", "H17", "I17", "J17", "K17",
-                    "A18", "B18", "C18", "D18", "E18", "F18", "G18", "H18", "I18", "J18", "K18"
-                };
-                return true;
-            default:
-                routeHolds = null;
-                return false;
+            EnsureHoldsDictionary();
+            routeHolds = holdsDictionary.Keys.OrderBy(coordinate => coordinate).ToList();
+            return true;
         }
+        if (routeCatalog != null && routeCatalog.TryGetRoute(routeName, out MoonBoardRouteDefinition route))
+        {
+            routeHolds = route.moves.OrderBy(move => move.sequence).Select(move => move.coordinate).ToList();
+            return true;
+        }
+        routeHolds = null;
+        return false;
     }
 
     public void SetGameMode(GameMode newMode)
@@ -801,9 +836,20 @@ public class SceneConfiguror : MonoBehaviour
 
     public void SetStudyEnvironmentVisible(bool visible)
     {
-        if (environment != null)
+        if (environment == null)
         {
-            environment.SetActive(visible);
+            return;
+        }
+
+        environment.SetActive(true);
+        Transform alignmentRoot = moonBoardEnv != null ? moonBoardEnv.transform.parent : null;
+        foreach (Transform child in environment.transform)
+        {
+            child.gameObject.SetActive(visible || child == alignmentRoot);
+        }
+        if (moonBoardEnv != null)
+        {
+            moonBoardEnv.SetActive(visible);
         }
     }
 
@@ -990,12 +1036,25 @@ public class SceneConfiguror : MonoBehaviour
                 candidate.transform.IsChildOf(current.transform));
     }
 
-    private static void SetInteractionVisual(GameObject hold, bool active)
+    private void SetInteractionVisual(GameObject hold, bool active, float maxDistance = -1f)
     {
         if (hold != null && hold.TryGetComponent(out MeshRenderer meshRenderer))
         {
-            meshRenderer.material.SetInt("_IsBeingInteracted", active ? 1 : 0);
+            meshRenderer.GetPropertyBlock(HoldProperties);
+            HoldProperties.SetInt("_IsBeingInteracted", active ? 1 : 0);
+            if (maxDistance >= 0f)
+            {
+                HoldProperties.SetFloat("_InteractionColorMaxDistance", maxDistance);
+            }
+            meshRenderer.SetPropertyBlock(HoldProperties);
         }
+    }
+
+    private void SetHoldAlpha(Renderer renderer, float alpha)
+    {
+        renderer.GetPropertyBlock(HoldProperties);
+        HoldProperties.SetFloat("_HoldAlpha", alpha);
+        renderer.SetPropertyBlock(HoldProperties);
     }
     void SetUpRouteByHoldList(List<string> holdsList)
     {
@@ -1013,7 +1072,7 @@ public class SceneConfiguror : MonoBehaviour
                 Renderer renderer = hold.GetComponent<Renderer>();
                 if (renderer != null)
                 {
-                    renderer.material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
+                    SetHoldAlpha(renderer, inactiveHoldAlpha);
                 }
                 EnsureHoldInteractionComponents(hold).enabled = false;
             }
@@ -1049,8 +1108,7 @@ public class SceneConfiguror : MonoBehaviour
             {
                 EnsureHoldInteractionComponents(holdsDictionary[holdName]).enabled = true;
                 Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
-                Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", activeHoldAlpha);
+                SetHoldAlpha(renderer, activeHoldAlpha);
             }
 
             CoACD coACD = holdsDictionary[holdName].GetComponent<CoACD>();
@@ -1138,7 +1196,7 @@ public class SceneConfiguror : MonoBehaviour
                 Renderer renderer = hold.GetComponent<Renderer>();
                 if (renderer != null)
                 {
-                    renderer.material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
+                    SetHoldAlpha(renderer, inactiveHoldAlpha);
                 }
                 EnsureHoldInteractionComponents(hold).enabled = false;
             }
@@ -1174,8 +1232,7 @@ public class SceneConfiguror : MonoBehaviour
             {
                 EnsureHoldInteractionComponents(holdsDictionary[holdName]).enabled = true;
                 Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
-                Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", activeHoldAlpha);
+                SetHoldAlpha(renderer, activeHoldAlpha);
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
@@ -1196,14 +1253,14 @@ public class SceneConfiguror : MonoBehaviour
         if (sphere == null)
         {
             sphere = hold.AddComponent<SphereCollider>();
-            MeshRenderer renderer = hold.GetComponent<MeshRenderer>();
-            if (renderer != null)
-            {
-                sphere.center = renderer.localBounds.center;
-                sphere.radius = renderer.localBounds.extents.magnitude;
-            }
-            sphere.isTrigger = false;
         }
+        MeshRenderer renderer = hold.GetComponent<MeshRenderer>();
+        if (renderer != null)
+        {
+            sphere.center = renderer.localBounds.center;
+            sphere.radius = renderer.localBounds.extents.magnitude;
+        }
+        sphere.isTrigger = true;
 
         XRGrabInteractable grab = hold.GetComponent<XRGrabInteractable>();
         if (grab == null)
@@ -1227,15 +1284,24 @@ public class SceneConfiguror : MonoBehaviour
             return;
         }
 
-        holdsDictionary = new Dictionary<string, GameObject>();
+        holdsDictionary = new Dictionary<string, GameObject>(StringComparer.Ordinal);
+        holdsDictionaryError = string.Empty;
         if (holdsParentGameObject == null)
         {
             return;
         }
         foreach (Transform child in holdsParentGameObject.transform)
         {
-            string holdName = child.name.Split('.')[0];
-            holdsDictionary[holdName] = child.gameObject;
+            string holdName = child.name.Split('.')[0].ToUpperInvariant();
+            if (!MoonBoardStudyCatalog.TryParseCoordinate(holdName, out _, out _))
+            {
+                holdsDictionaryError = "Invalid direct child in hold hierarchy: " + child.name + ".";
+                continue;
+            }
+            if (!holdsDictionary.TryAdd(holdName, child.gameObject))
+            {
+                holdsDictionaryError = "Duplicate hold coordinate in scene: " + holdName + ".";
+            }
         }
     }
 

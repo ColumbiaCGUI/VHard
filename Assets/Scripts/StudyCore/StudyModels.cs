@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 [Serializable]
 public sealed class StudyScheduleRow
@@ -26,6 +27,14 @@ public sealed class StudySessionManifest
     public int block;
     public string condition;
     public string route;
+    public string routeName;
+    public string routeSourceProblemId;
+    public string routeCatalogSha256;
+    public string boardSetup;
+    public int boardOverhangAngleDegrees;
+    public MoonBoardRouteDefinition routeDefinition;
+    public BoardAlignmentSnapshot boardAlignment;
+    public BoardAlignmentSnapshot boardAlignmentEnd;
     public int retry;
     public string appVersion;
     public string gitRevision;
@@ -35,4 +44,15 @@ public sealed class StudySessionManifest
     public string endReason;
     public int droppedCaptureFrames;
     public HoldAggregateData[] holdAggregates = Array.Empty<HoldAggregateData>();
+}
+
+[Serializable]
+public sealed class BoardAlignmentSnapshot
+{
+    public bool isAligned;
+    public bool isSpatiallyAnchored;
+    public string spatialAnchorUuid;
+    public int recenterEpoch;
+    public Vector3 position;
+    public Quaternion rotation;
 }
