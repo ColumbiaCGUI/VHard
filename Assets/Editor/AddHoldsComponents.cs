@@ -178,7 +178,7 @@ public class ProcessMoonboardObjects : MonoBehaviour
         {
 
             // Skip non-holds
-            if (child.name.Length < 2 || !char.IsDigit(child.name[1]) || child.GetComponent<SphereCollider>() != null) 
+            if (child.name.Length < 2 || !char.IsDigit(child.name[1])) 
             {
                 UnityEngine.Debug.Log($"Skipped object: {child.name}");
                 skippedCount++;
@@ -206,33 +206,51 @@ public class ProcessMoonboardObjects : MonoBehaviour
 
     static void AddSphereCollider(GameObject obj)
     {
-        // Attach Sphere Collider
+        XRGrabInteractable grabInteractable = obj.GetComponent<XRGrabInteractable>();
+        if (grabInteractable != null)
+        {
+            grabInteractable.colliders.Clear();
+        }
+
+        Collider[] oldColliders = obj.GetComponents<Collider>();
+        foreach (Collider oldCollider in oldColliders)
+        {
+            UnityEngine.Object.DestroyImmediate(oldCollider, true);
+        }
+
+        if (oldColliders.Length > 0)
+        {
+            Debug.Log($"Removed {oldColliders.Length} existing Collider components from {obj.name}");
+        }
+
+        // Attach replacement Sphere Collider
         SphereCollider sphereCollider = obj.AddComponent<SphereCollider>();
         if (sphereCollider != null)
         {
             // Set any necessary parameters
             sphereCollider.isTrigger = false;
-            sphereCollider.radius = 0.0022f;
+            sphereCollider.radius = 0.001f;
         }
 
-        if (obj.GetComponent<XRGrabInteractable>() == null)
+        if (grabInteractable == null)
         {
-            XRGrabInteractable grabInteractable = obj.AddComponent<XRGrabInteractable>();
+            grabInteractable = obj.AddComponent<XRGrabInteractable>();
             if (grabInteractable != null)
             {
                 // Set any necessary parameters for XRGrabInteractable
                 grabInteractable.movementType = XRBaseInteractable.MovementType.Instantaneous;
                 grabInteractable.trackPosition = true;
-                grabInteractable.colliders.Add(sphereCollider);
             }
             else
             {
                 Debug.LogWarning($"XRGrabInteractable component could not be added to {obj.name}");
             }
         }
-        else
+
+        if (grabInteractable != null && sphereCollider != null)
         {
-            Debug.LogWarning($"SphereCollider component could not be added to {obj.name}");
+            grabInteractable.colliders.Clear();
+            grabInteractable.colliders.Add(sphereCollider);
         }
     }
 
