@@ -1,11 +1,15 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Unity.VisualScripting;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
@@ -16,15 +20,31 @@ public enum GameMode
 {
     Basic = 0, // Only shader
     Grip = 1, // JACE: In development, fixed-grip movement mode
+    Ghost = 2,
+}
+
+public enum RoutesLoadState
+{
+    Loading,
+    Ready,
+    Failed,
 }
 
 public class SceneConfiguror : MonoBehaviour
 {
+    private const int TrackedBoneCount = 26;
+    private const string StudyHoldsLayerName = "StudyHolds";
+    private const string StudyGhostHoldsLayerName = "StudyGhostHolds";
+    private static readonly int[] FingertipBoneIndices = { 5, 10, 15, 20, 25 };
     [Header("Action Recorder")]
     public ActionRecorder actionRecorder;
     [Header("HighlightCircle")]
     public GameObject highlightCirclePrefab;
     private List<GameObject> activeHighlightCircles = new();
+    private Material highlightCircleMaterial;
+    private static readonly Color StartHaloColor = new(0f, 0.85f, 0.25f, 1f);
+    private static readonly Color IntermediateHaloColor = new(0.2f, 0.55f, 1f, 1f);
+    private static readonly Color FinishHaloColor = new(0.95f, 0.15f, 0.1f, 1f);
 
     [Header("Minimap Settings")]
     public Camera mainCamera;     // assign your main/world camera here
@@ -38,6 +58,19 @@ public class SceneConfiguror : MonoBehaviour
     public Dictionary<string, GameObject> holdsDictionary;
     public List<string> activeRouteHoldsNamesList;
     public List<GameObject> activeHoldsList;
+    private Light examinationHeadlamp;
+    private int studyHoldsLayer = -1;
+    private int studyGhostHoldsLayer = -1;
+    private static readonly string[] SupplementalSceneryNameMarkers =
+    {
+        "water", "ocean", "terrain", "scenery", "landscape", "skybox",
+    };
+    private readonly Dictionary<GameObject, bool> supplementalSceneryActiveStates = new();
+    private bool studyEnvironmentHidden;
+    // The inspector mainCamera reference is a disabled legacy camera; the participant renders
+    // through the OVR rig eye anchors, so background suppression must cover every live camera.
+    private readonly Dictionary<Camera, (CameraClearFlags flags, Color background)>
+        studyEnvironmentCameraStates = new();
 
     [Header("Hands References")]
     public GameObject centerEyeAnchor;
@@ -60,6 +93,22 @@ public class SceneConfiguror : MonoBehaviour
 
     [Header("Climb Settings")]
     public GameMode gameMode;
+    public string currentRouteName = string.Empty;
+    public GhostHoldController ghostHoldController;
+
+    // Ad-hoc routes loaded from StreamingAssets/routes.json (e.g. MoonBoard benchmarks
+    // converted via tools/moonboard_to_routes.py). Built-in study routes always win;
+    // RouteLibrary rejects any file that tries to shadow them.
+    private static readonly string[] BuiltInRouteNames =
+    {
+        "DEATH STAR", "TO JUG, OR NOT TO JUG...",
+    };
+    private readonly Dictionary<string, RouteDefinition> jsonRoutes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> jsonRouteNames = new();
+    public RouteDefinition ActiveRouteDefinition { get; private set; }
+    public RoutesLoadState RoutesJsonLoadState { get; private set; } = RoutesLoadState.Loading;
+    public string RoutesLoadFailureReason { get; private set; } = string.Empty;
+    public string RoutesJsonSha256 { get; private set; }
 
     [Header("Interaction Settings")]
     public float interactionColorMaxDistanceOverride;
@@ -75,20 +124,12 @@ public class SceneConfiguror : MonoBehaviour
     public ComputeShader distanceToClosestBoneComputeShader;
     public int kernelHandle;
 
-    [Header("Interaction Compute Shader State")]
-    public ComputeBuffer climbingHoldVerticesBuffer;
-    public ComputeBuffer leftHandBonesBuffer;
-    public ComputeBuffer rightHandBonesBuffer;
-    public ComputeBuffer leftHandDistancesBuffer;
-    public ComputeBuffer rightHandDistancesBuffer;
-    public ComputeBuffer leftHandBoneToHoldMinDistancesBuffer;
-    public ComputeBuffer rightHandBoneToHoldMinDistancesBuffer;
-
     [Header("Grip Settings")]
     public GameObject moonBoardEnv;
     public float gripFingertipRange;
     public GameObject leftHandGripStatusDisplayHelper;
     public GameObject rightHandGripStatusDisplayHelper;
+    public GripScoreConfig gripScoreConfig;
 
     [Header("Grip State")]
     public float[] leftHandBoneToHoldMinDistances;
@@ -96,6 +137,12 @@ public class SceneConfiguror : MonoBehaviour
     public bool isGripLocomotionActive;
     public bool leftHandIsGripping;
     public bool rightHandIsGripping;
+    public int perFingerContactMask = -1;
+    public float currentGripScore = -1f;
+    public int leftFingerContactMask;
+    public int rightFingerContactMask;
+    public float leftHandGripScore;
+    public float rightHandGripScore;
     public Vector3 leftHandGripStartPosition;
     public Vector3 leftHandGripLastPosition;
     public Vector3 rightHandGripStartPosition;
@@ -104,6 +151,28 @@ public class SceneConfiguror : MonoBehaviour
     public List<Vector3> leftHandGripCurrentPose;
     public List<Vector3> rightHandGripStartPose;
     public List<Vector3> rightHandGripCurrentPose;
+    private GripContactPipeline gripContactPipeline;
+    private Vector3 initialMoonBoardLocalPosition;
+    private Quaternion initialMoonBoardLocalRotation;
+    private Vector3 initialMoonBoardLocalScale;
+    private bool hasInitialMoonBoardTransform;
+    private OVRHand leftTrackedHand;
+    private OVRHand rightTrackedHand;
+    private Hand? gripLocomotionHand;
+    private bool gripRecoveryAttempted;
+    private bool debugForceGripReadbackFailures;
+    public bool IsGripFeedbackDegraded { get; private set; }
+    public string GripFeedbackDegradedUtc { get; private set; }
+    private MoonBoardStudyCatalog routeCatalog;
+    private string holdsDictionaryError = string.Empty;
+    private MaterialPropertyBlock holdProperties;
+    private MaterialPropertyBlock HoldProperties => holdProperties ??= new MaterialPropertyBlock();
+
+    private void Awake()
+    {
+        EnsureRuntimeControllers();
+        EnsureExaminationHeadlamp();
+    }
 
     void Start()
     {
@@ -115,50 +184,27 @@ public class SceneConfiguror : MonoBehaviour
             Debug.LogError($"[SC] Layer '{indicatorLayerName}' not found! Check Project Settings > Tags & Layers.");
         }
 
-        // 2) camera culling masks [Update 7/7/2026: Culling mask for circles on main camera might still be useful,
-        // feel free to comment out the entire section so that the highlight circles can be shown. CAROLINE]
-        if (indicatorLayer >= 0)
+        // Route halos are a world-space board cue and must be visible in the main camera.
+        if (indicatorLayer >= 0 && mainCamera != null)
         {
             int mask = 1 << indicatorLayer;
             Debug.Log($"[SC] mainCamera mask before:    {mainCamera.cullingMask:X8}");
-            mainCamera.cullingMask    &= ~mask;
+            mainCamera.cullingMask |= mask;
             Debug.Log($"[SC] mainCamera mask after:     {mainCamera.cullingMask:X8}");
-            /*Debug.Log($"[SC] minimapCamera mask before: {minimapCamera.cullingMask:X8}");
-            minimapCamera.cullingMask |=  mask;
-            Debug.Log($"[SC] minimapCamera mask after:  {minimapCamera.cullingMask:X8}");*/
         }
-        /*indicatorLayer = LayerMask.NameToLayer(indicatorLayerName);
-        if (indicatorLayer == -1)
-        {
-            UnityEngine.Debug.LogError("Layer " + indicatorLayerName + " not found!");
-        }
-        else
-        {
-            int mask = 1 << indicatorLayer;
-            // exclude from main camera
-            mainCamera.cullingMask &= ~mask;
-            // include on minimap camera
-            //minimapCamera.cullingMask |= mask;
-        }*/
 
         UnityEngine.Debug.Log("SceneConfiguror initializing.");
+        CacheMoonBoardTransform();
 
         // Add all the children of the holds parent to the holds dictionary, to be accessed using the string [A-K][1-18]
         // Jace: Note that the holds are currently named [A-K][1-18].[001/002/003]
-        holdsDictionary = new Dictionary<string, GameObject>();
-        foreach (Transform child in holdsParentGameObject.transform)
-        {
-            string holdName = child.name.Split('.')[0];
-            holdsDictionary[holdName] = child.gameObject;
-            //UnityEngine.Debug.Log("Found and added hold " + holdName);
-        }
+        EnsureHoldsDictionary();
+        EnsureGripPipeline();
+        StartCoroutine(LoadRoutesJson());
 
-        // Set up compute shader
-        kernelHandle = distanceToClosestBoneComputeShader.FindKernel("CSMain");
-
-        // DEV: Turn on all holds by default
-        // SetUpRouteByName("[PREVIEW ALL (SHADER OFF)]");
-        SetUpRouteByName("DEATH STAR");
+        EnsureRuntimeControllers();
+        ghostHoldController.Initialize(this);
+        SetGameMode(gameMode);
     }
 
     void TraverseBones(GameObject rootBone, List<GameObject> bones)
@@ -172,166 +218,70 @@ public class SceneConfiguror : MonoBehaviour
 
     void Update()
     {
+        EnsureHoldsDictionary();
+        EnsureGripPipeline();
+        gripContactPipeline?.Update(Time.unscaledTime);
+        HandleGripPipelineHealth();
         centerEyePosition = centerEyeAnchor.transform.position;
 
         // Override interaction color max distance, update interaction status
         if (leftHandInteractingClimbingHold != null)
         {
-            MeshRenderer meshRenderer = leftHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
+            SetInteractionVisual(
+                leftHandInteractingClimbingHold,
+                gripContactPipeline == null && !IsGripFeedbackDegraded,
+                interactionColorMaxDistanceOverride);
         }
         if (rightHandInteractingClimbingHold != null)
         {
-            MeshRenderer meshRenderer = rightHandInteractingClimbingHold.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 1);
-            meshRenderer.material.SetFloat("_InteractionColorMaxDistance", interactionColorMaxDistanceOverride);
+            SetInteractionVisual(
+                rightHandInteractingClimbingHold,
+                gripContactPipeline == null && !IsGripFeedbackDegraded,
+                interactionColorMaxDistanceOverride);
         }
 
-        // Update hand bone info
-        numBonesPerHand = leftHandOVRSkeleton.Bones.Count;
-        // Immediately give up if no bones (this happens if hand tracking is not enabled or if the user is holding controllers at the moment)
-        if (numBonesPerHand == 0)
+        bool leftTrackingValid = IsHandTrackingValid(leftHandOVRSkeleton, ref leftTrackedHand);
+        bool rightTrackingValid = IsHandTrackingValid(rightHandOVRSkeleton, ref rightTrackedHand);
+        if (!leftTrackingValid)
+        {
+            ClearHandInteractionState(0);
+        }
+        if (!rightTrackingValid)
+        {
+            ClearHandInteractionState(1);
+        }
+        numBonesPerHand = leftTrackingValid || rightTrackingValid ? TrackedBoneCount : 0;
+        if (leftTrackingValid)
+        {
+            CopyHandBones(leftHandOVRSkeleton, leftHandBonePositions, leftHandBoneQuaternions, TrackedBoneCount);
+        }
+        if (rightTrackingValid)
+        {
+            CopyHandBones(rightHandOVRSkeleton, rightHandBonePositions, rightHandBoneQuaternions, TrackedBoneCount);
+        }
+        EnsureGripDistanceArrays(TrackedBoneCount);
+        gripContactPipeline?.Process(
+            leftHandInteractingClimbingHold,
+            rightHandInteractingClimbingHold,
+            leftHandBonePositions,
+            rightHandBonePositions,
+            leftTrackingValid,
+            rightTrackingValid);
+
+        if (!leftTrackingValid && !rightTrackingValid)
         {
             return;
         }
-        leftHandBonePositions = new List<Vector3>(leftHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
-        rightHandBonePositions = new List<Vector3>(rightHandOVRSkeleton.Bones.Select(bone => bone.Transform.position));
-        leftHandBoneQuaternions = new List<Quaternion>(leftHandOVRSkeleton.Bones.Select(bone => bone.Transform.rotation));
-        rightHandBoneQuaternions = new List<Quaternion>(rightHandOVRSkeleton.Bones.Select(bone => bone.Transform.rotation));
 
-        // WARNING: Here be dragons.
-        // The big idea is that for each vertex of the climbing hold, we find the distance to the closest bone of each hand, and save to two arrays.
-        // Then, we encode these distances in the UVs (channel 2) of the climbing hold's mesh vertices, and access them in the shader.
-        // JACE DEV Nov 2024: Let's also keep the distance of each hand bone to the closest climbing hold mesh vertex and save this to the main object.
-
-        // First, we reset the grip check distances to +inf
-        leftHandBoneToHoldMinDistances = new float[numBonesPerHand];
-        rightHandBoneToHoldMinDistances = new float[numBonesPerHand];
-        Array.Fill(leftHandBoneToHoldMinDistances, float.PositiveInfinity);
-        Array.Fill(rightHandBoneToHoldMinDistances, float.PositiveInfinity);
-
-        // Then, we queue up the climbing holds that are being interacted with
-        var climbingHoldsBeingInteracted = new List<(GameObject climbingHold, int handIndex)>();
-        if (leftHandInteractingClimbingHold != null)
-        {
-            climbingHoldsBeingInteracted.Add((leftHandInteractingClimbingHold, 0));
-        }
-        if (rightHandInteractingClimbingHold != null)
-        {
-            climbingHoldsBeingInteracted.Add((rightHandInteractingClimbingHold, 1));
-        }
-
-        // For each climbing hold being interacted with, 
-        // calculate the distances to the closest bones of each hand 
-        // as well as the distances of each bone to the closest vertex of the climbing hold
-        foreach (var interaction in climbingHoldsBeingInteracted)
-        {
-
-            GameObject climbingHold = interaction.climbingHold;
-            int hand = interaction.handIndex;
-            // Get information about the climbing hold
-            MeshFilter climbingHoldMeshFilter = climbingHold.GetComponent<MeshFilter>();
-            Mesh climbingHoldMesh = climbingHoldMeshFilter.mesh;
-            Vector3[] climbingHoldVertices = climbingHoldMesh.vertices;
-            int climbingHoldVerticesCount = climbingHoldVertices.Length;
-
-            UnityEngine.Debug.Log($"[DistComputeShader] hand={hand}, hold={climbingHold.name}, vertices={climbingHoldVerticesCount}, bones={numBonesPerHand}");
-
-            // Initialize buffers for compute shader
-            climbingHoldVerticesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float) * 3); // World position of each vertex of the climbing hold
-            leftHandBonesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(float) * 3); // World position of each bone of the left hand
-            rightHandBonesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(float) * 3); // World position of each bone of the right hand
-            leftHandDistancesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float)); // Distance from each vertex of the climbing hold to the closest bone of the left hand
-            rightHandDistancesBuffer = new ComputeBuffer(climbingHoldVerticesCount, sizeof(float)); // Distance from each vertex of the climbing hold to the closest bone of the right hand
-
-            // Distance from each vertex of the climbing hold to the closest bone of the right hand
-            // NOTE: We use uint here because the ComputeBuffer HLSL InterlockedMin() method does not support floats, and we will decode this later.
-            leftHandBoneToHoldMinDistancesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(uint));
-            // Distance from each vertex of the climbing hold to the closest bone of the right hand
-            // NOTE: We use uint here because the ComputeBuffer HLSL InterlockedMin() method does not support floats, and we will decode this later.
-            rightHandBoneToHoldMinDistancesBuffer = new ComputeBuffer(numBonesPerHand, sizeof(uint));
-            // Initialize the bone distance buffers with +inf
-            uint[] infArray = new uint[numBonesPerHand];
-            uint positiveInfinityAsUint = BitConverter.ToUInt32(BitConverter.GetBytes(float.PositiveInfinity), 0);
-            for (int i = 0; i < numBonesPerHand; i++)
-            {
-                infArray[i] = positiveInfinityAsUint;
-            }
-            leftHandBoneToHoldMinDistancesBuffer.SetData(infArray);
-            rightHandBoneToHoldMinDistancesBuffer.SetData(infArray);
-
-            // Calculate input buffer data
-            for (int i = 0; i < climbingHoldVertices.Length; i++)
-            {
-                climbingHoldVertices[i] = climbingHold.transform.TransformPoint(climbingHoldVertices[i]); // Convert to world position
-            }
-            climbingHoldVerticesBuffer.SetData(climbingHoldVertices);
-            leftHandBonesBuffer.SetData(leftHandBonePositions.ToArray());
-            rightHandBonesBuffer.SetData(rightHandBonePositions.ToArray());
-
-            // Pass buffers to compute shader
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "climbingHoldVertices", climbingHoldVerticesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandBones", leftHandBonesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandBones", rightHandBonesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandDistances", leftHandDistancesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandDistances", rightHandDistancesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "leftHandBoneToHoldMinDistances", leftHandBoneToHoldMinDistancesBuffer);
-            distanceToClosestBoneComputeShader.SetBuffer(kernelHandle, "rightHandBoneToHoldMinDistances", rightHandBoneToHoldMinDistancesBuffer);
-
-            // Dispatch compute shader (Blocking!)
-            // UnityEngine.Debug.Log("[SceneConfiguror] Thread Group Size: " + climbingHoldVerticesCount / 128);
-            distanceToClosestBoneComputeShader.Dispatch(kernelHandle, Math.Max(climbingHoldVerticesCount / 128, 1), 1, 1);
-
-            // Retrieve data now that the compute shader has run
-            float[] leftHandDistances = new float[climbingHoldVerticesCount];
-            float[] rightHandDistances = new float[climbingHoldVerticesCount];
-            leftHandDistancesBuffer.GetData(leftHandDistances);
-            rightHandDistancesBuffer.GetData(rightHandDistances);
-            uint[] leftHandBoneToHoldMinDistancesUint = new uint[numBonesPerHand];
-            uint[] rightHandBoneToHoldMinDistancesUint = new uint[numBonesPerHand];
-            leftHandBoneToHoldMinDistancesBuffer.GetData(leftHandBoneToHoldMinDistancesUint);
-            rightHandBoneToHoldMinDistancesBuffer.GetData(rightHandBoneToHoldMinDistancesUint);
-
-            // Decode uints to floats and save them in the public variables
-            // Don't reset the other hand's array, because we will be using the other hand's array in the next iteration
-            for (int i = 0; i < numBonesPerHand; i++)
-            {
-                if (hand == 0)
-                {
-                    leftHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
-                        BitConverter.GetBytes(leftHandBoneToHoldMinDistancesUint[i]), 0);
-                }
-                else if (hand == 1)
-                {
-                    rightHandBoneToHoldMinDistances[i] = BitConverter.ToSingle(
-                        BitConverter.GetBytes(rightHandBoneToHoldMinDistancesUint[i]), 0);
-                }
-            }
-
-            // Release buffers
-            climbingHoldVerticesBuffer.Release();
-            leftHandBonesBuffer.Release();
-            rightHandBonesBuffer.Release();
-            leftHandDistancesBuffer.Release();
-            rightHandDistancesBuffer.Release();
-            leftHandBoneToHoldMinDistancesBuffer.Release();
-            rightHandBoneToHoldMinDistancesBuffer.Release();
-
-            // Encode the distances in the UVs and set them in the climbing hold's mesh so that in the shader
-            // This works because the order of the vertices is the same in Mesh.vertices and Mesh.uv, both in Unity and in the shader
-            Vector2[] newClimbingHoldMeshUVs = new Vector2[climbingHoldVerticesCount];
-            for (int i = 0; i < climbingHoldVerticesCount; i++)
-            {
-                newClimbingHoldMeshUVs[i] = new Vector2(leftHandDistances[i], rightHandDistances[i]);
-            }
-            climbingHoldMesh.SetUVs(2, newClimbingHoldMeshUVs.ToList());
-        }
-
-        // Grip mode
+        // Grip state is shared by in-context and detached examination. Only Grip mode may move the board.
         if (gameMode == GameMode.Grip)
         {
             UpdateGripMode();
+        }
+        else if (gameMode == GameMode.Ghost && ghostHoldController != null &&
+                 ghostHoldController.CurrentGhost != null)
+        {
+            UpdateGripMode(false);
         }
 
         // Update networked hands
@@ -368,7 +318,57 @@ public class SceneConfiguror : MonoBehaviour
 
     }
 
-    public void UpdateGripMode()
+    private static void CopyHandBones(
+        OVRSkeleton skeleton,
+        List<Vector3> positions,
+        List<Quaternion> rotations,
+        int count)
+    {
+        positions.Clear();
+        rotations.Clear();
+        if (positions.Capacity < count)
+        {
+            positions.Capacity = count;
+        }
+        if (rotations.Capacity < count)
+        {
+            rotations.Capacity = count;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            Transform bone = skeleton.Bones[i].Transform;
+            positions.Add(bone.position);
+            rotations.Add(bone.rotation);
+        }
+    }
+
+    private void EnsureGripDistanceArrays(int count)
+    {
+        if (leftHandBoneToHoldMinDistances == null || leftHandBoneToHoldMinDistances.Length != count)
+        {
+            leftHandBoneToHoldMinDistances = new float[count];
+            Array.Fill(leftHandBoneToHoldMinDistances, float.PositiveInfinity);
+        }
+        if (rightHandBoneToHoldMinDistances == null || rightHandBoneToHoldMinDistances.Length != count)
+        {
+            rightHandBoneToHoldMinDistances = new float[count];
+            Array.Fill(rightHandBoneToHoldMinDistances, float.PositiveInfinity);
+        }
+    }
+
+    private void ResetHandDistances(int hand)
+    {
+        float[] distances = hand == 0
+            ? leftHandBoneToHoldMinDistances
+            : rightHandBoneToHoldMinDistances;
+        if (distances != null)
+        {
+            Array.Fill(distances, float.PositiveInfinity);
+        }
+    }
+
+    public void UpdateGripMode(bool allowLocomotion = true)
     {
         float gripPoseBoneDriftThreshold = 0.05f;
         if (!leftHandIsGripping)
@@ -379,20 +379,22 @@ public class SceneConfiguror : MonoBehaviour
             {
                 // "Wasn't gripping, now gripping"
                 // Save the start pose of the hand (joint positions).
-                leftHandGripStartPose = new List<Vector3>(leftHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
+                CopyRelativePose(leftHandBonePositions, ref leftHandGripStartPose);
                 actionRecorder?.Record(
                     "GripStart",
                     "Left",
                     leftHandInteractingClimbingHold
                 );                                                                  // Save "relative positions" by subtracting the base position (index 0) from all other positions.
-                leftHandGripStartPose = leftHandGripStartPose.Select((pos, i) => pos - leftHandBonePositions[0]).ToList();
             }
+        }
+        else if (leftHandInteractingClimbingHold == null)
+        {
+            leftHandIsGripping = false;
         }
         else
         {
             // However, if a hand is already gripping, we instead check if the hand is still gripping by comparing the start pose and the current pose.
-            leftHandGripCurrentPose = new List<Vector3>(leftHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
-            leftHandGripCurrentPose = leftHandGripCurrentPose.Select((pos, i) => pos - leftHandBonePositions[0]).ToList();
+            CopyRelativePose(leftHandBonePositions, ref leftHandGripCurrentPose);
             leftHandIsGripping = AreHandPosesApproximatelyEqual(leftHandGripStartPose, leftHandGripCurrentPose, gripPoseBoneDriftThreshold);
         }
         if (!rightHandIsGripping)
@@ -400,20 +402,28 @@ public class SceneConfiguror : MonoBehaviour
             rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(1, rightHandInteractingClimbingHold);
             if (rightHandIsGripping)
             {
-                rightHandGripStartPose = new List<Vector3>(rightHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
+                CopyRelativePose(rightHandBonePositions, ref rightHandGripStartPose);
                 actionRecorder?.Record(
                     "GripStart",
                     "Right",
                     rightHandInteractingClimbingHold
                 );
-                rightHandGripStartPose = rightHandGripStartPose.Select((pos, i) => pos - rightHandBonePositions[0]).ToList();
             }
+        }
+        else if (rightHandInteractingClimbingHold == null)
+        {
+            rightHandIsGripping = false;
         }
         else
         {
-            rightHandGripCurrentPose = new List<Vector3>(rightHandBonePositions); // Deep copy... I think? - Jace 12/17/2024
-            rightHandGripCurrentPose = rightHandGripCurrentPose.Select((pos, i) => pos - rightHandBonePositions[0]).ToList();
+            CopyRelativePose(rightHandBonePositions, ref rightHandGripCurrentPose);
             rightHandIsGripping = AreHandPosesApproximatelyEqual(rightHandGripStartPose, rightHandGripCurrentPose, gripPoseBoneDriftThreshold);
+        }
+
+        if (!allowLocomotion)
+        {
+            isGripLocomotionActive = false;
+            return;
         }
 
         // leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(0, leftHandInteractingClimbingHold);
@@ -425,14 +435,8 @@ public class SceneConfiguror : MonoBehaviour
             if (isGripLocomotionActive)
             {
                 UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now not gripping with either hand. Stopping movement.");
+                StopGripLocomotion();
             }
-            actionRecorder?.Record(
-                "LocomotionStop",
-                "",
-                null,
-                "grip locomotion stopped"
-            );
-            isGripLocomotionActive = false;
             return;
         }
 
@@ -442,14 +446,8 @@ public class SceneConfiguror : MonoBehaviour
             if (isGripLocomotionActive)
             {
                 UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now gripping with both hands. Stopping movement.");
+                StopGripLocomotion();
             }
-            actionRecorder?.Record(
-                "LocomotionStop",
-                "",
-                null,
-                "grip locomotion stopped"
-            );
-            isGripLocomotionActive = false;
             return;
         }
 
@@ -465,32 +463,44 @@ public class SceneConfiguror : MonoBehaviour
                 "one-hand grip locomotion started"
             );
             isGripLocomotionActive = true;
-            leftHandGripStartPosition = leftHandBonePositions[0];
-            leftHandGripLastPosition = leftHandGripStartPosition;
-            rightHandGripStartPosition = rightHandBonePositions[0];
-            rightHandGripLastPosition = rightHandGripStartPosition;
+            if (leftHandIsGripping)
+            {
+                gripLocomotionHand = Hand.Left;
+                leftHandGripStartPosition = leftHandBonePositions[0];
+                leftHandGripLastPosition = leftHandGripStartPosition;
+            }
+            else
+            {
+                gripLocomotionHand = Hand.Right;
+                rightHandGripStartPosition = rightHandBonePositions[0];
+                rightHandGripLastPosition = rightHandGripStartPosition;
+            }
         }
 
         // Finally, we are sure that the player needs to move.
         // We move by getting the distance since last frame, and moving the player by that distance, then recording the new last position.
         Vector3 vectorToMovePlayer = Vector3.zero;
-        if (leftHandIsGripping)
+        if (gripLocomotionHand == Hand.Left && leftHandIsGripping)
         {
             vectorToMovePlayer = leftHandBonePositions[0] - leftHandGripLastPosition;
             // Compensate by moving the hands back
             // leftHand.transform.position -= vectorToMovePlayer;
             leftHandGripLastPosition = leftHandBonePositions[0];
         }
-        else if (rightHandIsGripping)
+        else if (gripLocomotionHand == Hand.Right && rightHandIsGripping)
         {
             vectorToMovePlayer = rightHandBonePositions[0] - rightHandGripLastPosition;
             // Compensate by moving the hands back
             // rightHand.transform.position -= vectorToMovePlayer;
             rightHandGripLastPosition = rightHandBonePositions[0];
         }
+        else
+        {
+            StopGripLocomotion();
+            return;
+        }
         // cameraOffset.transform.position -= vectorToMovePlayer; // Move player
         moonBoardEnv.transform.position += vectorToMovePlayer;
-        UnityEngine.Debug.Log($"[LocomotionMove] moving moonBoardEnv by {vectorToMovePlayer}, newPos={moonBoardEnv.transform.position}");
     }
     public bool CheckIfHandIsGrippingHold(int handIndex, GameObject climbingHold)
     {
@@ -508,10 +518,15 @@ public class SceneConfiguror : MonoBehaviour
             handBoneToHoldMinDistances = rightHandBoneToHoldMinDistances;
         }
 
-        // TODO: Improve grip detection (possibly via shader)
+        if (handBoneToHoldMinDistances == null || handBoneToHoldMinDistances.Length <= 25)
+        {
+            return false;
+        }
+
+        // Keep the legacy all-five-fingertips event threshold for locomotion and event compatibility.
         // Currently, the following will check if each fingertip is close to the hold. (When using Meta SDK v71's new OpenXR Hand Skeleton, bone indices 5, 10, 15, 20, 25 for thumb, pointer, middle, ring, and little fingertips respectively)
         bool isGripping = true;
-        foreach (int boneIndex in new List<int> { 5, 10, 15, 20, 25 })
+        foreach (int boneIndex in FingertipBoneIndices)
         {
             if (handBoneToHoldMinDistances[boneIndex] > gripFingertipRange)
             {
@@ -575,9 +590,16 @@ public class SceneConfiguror : MonoBehaviour
         UnityEngine.Debug.Log("SceneConfiguror: HandHoverEnter() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
         OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
         OVRHand handOVRHand = handOVRSkeleton.GetComponent<OVRHand>();
-        if (hoveredGameObject.tag == "ClimbingHold")
+        if (hoveredGameObject.CompareTag("ClimbingHold"))
         {
-            if (activeHoldsList.Contains(hoveredGameObject))
+            bool isGhost = IsGhostHold(hoveredGameObject);
+            if (gameMode == GameMode.Basic || (gameMode == GameMode.Ghost && !isGhost) ||
+                (gameMode == GameMode.Grip && isGhost))
+            {
+                return;
+            }
+
+            if (IsActiveRouteHold(hoveredGameObject) || isGhost)
             {
                 UnityEngine.Debug.Log("Hand hover enter: " + handOVRHand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
                 actionRecorder?.Record(
@@ -585,16 +607,29 @@ public class SceneConfiguror : MonoBehaviour
                     hand == 0 ? "Left" : "Right",
                     hoveredGameObject
                 );
-                MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
-                meshRenderer.material.SetInt("_IsBeingInteracted", 1);
+                SetInteractionVisual(
+                    hoveredGameObject,
+                    gripContactPipeline == null && !IsGripFeedbackDegraded);
 
-                if (hand == 0)
+            if (hand == 0)
+            {
+                ResetHandDistances(0);
+                if (!IsSameHold(leftHandInteractingClimbingHold, hoveredGameObject))
                 {
-                    leftHandInteractingClimbingHold = hoveredGameObject;
+                    leftHandIsGripping = false;
+                    StopGripLocomotion(Hand.Left);
                 }
-                else if (hand == 1)
+                leftHandInteractingClimbingHold = hoveredGameObject;
+            }
+            else if (hand == 1)
+            {
+                ResetHandDistances(1);
+                if (!IsSameHold(rightHandInteractingClimbingHold, hoveredGameObject))
                 {
-                    rightHandInteractingClimbingHold = hoveredGameObject;
+                    rightHandIsGripping = false;
+                    StopGripLocomotion(Hand.Right);
+                }
+                rightHandInteractingClimbingHold = hoveredGameObject;
                 }
             }
         }
@@ -604,24 +639,39 @@ public class SceneConfiguror : MonoBehaviour
         UnityEngine.Debug.Log("SceneConfiguror: HandHoverExit() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
         OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
         OVRHand ovrHand = handOVRSkeleton.GetComponent<OVRHand>();
-        if (hoveredGameObject.tag == "ClimbingHold")
+        if (hoveredGameObject.CompareTag("ClimbingHold"))
         {
+            bool isGhost = IsGhostHold(hoveredGameObject);
+            if (gameMode == GameMode.Basic || (gameMode == GameMode.Ghost && !isGhost) ||
+                (gameMode == GameMode.Grip && isGhost))
+            {
+                return;
+            }
             UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with Climbing Hold " + hoveredGameObject.name);
             actionRecorder?.Record(
                 "HoverExit",
                 hand == 0 ? "Left" : "Right",
                 hoveredGameObject
             );
-            MeshRenderer meshRenderer = hoveredGameObject.GetComponent<MeshRenderer>();
-            meshRenderer.material.SetInt("_IsBeingInteracted", 0);
+            SetInteractionVisual(hoveredGameObject, false);
 
             if (hand == 0)
             {
-                leftHandInteractingClimbingHold = null;
+                if (IsSameHold(leftHandInteractingClimbingHold, hoveredGameObject))
+                {
+                    leftHandInteractingClimbingHold = null;
+                    leftHandIsGripping = false;
+                    StopGripLocomotion(Hand.Left);
+                }
             }
             else if (hand == 1)
             {
-                rightHandInteractingClimbingHold = null;
+                if (IsSameHold(rightHandInteractingClimbingHold, hoveredGameObject))
+                {
+                    rightHandInteractingClimbingHold = null;
+                    rightHandIsGripping = false;
+                    StopGripLocomotion(Hand.Right);
+                }
             }
         }
         else
@@ -632,27 +682,319 @@ public class SceneConfiguror : MonoBehaviour
 
     public void SetUpRouteByName(string routeName)
     {
+        EnsureHoldsDictionary();
         UnityEngine.Debug.Log("Requested route by name: " + routeName);
-        // Set up the holds for the route
+        if (!TryGetRouteDefinition(routeName, out RouteDefinition route))
+        {
+            UnityEngine.Debug.LogError("Route name " + routeName + " not found!");
+            return;
+        }
+
+        ActiveRouteDefinition = route;
+        activeRouteHoldsNamesList = new List<string>(route.holds);
+        currentRouteName = routeName;
+        if (routeName != "[PREVIEW ALL (SHADER OFF)]")
+        {
+            UnityEngine.Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", activeRouteHoldsNamesList));
+            SetUpRouteByHoldList(route);
+        }
+        else
+        {
+            UnityEngine.Debug.Log("Setting up route " + routeName + " with all holds");
+            PreviewAllHolds();
+        }
+        ApplyModeToRouteHolds();
+        if (gameMode == GameMode.Grip)
+        {
+            gripContactPipeline?.Prepare(activeHoldsList);
+        }
+    }
+
+    public bool SetRouteCatalog(MoonBoardStudyCatalog catalog, out string error)
+    {
+        if (catalog == null)
+        {
+            error = "MoonBoard route catalog is unavailable.";
+            return false;
+        }
+        if (!catalog.TryValidate(out error))
+        {
+            return false;
+        }
+
+        routeCatalog = catalog;
+        holdsDictionary = null;
+        EnsureHoldsDictionary();
+        if (!string.IsNullOrEmpty(holdsDictionaryError))
+        {
+            error = holdsDictionaryError;
+            return false;
+        }
+        if (holdsDictionary.Count != catalog.holds.Length)
+        {
+            error = $"Scene contains {holdsDictionary.Count} holds; catalog requires {catalog.holds.Length}.";
+            return false;
+        }
+        foreach (MoonBoardHoldDefinition hold in catalog.holds)
+        {
+            if (!holdsDictionary.TryGetValue(hold.coordinate, out GameObject sceneHold) ||
+                sceneHold.GetComponent<MeshFilter>() == null ||
+                sceneHold.GetComponent<MeshRenderer>() == null)
+            {
+                error = "Scene is missing usable MoonBoard 2016 hold " + hold.coordinate + ".";
+                return false;
+            }
+        }
+        foreach (string coordinate in holdsDictionary.Keys)
+        {
+            if (!catalog.TryGetHold(coordinate, out _))
+            {
+                error = "Scene contains hold outside the MoonBoard 2016 catalog: " + coordinate + ".";
+                return false;
+            }
+        }
+
+        currentRouteName = catalog.routes[0].id;
+        SetUpRouteByName(currentRouteName);
+        error = string.Empty;
+        return true;
+    }
+
+    public bool TryGetRouteDefinition(string routeId, out MoonBoardRouteDefinition route)
+    {
+        route = null;
+        return routeCatalog != null && routeCatalog.TryGetRoute(routeId, out route);
+    }
+
+    public string GetRouteDisplayName(string routeId)
+    {
+        return TryGetRouteDefinition(routeId, out MoonBoardRouteDefinition route) ? route.name : routeId;
+    }
+
+    public bool TryValidateRoute(string routeName, out string error)
+    {
+        EnsureHoldsDictionary();
+        if (!string.IsNullOrEmpty(holdsDictionaryError))
+        {
+            error = holdsDictionaryError;
+            return false;
+        }
+        if (!TryEnsureRouteSourceReady(routeName, out error))
+        {
+            return false;
+        }
+        if (!TryGetRouteDefinition(routeName, out RouteDefinition route))
+        {
+            error = "Unknown route: " + routeName + ".";
+            return false;
+        }
+
+        string[] missing = route.holds.Where(hold => !holdsDictionary.ContainsKey(hold)).ToArray();
+        if (missing.Length > 0)
+        {
+            error = routeName + " is missing hold" + (missing.Length == 1 ? " " : "s ") +
+                    string.Join(", ", missing) + ".";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    public bool TrySelectBaselineRoute(string routeName, out string error)
+    {
+        if (!TryValidateRoute(routeName, out error))
+        {
+            return false;
+        }
+        if (!TryGetRouteDefinition(routeName, out RouteDefinition route))
+        {
+            error = "Unknown route: " + routeName + ".";
+            return false;
+        }
+
+        ActiveRouteDefinition = route;
+        activeRouteHoldsNamesList = new List<string>(route.holds);
+        currentRouteName = routeName;
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>Resolves a role-aware route definition: the authoritative catalog first
+    /// (start/finish mapped from move roles), then built-ins, then routes.json entries.</summary>
+    private bool TryGetRouteDefinition(string routeName, out RouteDefinition route)
+    {
+        if (routeCatalog != null && routeCatalog.TryGetRoute(routeName, out MoonBoardRouteDefinition catalogRoute))
+        {
+            MoonBoardRouteMove[] ordered = catalogRoute.moves.OrderBy(move => move.sequence).ToArray();
+            route = new RouteDefinition
+            {
+                name = catalogRoute.name,
+                grade = catalogRoute.grade,
+                holds = ordered.Select(move => move.coordinate).ToArray(),
+                start = ordered.Where(move => move.role == "start").Select(move => move.coordinate).ToArray(),
+                finish = ordered.Where(move => move.role == "finish").Select(move => move.coordinate).ToArray(),
+            };
+            return true;
+        }
+        if (TryGetBuiltInRouteDefinition(routeName, out route))
+        {
+            return true;
+        }
+        if (routeName != null && jsonRoutes.TryGetValue(routeName, out RouteDefinition jsonRoute))
+        {
+            route = jsonRoute;
+            return true;
+        }
+        route = null;
+        return false;
+    }
+
+    public bool IsBuiltInRoute(string routeName)
+    {
+        return TryGetBuiltInRouteDefinition(routeName, out _);
+    }
+
+    public string GetRoutesLoadStatusLine()
+    {
+        return RoutesJsonLoadState switch
+        {
+            RoutesLoadState.Ready => "READY (" + jsonRouteNames.Count + " imported)",
+            RoutesLoadState.Failed => "FAILED: " + RoutesLoadFailureReason,
+            _ => "LOADING",
+        };
+    }
+
+    private bool TryEnsureRouteSourceReady(string routeName, out string error)
+    {
+        if (IsBuiltInRoute(routeName) ||
+            (routeCatalog != null && routeCatalog.TryGetRoute(routeName, out _)) ||
+            RoutesJsonLoadState == RoutesLoadState.Ready)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        error = RoutesJsonLoadState == RoutesLoadState.Loading
+            ? "routes.json is still loading; imported route '" + routeName + "' cannot start yet."
+            : "routes.json failed to load; imported route '" + routeName + "' is unavailable: " +
+              RoutesLoadFailureReason;
+        return false;
+    }
+
+    /// <summary>Catalog routes first, then built-in study routes, then routes.json entries.</summary>
+    public List<string> GetAvailableRouteNames()
+    {
+        List<string> names = new();
+        if (routeCatalog != null)
+        {
+            names.AddRange(routeCatalog.routes.Select(catalogRoute => catalogRoute.id));
+        }
+        names.AddRange(BuiltInRouteNames);
+        names.AddRange(jsonRouteNames);
+        return names;
+    }
+
+    private IEnumerator LoadRoutesJson()
+    {
+        RoutesJsonLoadState = RoutesLoadState.Loading;
+        RoutesLoadFailureReason = string.Empty;
+        RoutesJsonSha256 = null;
+        string path = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/routes.json";
+        string json = null;
+        byte[] jsonBytes = null;
+        if (path.Contains("://") || path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase))
+        {
+            using UnityWebRequest request = UnityWebRequest.Get(path);
+            yield return request.SendWebRequest();
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                json = request.downloadHandler.text;
+                jsonBytes = request.downloadHandler.data;
+            }
+            else if (request.responseCode != 404)
+            {
+                SetRoutesLoadFailed("request failed: " + request.error);
+                yield break;
+            }
+        }
+        else if (File.Exists(path))
+        {
+            json = File.ReadAllText(path);
+            jsonBytes = File.ReadAllBytes(path);
+        }
+
+        if (json == null)
+        {
+            SetRoutesLoadFailed("file not found in StreamingAssets.");
+            yield break;
+        }
+
+        if (!RouteLibrary.TryParseJson(json, BuiltInRouteNames, out List<RouteDefinition> parsed, out string error))
+        {
+            SetRoutesLoadFailed(error);
+            yield break;
+        }
+
+        jsonRoutes.Clear();
+        jsonRouteNames.Clear();
+        foreach (RouteDefinition route in parsed)
+        {
+            jsonRoutes[route.name] = route;
+            jsonRouteNames.Add(route.name);
+        }
+        RoutesJsonSha256 = ComputeSha256(jsonBytes);
+        RoutesJsonLoadState = RoutesLoadState.Ready;
+        Debug.Log("[SceneConfiguror] Loaded " + jsonRouteNames.Count + " route(s) from routes.json: " +
+                  string.Join(", ", jsonRouteNames));
+    }
+
+    private void SetRoutesLoadFailed(string reason)
+    {
+        jsonRoutes.Clear();
+        jsonRouteNames.Clear();
+        RoutesJsonSha256 = null;
+        RoutesLoadFailureReason = reason;
+        RoutesJsonLoadState = RoutesLoadState.Failed;
+        Debug.LogError("[SceneConfiguror] routes.json failed: " + reason);
+    }
+
+    private static string ComputeSha256(byte[] value)
+    {
+        using SHA256 sha256 = SHA256.Create();
+        byte[] hash = sha256.ComputeHash(value);
+        return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+    }
+
+    private static bool TryGetBuiltInRouteDefinition(string routeName, out RouteDefinition route)
+    {
         switch (routeName)
         {
             case "DEATH STAR":
-                activeRouteHoldsNamesList = new List<string> { "D15", "D18", "G13", "H11", "I4", "J6", "K9" };
-                break;
-            case "SPEED":
-                activeRouteHoldsNamesList = new List<string> { "A5", "D5", "D15", "F12", "F18", "G8", "G10" };
-                break;
-            case "THE CRUSH ALT":
-                activeRouteHoldsNamesList = new List<string> { "B6", "C8", "D1", "D11", "F14", "F16", "K18" };
-                break;
+                // start/finish derived, confirm vs official app
+                route = new RouteDefinition
+                {
+                    name = "DEATH STAR",
+                    holds = new[] { "D15", "D18", "G13", "H11", "I4", "J6", "K9" },
+                    start = new[] { "I4", "J6" },
+                    finish = new[] { "D18" },
+                };
+                return true;
             case "TO JUG, OR NOT TO JUG...":
-                activeRouteHoldsNamesList = new List<string> { "D9", "D15", "F5", "F12", "G13", "H10", "H18" };
-                break;
-            case "WHITE JUGHAUL":
-                activeRouteHoldsNamesList = new List<string> { "F5", "H10", "H18", "I8", "K13", "K15", "K17" };
-                break;
+                // start/finish derived, confirm vs official app
+                route = new RouteDefinition
+                {
+                    name = "TO JUG, OR NOT TO JUG...",
+                    holds = new[] { "D9", "D15", "F5", "F12", "G13", "H10", "H18" },
+                    start = new[] { "F5" },
+                    finish = new[] { "H18" },
+                };
+                return true;
             case "[PREVIEW ALL (SHADER OFF)]":
-                activeRouteHoldsNamesList = new List<string> { // this was the fastest way to get this working, sue me
+                route = new RouteDefinition
+                {
+                    name = "[PREVIEW ALL (SHADER OFF)]",
+                    holds = new[] { // this was the fastest way to get this working, sue me
                     "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1", "I1", "J1", "K1",
                     "A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "I2", "J2", "K2",
                     "A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3", "I3", "J3", "K3",
@@ -671,25 +1013,464 @@ public class SceneConfiguror : MonoBehaviour
                     "A16", "B16", "C16", "D16", "E16", "F16", "G16", "H16", "I16", "J16", "K16",
                     "A17", "B17", "C17", "D17", "E17", "F17", "G17", "H17", "I17", "J17", "K17",
                     "A18", "B18", "C18", "D18", "E18", "F18", "G18", "H18", "I18", "J18", "K18"
+                    },
                 };
-                break;
+                return true;
             default:
-                UnityEngine.Debug.LogError("Route name " + routeName + " not found!");
-                break;
+                route = null;
+                return false;
         }
-        if (routeName != "[PREVIEW ALL (SHADER OFF)]")
+    }
+
+    private bool TryGetRouteHolds(string routeName, out List<string> routeHolds)
+    {
+        if (routeName == "[PREVIEW ALL (SHADER OFF)]")
         {
-            UnityEngine.Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", activeRouteHoldsNamesList));
-            SetUpRouteByHoldList(activeRouteHoldsNamesList);
+            EnsureHoldsDictionary();
+            routeHolds = holdsDictionary.Keys.OrderBy(coordinate => coordinate).ToList();
+            return true;
+        }
+        if (routeCatalog != null && routeCatalog.TryGetRoute(routeName, out MoonBoardRouteDefinition route))
+        {
+            routeHolds = route.moves.OrderBy(move => move.sequence).Select(move => move.coordinate).ToList();
+            return true;
+        }
+        routeHolds = null;
+        return false;
+    }
+
+    public void SetGameMode(GameMode newMode)
+    {
+        EnsureExaminationHeadlamp();
+        bool leavingGhostMode = gameMode == GameMode.Ghost && newMode != GameMode.Ghost;
+        if (leavingGhostMode && ghostHoldController != null)
+        {
+            ghostHoldController.SetModeActive(false);
+        }
+        ResetInteractionState();
+        gameMode = newMode;
+        if (newMode == GameMode.Basic)
+        {
+            ClearHighlightCircles();
+        }
+        if (examinationHeadlamp != null)
+        {
+            examinationHeadlamp.enabled = newMode == GameMode.Grip || newMode == GameMode.Ghost;
+        }
+        ApplyModeToRouteHolds();
+        if (!leavingGhostMode && ghostHoldController != null)
+        {
+            ghostHoldController.SetModeActive(newMode == GameMode.Ghost);
+        }
+        if (newMode == GameMode.Grip)
+        {
+            gripContactPipeline?.Prepare(activeHoldsList);
         }
         else
         {
-            UnityEngine.Debug.Log("Setting up route " + routeName + " with all holds");
-            PreviewAllHolds();
+            gripContactPipeline?.ClearFeedback();
+            gripContactPipeline?.Prepare((IReadOnlyList<GameObject>)null);
+        }
+        actionRecorder?.Record("ModeChanged", "", null, newMode.ToString());
+    }
+
+    public void PrepareGripHold(GameObject hold)
+    {
+        gripContactPipeline?.Prepare(hold);
+    }
+
+    public void ResetMoonBoardTransform()
+    {
+        CacheMoonBoardTransform();
+        if (!hasInitialMoonBoardTransform)
+        {
+            return;
+        }
+
+        moonBoardEnv.transform.SetLocalPositionAndRotation(
+            initialMoonBoardLocalPosition,
+            initialMoonBoardLocalRotation);
+        moonBoardEnv.transform.localScale = initialMoonBoardLocalScale;
+    }
+
+    public void SetStudyEnvironmentVisible(bool visible)
+    {
+        Transform alignmentRoot = moonBoardEnv != null ? moonBoardEnv.transform.parent : null;
+        if (!visible)
+        {
+            if (!studyEnvironmentHidden)
+            {
+                CaptureAndHideSupplementalScenery();
+                CaptureAndHideStudyCameraBackground();
+                studyEnvironmentHidden = true;
+            }
+            if (environment != null)
+            {
+                // Keep the environment root and the alignment root active so spatial-anchor
+                // registration survives Condition A; everything else hides.
+                environment.SetActive(true);
+                foreach (Transform child in environment.transform)
+                {
+                    child.gameObject.SetActive(child == alignmentRoot);
+                }
+            }
+            if (moonBoardEnv != null)
+            {
+                moonBoardEnv.SetActive(false);
+            }
+            return;
+        }
+
+        if (environment != null)
+        {
+            environment.SetActive(true);
+            foreach (Transform child in environment.transform)
+            {
+                child.gameObject.SetActive(true);
+            }
+        }
+        if (moonBoardEnv != null)
+        {
+            moonBoardEnv.SetActive(true);
+        }
+        if (studyEnvironmentHidden)
+        {
+            RestoreSupplementalScenery();
+            RestoreStudyCameraBackground();
+            studyEnvironmentHidden = false;
         }
     }
-    void SetUpRouteByHoldList(List<string> holdsList)
+
+    private void CaptureAndHideSupplementalScenery()
     {
+        supplementalSceneryActiveStates.Clear();
+        int waterLayer = LayerMask.NameToLayer("Water");
+        foreach (Transform candidate in FindObjectsByType<Transform>(
+                     FindObjectsInactive.Include,
+                     FindObjectsSortMode.None))
+        {
+            if (candidate == null || candidate.gameObject.scene != gameObject.scene ||
+                (environment != null &&
+                 (candidate == environment.transform || candidate.IsChildOf(environment.transform))))
+            {
+                continue;
+            }
+
+            GameObject sceneryRoot = FindSupplementalSceneryRoot(candidate, waterLayer);
+            if (sceneryRoot != null && !supplementalSceneryActiveStates.ContainsKey(sceneryRoot))
+            {
+                supplementalSceneryActiveStates.Add(sceneryRoot, sceneryRoot.activeSelf);
+            }
+        }
+
+        foreach (GameObject scenery in supplementalSceneryActiveStates.Keys)
+        {
+            if (scenery != null)
+            {
+                scenery.SetActive(false);
+            }
+        }
+    }
+
+    private GameObject FindSupplementalSceneryRoot(Transform candidate, int waterLayer)
+    {
+        Transform match = null;
+        for (Transform current = candidate; current != null; current = current.parent)
+        {
+            if (environment != null && current == environment.transform)
+            {
+                return null;
+            }
+            if ((waterLayer >= 0 && current.gameObject.layer == waterLayer) ||
+                SupplementalSceneryNameMarkers.Any(marker =>
+                    current.name.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                match = current;
+            }
+        }
+        return match != null ? match.gameObject : null;
+    }
+
+    private void RestoreSupplementalScenery()
+    {
+        foreach (KeyValuePair<GameObject, bool> entry in supplementalSceneryActiveStates)
+        {
+            if (entry.Key != null)
+            {
+                entry.Key.SetActive(entry.Value);
+            }
+        }
+        supplementalSceneryActiveStates.Clear();
+    }
+
+    private void CaptureAndHideStudyCameraBackground()
+    {
+        studyEnvironmentCameraStates.Clear();
+        foreach (Camera camera in FindObjectsByType<Camera>(FindObjectsSortMode.None))
+        {
+            if (camera == null || !camera.isActiveAndEnabled ||
+                camera.targetTexture != null)
+            {
+                continue;
+            }
+            studyEnvironmentCameraStates[camera] = (camera.clearFlags, camera.backgroundColor);
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.black;
+        }
+    }
+
+    private void RestoreStudyCameraBackground()
+    {
+        foreach (KeyValuePair<Camera, (CameraClearFlags flags, Color background)> entry
+                 in studyEnvironmentCameraStates)
+        {
+            if (entry.Key == null)
+            {
+                continue;
+            }
+            entry.Key.clearFlags = entry.Value.flags;
+            entry.Key.backgroundColor = entry.Value.background;
+        }
+        studyEnvironmentCameraStates.Clear();
+    }
+
+    public bool IsGripFeedbackReady => !IsGripFeedbackDegraded &&
+                                       gripContactPipeline != null && gripContactPipeline.IsSupported;
+
+    public void SetStudyFeedbackVisible(bool visible)
+    {
+        bool effectiveVisibility = visible && !IsGripFeedbackDegraded;
+        foreach (HandBoneTracker tracker in FindObjectsByType<HandBoneTracker>(
+                     FindObjectsInactive.Include,
+                     FindObjectsSortMode.None))
+        {
+            tracker.SetFeedbackVisible(effectiveVisibility);
+        }
+        if (!effectiveVisibility)
+        {
+            gripContactPipeline?.ClearFeedback();
+        }
+    }
+
+    public void DebugInjectGripReadbackFailures(int epochCount = 1)
+    {
+        if (!Debug.isDebugBuild)
+        {
+            return;
+        }
+        EnsureGripPipeline();
+        gripContactPipeline?.DebugInjectReadbackFailures(epochCount);
+    }
+
+    public void DebugSetGripReadbackFailures(bool enabled)
+    {
+        if (!Debug.isDebugBuild)
+        {
+            return;
+        }
+        debugForceGripReadbackFailures = enabled;
+        EnsureGripPipeline();
+        gripContactPipeline?.DebugSetReadbackFailures(enabled);
+    }
+
+    public Transform GetGripNormalReference(GameObject hold)
+    {
+        return IsGhostHold(hold) && ghostHoldController.WallReferent != null
+            ? ghostHoldController.WallReferent.transform
+            : hold.transform;
+    }
+
+    public bool IsActiveRouteHold(GameObject candidate)
+    {
+        return GetActiveRouteHold(candidate) != null;
+    }
+
+    public GameObject GetActiveRouteHold(GameObject candidate)
+    {
+        if (candidate == null || activeHoldsList == null)
+        {
+            return null;
+        }
+
+        Transform candidateTransform = candidate.transform;
+        foreach (GameObject activeHold in activeHoldsList)
+        {
+            if (activeHold != null &&
+                (candidateTransform == activeHold.transform || candidateTransform.IsChildOf(activeHold.transform)))
+            {
+                return activeHold;
+            }
+        }
+        return null;
+    }
+
+    public bool IsGhostHold(GameObject candidate)
+    {
+        return ghostHoldController != null && ghostHoldController.IsGhostHold(candidate);
+    }
+
+    public void RegisterGhostHold(GameObject ghost)
+    {
+        if (ghost == null)
+        {
+            return;
+        }
+
+        ResolveStudyLayers();
+        if (studyGhostHoldsLayer >= 0)
+        {
+            SetLayerRecursively(ghost, studyGhostHoldsLayer);
+        }
+
+        XRGrabInteractable grab = ghost.GetComponent<XRGrabInteractable>();
+        if (grab != null)
+        {
+            grab.enabled = true;
+        }
+    }
+
+    public void UnregisterGhostHold(GameObject ghost)
+    {
+        if (ghost == null)
+        {
+            return;
+        }
+
+        if (leftHandInteractingClimbingHold != null &&
+            (leftHandInteractingClimbingHold == ghost ||
+             leftHandInteractingClimbingHold.transform.IsChildOf(ghost.transform)))
+        {
+            actionRecorder?.Record("HoverExit", "Left", ghost);
+            leftHandInteractingClimbingHold = null;
+        }
+        if (rightHandInteractingClimbingHold != null &&
+            (rightHandInteractingClimbingHold == ghost ||
+             rightHandInteractingClimbingHold.transform.IsChildOf(ghost.transform)))
+        {
+            actionRecorder?.Record("HoverExit", "Right", ghost);
+            rightHandInteractingClimbingHold = null;
+        }
+        leftHandIsGripping = false;
+        rightHandIsGripping = false;
+    }
+
+    private void ApplyModeToRouteHolds()
+    {
+        if (activeHoldsList == null)
+        {
+            return;
+        }
+
+        bool enableWallColliders = gameMode != GameMode.Basic;
+        bool enableWallGrab = gameMode == GameMode.Grip;
+        foreach (GameObject hold in activeHoldsList)
+        {
+            if (hold == null)
+            {
+                continue;
+            }
+
+            XRGrabInteractable grab = hold.GetComponent<XRGrabInteractable>();
+            if (grab != null)
+            {
+                grab.enabled = enableWallGrab;
+            }
+            foreach (Collider collider in hold.GetComponentsInChildren<Collider>(true))
+            {
+                collider.enabled = enableWallColliders;
+            }
+        }
+    }
+
+    private void ResetInteractionState()
+    {
+        StopGripLocomotion();
+        SetInteractionVisual(leftHandInteractingClimbingHold, false);
+        if (rightHandInteractingClimbingHold != leftHandInteractingClimbingHold)
+        {
+            SetInteractionVisual(rightHandInteractingClimbingHold, false);
+        }
+        leftHandInteractingClimbingHold = null;
+        rightHandInteractingClimbingHold = null;
+        leftHandIsGripping = false;
+        rightHandIsGripping = false;
+        isGripLocomotionActive = false;
+        gripLocomotionHand = null;
+    }
+
+    private void ClearHandInteractionState(int hand)
+    {
+        GameObject hold = hand == 0
+            ? leftHandInteractingClimbingHold
+            : rightHandInteractingClimbingHold;
+        if (hold != null)
+        {
+            actionRecorder?.Record(
+                "HoverExit",
+                hand == 0 ? "Left" : "Right",
+                hold,
+                "tracking_lost");
+        }
+        SetInteractionVisual(hold, false);
+        if (hand == 0)
+        {
+            leftHandInteractingClimbingHold = null;
+            leftHandIsGripping = false;
+            ResetHandDistances(0);
+        }
+        else
+        {
+            rightHandInteractingClimbingHold = null;
+            rightHandIsGripping = false;
+            ResetHandDistances(1);
+        }
+        StopGripLocomotion(hand == 0 ? Hand.Left : Hand.Right);
+    }
+
+    private void StopGripLocomotion(Hand? hand = null)
+    {
+        if (!isGripLocomotionActive || (hand.HasValue && gripLocomotionHand != hand))
+        {
+            return;
+        }
+
+        actionRecorder?.Record("LocomotionStop", "", null, "grip locomotion stopped");
+        isGripLocomotionActive = false;
+        gripLocomotionHand = null;
+    }
+
+    private static bool IsSameHold(GameObject current, GameObject candidate)
+    {
+        return current != null && candidate != null &&
+               (current == candidate || current.transform.IsChildOf(candidate.transform) ||
+                candidate.transform.IsChildOf(current.transform));
+    }
+
+    private void SetInteractionVisual(GameObject hold, bool active, float maxDistance = -1f)
+    {
+        if (hold != null && hold.TryGetComponent(out MeshRenderer meshRenderer))
+        {
+            meshRenderer.GetPropertyBlock(HoldProperties);
+            HoldProperties.SetInt("_IsBeingInteracted", active ? 1 : 0);
+            if (maxDistance >= 0f)
+            {
+                HoldProperties.SetFloat("_InteractionColorMaxDistance", maxDistance);
+            }
+            meshRenderer.SetPropertyBlock(HoldProperties);
+        }
+    }
+
+    private void SetHoldAlpha(Renderer renderer, float alpha)
+    {
+        renderer.GetPropertyBlock(HoldProperties);
+        HoldProperties.SetFloat("_HoldAlpha", alpha);
+        renderer.SetPropertyBlock(HoldProperties);
+    }
+
+    void SetUpRouteByHoldList(RouteDefinition route)
+    {
+        ActiveRouteDefinition = route;
+        List<string> holdsList = new(route.holds);
         ClearHighlightCircles();
         // Disable all holds
         activeHoldsList = new List<GameObject>();
@@ -702,9 +1483,11 @@ public class SceneConfiguror : MonoBehaviour
             else
             {
                 Renderer renderer = hold.GetComponent<Renderer>();
-                Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
-                hold.GetComponent<XRGrabInteractable>().enabled = false;
+                if (renderer != null)
+                {
+                    SetHoldAlpha(renderer, inactiveHoldAlpha);
+                }
+                EnsureHoldInteractionComponents(hold).enabled = false;
             }
 
             CoACD coACD = hold.GetComponent<CoACD>();
@@ -730,15 +1513,15 @@ public class SceneConfiguror : MonoBehaviour
             if (!holdsDictionary.ContainsKey(holdName))
             {
                 UnityEngine.Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
+                continue;
             }
 
             holdsDictionary[holdName].SetActive(true);
             if (!disableInactiveHolds)
             {
-                holdsDictionary[holdName].GetComponent<XRGrabInteractable>().enabled = true;
+                EnsureHoldInteractionComponents(holdsDictionary[holdName]).enabled = true;
                 Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
-                Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", activeHoldAlpha);
+                SetHoldAlpha(renderer, activeHoldAlpha);
             }
 
             CoACD coACD = holdsDictionary[holdName].GetComponent<CoACD>();
@@ -758,48 +1541,138 @@ public class SceneConfiguror : MonoBehaviour
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
-            /*
-            if (highlightCirclePrefab != null)
-            {
-                // 1) Instantiate as a child of the hold, preserving the prefab's local transform
-                var circle = Instantiate(
-                highlightCirclePrefab,
-                 holdsDictionary[holdName].transform,      // parent
-                false                  // worldPositionStays = false
-                );
-
-                // 2) Zero out localPosition & localRotation (so it sits exactly on the hold)
-                circle.transform.localPosition = Vector3.zero;
-                circle.transform.localRotation = Quaternion.identity;
-
-                // 3) Nudge it *just* off the wall along its local +Z to avoid z‑fighting
-                circle.transform.localPosition += Vector3.forward * 0.01f;
-
-                // 4) Scale it to match the hold’s size
-                if ( holdsDictionary[holdName].TryGetComponent<Renderer>(out var rdr))
-                {
-                    float maxDim = Mathf.Max(
-                    rdr.bounds.size.x,
-                    rdr.bounds.size.y,
-                    rdr.bounds.size.z
-                    );
-                    circle.transform.localScale = Vector3.one * (maxDim * 0.01f);
-                }
-                else
-                {
-                    circle.transform.localScale = Vector3.one * 0.01f;
-                }
-
-                // 5) Layermask it
-                SetLayerRecursively(circle, indicatorLayer);
-
-
-                activeHighlightCircles.Add(circle);
-
-                Debug.Log($"[SC] Spawned circle at {circle.transform.position} on layer '{LayerMask.LayerToName(indicatorLayer)}'");
-
-            }*/
         }
+        SpawnRouteHalos(route);
+    }
+
+    private void SpawnRouteHalos(RouteDefinition route)
+    {
+        if (highlightCirclePrefab == null || holdsParentGameObject == null || route?.holds == null)
+        {
+            return;
+        }
+
+        Transform board = holdsParentGameObject.transform;
+        // The imported MoonBoard grid lies in the holds parent's local XZ plane; local Y is
+        // the trusted wall-normal axis used by the scanned-hold seating offsets.
+        Vector3 boardNormal = board.up.normalized;
+        Vector3 boardHorizontal = board.right.normalized;
+        Vector3 boardVertical = board.forward.normalized;
+        Vector3 boardPlanePoint = board.position;
+        Transform viewer = centerEyeAnchor != null ? centerEyeAnchor.transform : mainCamera?.transform;
+        if (viewer != null && Vector3.Dot(boardNormal, viewer.position - boardPlanePoint) < 0f)
+        {
+            boardNormal = -boardNormal;
+        }
+
+        bool hasRoles = route.start != null && route.start.Length > 0 &&
+                        route.finish != null && route.finish.Length > 0;
+        HashSet<string> starts = hasRoles
+            ? new HashSet<string>(route.start, StringComparer.OrdinalIgnoreCase)
+            : null;
+        HashSet<string> finishes = hasRoles
+            ? new HashSet<string>(route.finish, StringComparer.OrdinalIgnoreCase)
+            : null;
+
+        foreach (string holdName in route.holds)
+        {
+            if (!holdsDictionary.TryGetValue(holdName, out GameObject hold) ||
+                !TryGetCombinedRendererBounds(hold, out Bounds bounds))
+            {
+                continue;
+            }
+
+            float width = ProjectedBoundsDiameter(bounds, boardHorizontal);
+            float height = ProjectedBoundsDiameter(bounds, boardVertical);
+            float outerDiameter = Mathf.Clamp(Mathf.Max(width, height) * 1.35f, 0.14f, 0.30f);
+            Vector3 projectedCenter = bounds.center -
+                                      boardNormal * Vector3.Dot(bounds.center - boardPlanePoint, boardNormal);
+            Vector3 position = projectedCenter + boardNormal * 0.015f;
+            Quaternion rotation = Quaternion.LookRotation(boardNormal, boardVertical);
+
+            bool isStart = hasRoles && starts.Contains(holdName);
+            bool isFinish = hasRoles && finishes.Contains(holdName);
+            Color color = isStart
+                ? StartHaloColor
+                : isFinish
+                    ? FinishHaloColor
+                    : IntermediateHaloColor;
+            CreateHaloRing(holdName, position, rotation, outerDiameter, color, 0);
+            if (isStart || isFinish)
+            {
+                CreateHaloRing(holdName, position, rotation, outerDiameter * 0.65f, color, 1);
+            }
+        }
+    }
+
+    private void CreateHaloRing(
+        string holdName,
+        Vector3 position,
+        Quaternion rotation,
+        float diameter,
+        Color color,
+        int ringIndex)
+    {
+        GameObject circle = Instantiate(highlightCirclePrefab);
+        circle.name = holdName + (ringIndex == 0 ? " Route Halo" : " Route Halo Inner");
+        circle.transform.SetPositionAndRotation(position, rotation);
+        if (circle.TryGetComponent(out SpriteRenderer spriteRenderer))
+        {
+            spriteRenderer.color = color;
+            spriteRenderer.sharedMaterial = GetHighlightCircleMaterial();
+            spriteRenderer.sortingLayerName = "Default";
+            spriteRenderer.sortingOrder = -100 + ringIndex;
+            if (spriteRenderer.sprite != null)
+            {
+                Vector3 spriteSize = spriteRenderer.sprite.bounds.size;
+                float sourceDiameter = Mathf.Max(spriteSize.x, spriteSize.y);
+                circle.transform.localScale = Vector3.one * (diameter / sourceDiameter);
+            }
+        }
+        if (indicatorLayer >= 0)
+        {
+            SetLayerRecursively(circle, indicatorLayer);
+        }
+        circle.transform.SetParent(holdsParentGameObject.transform, true);
+        activeHighlightCircles.Add(circle);
+    }
+
+    private Material GetHighlightCircleMaterial()
+    {
+        if (highlightCircleMaterial == null)
+        {
+            UnityEngine.Shader shader = UnityEngine.Shader.Find("Sprites/Default");
+            if (shader != null)
+            {
+                highlightCircleMaterial = new Material(shader) { name = "Route Halo Material" };
+            }
+        }
+        return highlightCircleMaterial;
+    }
+
+    private static float ProjectedBoundsDiameter(Bounds bounds, Vector3 axis)
+    {
+        Vector3 extents = bounds.extents;
+        return 2f * (Mathf.Abs(axis.x) * extents.x +
+                     Mathf.Abs(axis.y) * extents.y +
+                     Mathf.Abs(axis.z) * extents.z);
+    }
+
+    private static bool TryGetCombinedRendererBounds(GameObject target, out Bounds bounds)
+    {
+        Renderer[] renderers = target.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+        {
+            bounds = default;
+            return false;
+        }
+
+        bounds = renderers[0].bounds;
+        for (int index = 1; index < renderers.Length; index++)
+        {
+            bounds.Encapsulate(renderers[index].bounds);
+        }
+        return true;
     }
     /// <summary>
     /// Recursively sets go and all its children to the given layer.
@@ -824,9 +1697,11 @@ public class SceneConfiguror : MonoBehaviour
             else
             {
                 Renderer renderer = hold.GetComponent<Renderer>();
-                Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", inactiveHoldAlpha);
-                hold.GetComponent<XRGrabInteractable>().enabled = false;
+                if (renderer != null)
+                {
+                    SetHoldAlpha(renderer, inactiveHoldAlpha);
+                }
+                EnsureHoldInteractionComponents(hold).enabled = false;
             }
 
             CoACD coACD = hold.GetComponent<CoACD>();
@@ -852,15 +1727,15 @@ public class SceneConfiguror : MonoBehaviour
             if (!holdsDictionary.ContainsKey(holdName))
             {
                 UnityEngine.Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
+                continue;
             }
 
             holdsDictionary[holdName].SetActive(true);
             if (!disableInactiveHolds)
             {
-                holdsDictionary[holdName].GetComponent<XRGrabInteractable>().enabled = true;
+                EnsureHoldInteractionComponents(holdsDictionary[holdName]).enabled = true;
                 Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
-                Material material = renderer.material;
-                material.SetFloat("_HoldAlpha", activeHoldAlpha);
+                SetHoldAlpha(renderer, activeHoldAlpha);
             }
 
             activeHoldsList.Add(holdsDictionary[holdName]);
@@ -873,6 +1748,283 @@ public class SceneConfiguror : MonoBehaviour
             Destroy(circle);
         }
         activeHighlightCircles.Clear();
+    }
+
+    private static XRGrabInteractable EnsureHoldInteractionComponents(GameObject hold)
+    {
+        SphereCollider sphere = hold.GetComponent<SphereCollider>();
+        if (sphere == null)
+        {
+            sphere = hold.AddComponent<SphereCollider>();
+        }
+        MeshRenderer renderer = hold.GetComponent<MeshRenderer>();
+        if (renderer != null)
+        {
+            sphere.center = renderer.localBounds.center;
+            sphere.radius = renderer.localBounds.extents.magnitude;
+        }
+        sphere.isTrigger = true;
+
+        XRGrabInteractable grab = hold.GetComponent<XRGrabInteractable>();
+        if (grab == null)
+        {
+            grab = hold.AddComponent<XRGrabInteractable>();
+            grab.movementType = XRBaseInteractable.MovementType.Instantaneous;
+            grab.trackPosition = true;
+            grab.trackRotation = true;
+        }
+        if (!grab.colliders.Contains(sphere))
+        {
+            grab.colliders.Add(sphere);
+        }
+        return grab;
+    }
+
+    private void EnsureHoldsDictionary()
+    {
+        if (holdsDictionary != null && holdsDictionary.Count > 0)
+        {
+            return;
+        }
+
+        holdsDictionary = new Dictionary<string, GameObject>(StringComparer.Ordinal);
+        holdsDictionaryError = string.Empty;
+        if (holdsParentGameObject == null)
+        {
+            return;
+        }
+        ResolveStudyLayers();
+        foreach (Transform child in holdsParentGameObject.transform)
+        {
+            string holdName = child.name.Split('.')[0].ToUpperInvariant();
+            if (!MoonBoardStudyCatalog.TryParseCoordinate(holdName, out _, out _))
+            {
+                holdsDictionaryError = "Invalid direct child in hold hierarchy: " + child.name + ".";
+                continue;
+            }
+            if (!holdsDictionary.TryAdd(holdName, child.gameObject))
+            {
+                holdsDictionaryError = "Duplicate hold coordinate in scene: " + holdName + ".";
+            }
+            if (studyHoldsLayer >= 0)
+            {
+                SetLayerRecursively(child.gameObject, studyHoldsLayer);
+            }
+            FitHoldHoverCollider(child.gameObject);
+        }
+    }
+
+    private void EnsureExaminationHeadlamp()
+    {
+        if (examinationHeadlamp != null || centerEyeAnchor == null)
+        {
+            return;
+        }
+
+        ResolveStudyLayers();
+        Transform existing = centerEyeAnchor.transform.Find("Examination Headlamp");
+        GameObject headlampObject;
+        if (existing != null)
+        {
+            headlampObject = existing.gameObject;
+            examinationHeadlamp = headlampObject.GetComponent<Light>();
+        }
+        else
+        {
+            headlampObject = new GameObject("Examination Headlamp");
+            headlampObject.transform.SetParent(centerEyeAnchor.transform, false);
+        }
+
+        examinationHeadlamp ??= headlampObject.AddComponent<Light>();
+        headlampObject.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+        examinationHeadlamp.type = LightType.Spot;
+        examinationHeadlamp.color = Color.white;
+        examinationHeadlamp.intensity = 2f;
+        examinationHeadlamp.range = 3.5f;
+        examinationHeadlamp.spotAngle = 70f;
+        examinationHeadlamp.innerSpotAngle = 55f;
+        examinationHeadlamp.shadows = LightShadows.None;
+        examinationHeadlamp.renderMode = LightRenderMode.ForcePixel;
+        examinationHeadlamp.cullingMask =
+            (studyHoldsLayer >= 0 ? 1 << studyHoldsLayer : 0) |
+            (studyGhostHoldsLayer >= 0 ? 1 << studyGhostHoldsLayer : 0);
+        examinationHeadlamp.enabled = false;
+    }
+
+    private void ResolveStudyLayers()
+    {
+        if (studyHoldsLayer < 0)
+        {
+            studyHoldsLayer = LayerMask.NameToLayer(StudyHoldsLayerName);
+        }
+        if (studyGhostHoldsLayer < 0)
+        {
+            studyGhostHoldsLayer = LayerMask.NameToLayer(StudyGhostHoldsLayerName);
+        }
+        if (studyHoldsLayer < 0 || studyGhostHoldsLayer < 0)
+        {
+            Debug.LogError("Study hold layers are missing; the examination headlamp cannot be isolated.");
+        }
+    }
+
+    // The scene's baked hold SphereColliders are authored with a hardcoded local radius that
+    // the FBX import scale inflates to ~2 m world (measured live 2026-07-16): every hover
+    // volume overlapped most of the board, hover targeting was last-enter-wins from meters
+    // away, and the solid spheres intercepted the experimenter panel's pinch raycast. Fit the
+    // sphere to the actual mesh bounds instead (the same math GhostHoldController applies to
+    // ghost clones) and make it a trigger so HandHoverCollider still fires while
+    // Physics.Raycast(..., QueryTriggerInteraction.Ignore) passes straight through.
+    private static void FitHoldHoverCollider(GameObject hold)
+    {
+        SphereCollider sphere = hold.GetComponent<SphereCollider>();
+        MeshFilter meshFilter = hold.GetComponent<MeshFilter>();
+        if (sphere == null || meshFilter == null || meshFilter.sharedMesh == null)
+        {
+            return;
+        }
+
+        Bounds meshBounds = meshFilter.sharedMesh.bounds;
+        sphere.center = meshBounds.center;
+        sphere.radius = meshBounds.extents.magnitude;
+        sphere.isTrigger = true;
+    }
+
+    private void CacheMoonBoardTransform()
+    {
+        if (hasInitialMoonBoardTransform || moonBoardEnv == null)
+        {
+            return;
+        }
+
+        initialMoonBoardLocalPosition = moonBoardEnv.transform.localPosition;
+        initialMoonBoardLocalRotation = moonBoardEnv.transform.localRotation;
+        initialMoonBoardLocalScale = moonBoardEnv.transform.localScale;
+        hasInitialMoonBoardTransform = true;
+    }
+
+    private static bool IsHandTrackingValid(OVRSkeleton skeleton, ref OVRHand hand)
+    {
+        if (skeleton == null || skeleton.Bones == null || skeleton.Bones.Count < TrackedBoneCount)
+        {
+            return false;
+        }
+
+        hand ??= skeleton.GetComponent<OVRHand>();
+        return hand != null && hand.IsTracked && hand.IsDataHighConfidence;
+    }
+
+    private static void CopyRelativePose(List<Vector3> source, ref List<Vector3> destination)
+    {
+        destination ??= new List<Vector3>(source.Count);
+        destination.Clear();
+        if (destination.Capacity < source.Count)
+        {
+            destination.Capacity = source.Count;
+        }
+
+        Vector3 origin = source[0];
+        for (int i = 0; i < source.Count; i++)
+        {
+            destination.Add(source[i] - origin);
+        }
+    }
+
+    private void EnsureGripPipeline()
+    {
+        if (gripContactPipeline != null || IsGripFeedbackDegraded ||
+            distanceToClosestBoneComputeShader == null)
+        {
+            return;
+        }
+
+        gripScoreConfig ??= Resources.Load<GripScoreConfig>("GripScoreConfig");
+        if (gripScoreConfig == null)
+        {
+            gripScoreConfig = ScriptableObject.CreateInstance<GripScoreConfig>();
+            Debug.LogWarning("GripScoreConfig asset was not found; using runtime defaults.");
+        }
+        gripContactPipeline = new GripContactPipeline(
+            this,
+            distanceToClosestBoneComputeShader,
+            gripScoreConfig,
+            gripRecoveryAttempted);
+        gripContactPipeline.DebugSetReadbackFailures(debugForceGripReadbackFailures);
+    }
+
+    private void HandleGripPipelineHealth()
+    {
+        if (gripContactPipeline == null)
+        {
+            return;
+        }
+
+        if (gripContactPipeline.IsRecoveryReady)
+        {
+            Debug.LogWarning("[SceneConfiguror] Grip feedback recovery attempt after sustained readback failure.");
+            actionRecorder?.Record(
+                "GripFeedbackRecoveryAttempt",
+                "",
+                null,
+                "recreating GPU readback pipeline");
+            gripContactPipeline.ClearFeedback();
+            gripContactPipeline.Dispose();
+            gripContactPipeline = null;
+            gripRecoveryAttempted = true;
+            EnsureGripPipeline();
+            PrepareCurrentGripTargets();
+        }
+        else if (gripContactPipeline.IsDegradationReady)
+        {
+            IsGripFeedbackDegraded = true;
+            GripFeedbackDegradedUtc = DateTime.UtcNow.ToString("o");
+            Debug.LogError("[SceneConfiguror] Grip feedback entered DEGRADED; block continues.");
+            SetStudyFeedbackVisible(false);
+            gripContactPipeline.Dispose();
+            gripContactPipeline = null;
+        }
+    }
+
+    private void PrepareCurrentGripTargets()
+    {
+        if (gripContactPipeline == null)
+        {
+            return;
+        }
+
+        if (gameMode == GameMode.Grip)
+        {
+            gripContactPipeline.Prepare(activeHoldsList);
+        }
+        else if (gameMode == GameMode.Ghost && ghostHoldController != null &&
+                 ghostHoldController.CurrentGhost != null)
+        {
+            gripContactPipeline.Prepare(ghostHoldController.CurrentGhost);
+        }
+    }
+
+    private void EnsureRuntimeControllers()
+    {
+        ghostHoldController = ghostHoldController != null
+            ? ghostHoldController
+            : FindAnyObjectByType<GhostHoldController>();
+        if (ghostHoldController == null)
+        {
+            GameObject controllerObject = new("GhostHoldController");
+            ghostHoldController = controllerObject.AddComponent<GhostHoldController>();
+        }
+        if (ghostHoldController.GetComponent<StudyManager>() == null)
+        {
+            ghostHoldController.gameObject.AddComponent<StudyManager>();
+        }
+    }
+
+    private void OnDestroy()
+    {
+        gripContactPipeline?.Dispose();
+        if (highlightCircleMaterial != null)
+        {
+            Destroy(highlightCircleMaterial);
+        }
     }
 
 }

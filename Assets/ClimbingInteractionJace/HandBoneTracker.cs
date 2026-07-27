@@ -20,14 +20,34 @@ public class HandBoneTracker : MonoBehaviour
     public Hand hand;
     public int trackedBoneIndex;
     public Vector3 transformOffsetFromTrackedBone;
+    private MeshRenderer meshRenderer;
+    private Material material;
+    private OVRHand trackedHand;
+    private bool feedbackVisible = true;
 
     void Start()
     {
         sceneConfiguror = FindAnyObjectByType<SceneConfiguror>();
+        meshRenderer = GetComponent<MeshRenderer>();
+        material = meshRenderer != null ? meshRenderer.material : null;
+        trackedHand = hand == Hand.Left
+            ? sceneConfiguror?.leftHandOVRSkeleton?.GetComponent<OVRHand>()
+            : sceneConfiguror?.rightHandOVRSkeleton?.GetComponent<OVRHand>();
     }
 
     void Update()
     {
+        if (sceneConfiguror == null || meshRenderer == null || !feedbackVisible || trackedHand == null ||
+            !trackedHand.IsTracked || !trackedHand.IsDataHighConfidence)
+        {
+            if (meshRenderer != null)
+            {
+                meshRenderer.enabled = false;
+            }
+            return;
+        }
+        meshRenderer.enabled = true;
+
         if (hand == Hand.Left)
         {
             if (sceneConfiguror.leftHandBonePositions == null || sceneConfiguror.leftHandBonePositions.Count <= trackedBoneIndex)
@@ -56,18 +76,7 @@ public class HandBoneTracker : MonoBehaviour
 
         if (handBoneTrackerType == HandBoneTrackerType.ContactRangeVisual)
         {
-            bool handIsGripping = hand == Hand.Left ? sceneConfiguror.leftHandIsGripping : sceneConfiguror.rightHandIsGripping;
-            if (handIsGripping)
-            {
-                // Hide
-                GetComponent<MeshRenderer>().enabled = false;
-                return;
-            }
-            else
-            {
-                // Show
-                GetComponent<MeshRenderer>().enabled = true;
-            }
+            meshRenderer.enabled = true;
             transform.localScale = new Vector3(
                 sceneConfiguror.gripFingertipRange,
                 sceneConfiguror.gripFingertipRange,
@@ -78,25 +87,38 @@ public class HandBoneTracker : MonoBehaviour
             if (handBoneIsContactingHold)
             {
                 // Change material metallic value to 0.1f
-                GetComponent<MeshRenderer>().material.SetFloat("_Metallic", 0.25f);
+                material.SetFloat("_Metallic", 0.25f);
             }
             else
             {
                 // Change material metallic value to 0f
-                GetComponent<MeshRenderer>().material.SetFloat("_Metallic", 0f);
+                material.SetFloat("_Metallic", 0f);
             }
+            material.color = GetScoreColor();
         }
         else if (handBoneTrackerType == HandBoneTrackerType.HandGripStatus)
         {
-            bool handIsGripping = hand == Hand.Left ? sceneConfiguror.leftHandIsGripping : sceneConfiguror.rightHandIsGripping;
-            if (handIsGripping)
-            {
-                GetComponent<MeshRenderer>().material.color = Color.green;
-            }
-            else
-            {
-                GetComponent<MeshRenderer>().material.color = Color.red;
-            }
+            material.color = GetScoreColor();
+        }
+    }
+
+    private Color GetScoreColor()
+    {
+        float score = hand == Hand.Left
+            ? sceneConfiguror.leftHandGripScore
+            : sceneConfiguror.rightHandGripScore;
+        return sceneConfiguror.gripScoreConfig != null
+            ? sceneConfiguror.gripScoreConfig.EvaluateScoreColor(score)
+            : Color.Lerp(Color.red, Color.green, score);
+    }
+
+    public void SetFeedbackVisible(bool visible)
+    {
+        feedbackVisible = visible;
+        if (meshRenderer != null)
+        {
+            meshRenderer.enabled = visible && trackedHand != null &&
+                                   trackedHand.IsTracked && trackedHand.IsDataHighConfidence;
         }
     }
 }
