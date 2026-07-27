@@ -100,7 +100,7 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
-    - _HoldAlpha: 0
+    - _HoldAlpha: 1
     - _InteractionColorMaxDistance: 0
     - _IsBeingInteracted: 0
     - _Metallic: 0
