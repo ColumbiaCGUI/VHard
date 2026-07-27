@@ -2,3 +2,6 @@
 
 # StreamingAssets are content-hash-pinned (fail-closed validator); never EOL-convert them
 Assets/StreamingAssets/** -text
+
+# Shapes package primitives are tiny; keep out of LFS (org LFS budget exhausted 2026-07-27)
+Assets/Shapes/Models/shapes_primitives.fbx -filter -diff -merge
