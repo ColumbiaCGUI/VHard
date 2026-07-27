@@ -9,9 +9,9 @@ public sealed class StudyCorePlayModeTests
     {
         const string csv =
             "participant,block,condition,route\n" +
-            "P01,1,A,DEATH STAR\n" +
-            "P01,2,B,SPEED\n" +
-            "P01,3,C,THE CRUSH ALT\n";
+            "P01,1,A,MB2016-19215\n" +
+            "P01,2,B,MB2016-21329\n" +
+            "P01,3,C,MB2016-170190\n";
 
         yield return null;
 

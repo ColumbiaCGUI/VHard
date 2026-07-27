@@ -2,10 +2,16 @@
 import collections
 import unittest
 
-from gen_schedule import CONDITION_ORDERS, LATIN_ROUTES, ROUTES, generate
+from gen_schedule import CONDITION_ORDERS, DEFAULT_CATALOG, LATIN_ROUTES, ROUTES, generate, load_routes
 
 
 class ScheduleGeneratorTests(unittest.TestCase):
+    def test_routes_come_from_authoritative_catalog(self):
+        self.assertEqual(
+            load_routes(DEFAULT_CATALOG),
+            ("MB2016-19215", "MB2016-21329", "MB2016-170190"),
+        )
+
     def test_one_hundred_participants_are_balanced(self):
         rows = list(generate(100))
         self.assertEqual(len(rows), 300)

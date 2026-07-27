@@ -40,7 +40,7 @@ class CaptureRecoveryTests(unittest.TestCase):
                 "utc": "2026-07-16T00:00:00.0000000Z",
                 "frame": "1",
                 "mode": "Grip",
-                "route": "DEATH STAR",
+                "route": "MB2016-19215",
                 "hold": "D15",
                 "LConf": "1",
                 "RConf": "1",

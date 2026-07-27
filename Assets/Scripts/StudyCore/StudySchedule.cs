@@ -132,6 +132,38 @@ public static class StudySchedule
         return true;
     }
 
+    public static bool TryValidateRoutes(
+        IReadOnlyList<StudyScheduleRow> rows,
+        MoonBoardStudyCatalog catalog,
+        out string error)
+    {
+        if (catalog == null)
+        {
+            error = "MoonBoard route catalog is unavailable.";
+            return false;
+        }
+        if (!catalog.TryValidate(out error))
+        {
+            return false;
+        }
+        if (rows == null || rows.Count == 0)
+        {
+            error = "Schedule contains no rows.";
+            return false;
+        }
+        foreach (StudyScheduleRow row in rows)
+        {
+            if (row == null || !catalog.TryGetRoute(row.route, out MoonBoardRouteDefinition route) ||
+                !route.lockedForStudy)
+            {
+                error = "Schedule references an unknown or unlocked route: " + (row?.route ?? "<null>") + ".";
+                return false;
+            }
+        }
+        error = string.Empty;
+        return true;
+    }
+
     private static bool TryParseCsvLine(string line, out List<string> columns)
     {
         columns = new List<string>(4);

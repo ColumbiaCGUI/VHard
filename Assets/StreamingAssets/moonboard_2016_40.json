@@ -1,0 +1,1324 @@
+{
+  "schemaVersion": 1,
+  "setupId": "moonboard-2016",
+  "setupName": "MoonBoard 2016",
+  "overhangAngleDegrees": 40,
+  "archiveDate": "2026-07-21",
+  "geometry": {
+    "boardWidthMeters": 2.44,
+    "totalHeightMeters": 3.15,
+    "horizontalOverhangMeters": 2.35,
+    "mainSurfaceLengthMeters": 3.6401785670486,
+    "kickerHeightMeters": 0.37,
+    "gridSpacingMeters": 0.2,
+    "mainFirstRowOffsetMeters": 0.3200892835243001,
+    "row1KickerHeightMeters": 0.1,
+    "row2KickerHeightMeters": 0.3,
+    "columns": 11,
+    "rows": 18
+  },
+  "provenance": {
+    "sourceRepository": "https://github.com/e-sr/moonboard",
+    "sourceRevision": "ccd78f587ab189acea6dd7ce8a6d4f086f65db69",
+    "problemsSha256": "f0b035f53d8aef73fcadd3cbfe23ac776856b3d2d714928089c2d54d63abdcc8",
+    "holdsSha256": "c29a4215a61baa11d66bacd622447b017ece1dbdb39e954b4703626f4ecb7d9d",
+    "dimensionsSha256": "850a2b7e8de0b7e74fb00309b3c0f27cb69be5f10372384e4d385e0afc587a78",
+    "meshAsset": "Assets/Resources/New_Decimated_Holds.fbx",
+    "meshAssetSha256": "ec1dafd9ed8ee134395af0919f7ff96cc2f34a353baaa604102e4fd2f968b22a"
+  },
+  "holds": [
+    {
+      "coordinate": "G2",
+      "scanId": "W81",
+      "holdset": "Hold Set A",
+      "holdNumber": "81",
+      "rotationDegrees": 0,
+      "sourceHoldId": "72"
+    },
+    {
+      "coordinate": "J2",
+      "scanId": "W58",
+      "holdset": "Hold Set A",
+      "holdNumber": "58",
+      "rotationDegrees": 135,
+      "sourceHoldId": "50"
+    },
+    {
+      "coordinate": "B3",
+      "scanId": "W80",
+      "holdset": "Hold Set A",
+      "holdNumber": "80",
+      "rotationDegrees": 225,
+      "sourceHoldId": "71"
+    },
+    {
+      "coordinate": "D3",
+      "scanId": "Y23",
+      "holdset": "Original School Holds",
+      "holdNumber": "23",
+      "rotationDegrees": 180,
+      "sourceHoldId": "24"
+    },
+    {
+      "coordinate": "B4",
+      "scanId": "Y29",
+      "holdset": "Original School Holds",
+      "holdNumber": "29",
+      "rotationDegrees": 225,
+      "sourceHoldId": "30"
+    },
+    {
+      "coordinate": "G4",
+      "scanId": "B141",
+      "holdset": "Hold Set B",
+      "holdNumber": "141",
+      "rotationDegrees": 0,
+      "sourceHoldId": "133"
+    },
+    {
+      "coordinate": "I4",
+      "scanId": "W83",
+      "holdset": "Hold Set A",
+      "holdNumber": "83",
+      "rotationDegrees": 45,
+      "sourceHoldId": "74"
+    },
+    {
+      "coordinate": "A5",
+      "scanId": "W85",
+      "holdset": "Hold Set A",
+      "holdNumber": "85",
+      "rotationDegrees": 0,
+      "sourceHoldId": "76"
+    },
+    {
+      "coordinate": "C5",
+      "scanId": "B125",
+      "holdset": "Hold Set B",
+      "holdNumber": "125",
+      "rotationDegrees": 0,
+      "sourceHoldId": "118"
+    },
+    {
+      "coordinate": "D5",
+      "scanId": "W97",
+      "holdset": "Hold Set A",
+      "holdNumber": "97",
+      "rotationDegrees": 315,
+      "sourceHoldId": "89"
+    },
+    {
+      "coordinate": "F5",
+      "scanId": "W89",
+      "holdset": "Hold Set A",
+      "holdNumber": "89",
+      "rotationDegrees": 0,
+      "sourceHoldId": "80"
+    },
+    {
+      "coordinate": "H5",
+      "scanId": "B111",
+      "holdset": "Hold Set B",
+      "holdNumber": "111",
+      "rotationDegrees": 315,
+      "sourceHoldId": "103"
+    },
+    {
+      "coordinate": "I5",
+      "scanId": "Y35",
+      "holdset": "Original School Holds",
+      "holdNumber": "35",
+      "rotationDegrees": 0,
+      "sourceHoldId": "36"
+    },
+    {
+      "coordinate": "J5",
+      "scanId": "B130",
+      "holdset": "Hold Set B",
+      "holdNumber": "130",
+      "rotationDegrees": 315,
+      "sourceHoldId": "122"
+    },
+    {
+      "coordinate": "K5",
+      "scanId": "W86",
+      "holdset": "Hold Set A",
+      "holdNumber": "86",
+      "rotationDegrees": 0,
+      "sourceHoldId": "77"
+    },
+    {
+      "coordinate": "B6",
+      "scanId": "B147",
+      "holdset": "Hold Set B",
+      "holdNumber": "147",
+      "rotationDegrees": 315,
+      "sourceHoldId": "139"
+    },
+    {
+      "coordinate": "C6",
+      "scanId": "W95",
+      "holdset": "Hold Set A",
+      "holdNumber": "95",
+      "rotationDegrees": 180,
+      "sourceHoldId": "87"
+    },
+    {
+      "coordinate": "D6",
+      "scanId": "Y22",
+      "holdset": "Original School Holds",
+      "holdNumber": "22",
+      "rotationDegrees": 0,
+      "sourceHoldId": "23"
+    },
+    {
+      "coordinate": "E6",
+      "scanId": "B129",
+      "holdset": "Hold Set B",
+      "holdNumber": "129",
+      "rotationDegrees": 315,
+      "sourceHoldId": "115"
+    },
+    {
+      "coordinate": "F6",
+      "scanId": "Y6",
+      "holdset": "Original School Holds",
+      "holdNumber": "6",
+      "rotationDegrees": 90,
+      "sourceHoldId": "7"
+    },
+    {
+      "coordinate": "G6",
+      "scanId": "B134",
+      "holdset": "Hold Set B",
+      "holdNumber": "134",
+      "rotationDegrees": 225,
+      "sourceHoldId": "126"
+    },
+    {
+      "coordinate": "I6",
+      "scanId": "W60",
+      "holdset": "Hold Set A",
+      "holdNumber": "60",
+      "rotationDegrees": 45,
+      "sourceHoldId": "52"
+    },
+    {
+      "coordinate": "J6",
+      "scanId": "W92",
+      "holdset": "Hold Set A",
+      "holdNumber": "92",
+      "rotationDegrees": 180,
+      "sourceHoldId": "84"
+    },
+    {
+      "coordinate": "K6",
+      "scanId": "Y7",
+      "holdset": "Original School Holds",
+      "holdNumber": "7",
+      "rotationDegrees": 0,
+      "sourceHoldId": "8"
+    },
+    {
+      "coordinate": "B7",
+      "scanId": "Y13",
+      "holdset": "Original School Holds",
+      "holdNumber": "13",
+      "rotationDegrees": 180,
+      "sourceHoldId": "14"
+    },
+    {
+      "coordinate": "C7",
+      "scanId": "Y38",
+      "holdset": "Original School Holds",
+      "holdNumber": "38",
+      "rotationDegrees": 0,
+      "sourceHoldId": "39"
+    },
+    {
+      "coordinate": "D7",
+      "scanId": "B146",
+      "holdset": "Hold Set B",
+      "holdNumber": "146",
+      "rotationDegrees": 180,
+      "sourceHoldId": "138"
+    },
+    {
+      "coordinate": "E7",
+      "scanId": "W74",
+      "holdset": "Hold Set A",
+      "holdNumber": "74",
+      "rotationDegrees": 180,
+      "sourceHoldId": "65"
+    },
+    {
+      "coordinate": "F7",
+      "scanId": "W53",
+      "holdset": "Hold Set A",
+      "holdNumber": "53",
+      "rotationDegrees": 315,
+      "sourceHoldId": "45"
+    },
+    {
+      "coordinate": "G7",
+      "scanId": "Y19",
+      "holdset": "Original School Holds",
+      "holdNumber": "19",
+      "rotationDegrees": 225,
+      "sourceHoldId": "20"
+    },
+    {
+      "coordinate": "H7",
+      "scanId": "Y1",
+      "holdset": "Original School Holds",
+      "holdNumber": "1",
+      "rotationDegrees": 135,
+      "sourceHoldId": "2"
+    },
+    {
+      "coordinate": "I7",
+      "scanId": "B107",
+      "holdset": "Hold Set B",
+      "holdNumber": "107",
+      "rotationDegrees": 45,
+      "sourceHoldId": "99"
+    },
+    {
+      "coordinate": "J7",
+      "scanId": "B113",
+      "holdset": "Hold Set B",
+      "holdNumber": "113",
+      "rotationDegrees": 0,
+      "sourceHoldId": "105"
+    },
+    {
+      "coordinate": "K7",
+      "scanId": "Y3",
+      "holdset": "Original School Holds",
+      "holdNumber": "3",
+      "rotationDegrees": 0,
+      "sourceHoldId": "4"
+    },
+    {
+      "coordinate": "B8",
+      "scanId": "W67",
+      "holdset": "Hold Set A",
+      "holdNumber": "67",
+      "rotationDegrees": 0,
+      "sourceHoldId": "59"
+    },
+    {
+      "coordinate": "C8",
+      "scanId": "B135",
+      "holdset": "Hold Set B",
+      "holdNumber": "135",
+      "rotationDegrees": 315,
+      "sourceHoldId": "127"
+    },
+    {
+      "coordinate": "D8",
+      "scanId": "Y4",
+      "holdset": "Original School Holds",
+      "holdNumber": "4",
+      "rotationDegrees": 0,
+      "sourceHoldId": "5"
+    },
+    {
+      "coordinate": "E8",
+      "scanId": "B122",
+      "holdset": "Hold Set B",
+      "holdNumber": "122",
+      "rotationDegrees": 0,
+      "sourceHoldId": "114"
+    },
+    {
+      "coordinate": "F8",
+      "scanId": "Y17",
+      "holdset": "Original School Holds",
+      "holdNumber": "17",
+      "rotationDegrees": 0,
+      "sourceHoldId": "18"
+    },
+    {
+      "coordinate": "G8",
+      "scanId": "W88",
+      "holdset": "Hold Set A",
+      "holdNumber": "88",
+      "rotationDegrees": 0,
+      "sourceHoldId": "79"
+    },
+    {
+      "coordinate": "H8",
+      "scanId": "B131",
+      "holdset": "Hold Set B",
+      "holdNumber": "131",
+      "rotationDegrees": 45,
+      "sourceHoldId": "123"
+    },
+    {
+      "coordinate": "I8",
+      "scanId": "Y10",
+      "holdset": "Original School Holds",
+      "holdNumber": "10",
+      "rotationDegrees": 0,
+      "sourceHoldId": "11"
+    },
+    {
+      "coordinate": "J8",
+      "scanId": "W76",
+      "holdset": "Hold Set A",
+      "holdNumber": "76",
+      "rotationDegrees": 0,
+      "sourceHoldId": "67"
+    },
+    {
+      "coordinate": "K8",
+      "scanId": "Y30",
+      "holdset": "Original School Holds",
+      "holdNumber": "30",
+      "rotationDegrees": 0,
+      "sourceHoldId": "31"
+    },
+    {
+      "coordinate": "A9",
+      "scanId": "B133",
+      "holdset": "Hold Set B",
+      "holdNumber": "133",
+      "rotationDegrees": 315,
+      "sourceHoldId": "125"
+    },
+    {
+      "coordinate": "B9",
+      "scanId": "W78",
+      "holdset": "Hold Set A",
+      "holdNumber": "78",
+      "rotationDegrees": 45,
+      "sourceHoldId": "69"
+    },
+    {
+      "coordinate": "C9",
+      "scanId": "Y8",
+      "holdset": "Original School Holds",
+      "holdNumber": "8",
+      "rotationDegrees": 270,
+      "sourceHoldId": "9"
+    },
+    {
+      "coordinate": "D9",
+      "scanId": "W52",
+      "holdset": "Hold Set A",
+      "holdNumber": "52",
+      "rotationDegrees": 45,
+      "sourceHoldId": "44"
+    },
+    {
+      "coordinate": "E9",
+      "scanId": "B116",
+      "holdset": "Hold Set B",
+      "holdNumber": "116",
+      "rotationDegrees": 45,
+      "sourceHoldId": "108"
+    },
+    {
+      "coordinate": "F9",
+      "scanId": "Y40",
+      "holdset": "Original School Holds",
+      "holdNumber": "40",
+      "rotationDegrees": 0,
+      "sourceHoldId": "41"
+    },
+    {
+      "coordinate": "G9",
+      "scanId": "B128",
+      "holdset": "Hold Set B",
+      "holdNumber": "128",
+      "rotationDegrees": 45,
+      "sourceHoldId": "121"
+    },
+    {
+      "coordinate": "H9",
+      "scanId": "Y32",
+      "holdset": "Original School Holds",
+      "holdNumber": "32",
+      "rotationDegrees": 90,
+      "sourceHoldId": "33"
+    },
+    {
+      "coordinate": "I9",
+      "scanId": "B109",
+      "holdset": "Hold Set B",
+      "holdNumber": "109",
+      "rotationDegrees": 135,
+      "sourceHoldId": "101"
+    },
+    {
+      "coordinate": "J9",
+      "scanId": "W61",
+      "holdset": "Hold Set A",
+      "holdNumber": "61",
+      "rotationDegrees": 135,
+      "sourceHoldId": "53"
+    },
+    {
+      "coordinate": "K9",
+      "scanId": "B121",
+      "holdset": "Hold Set B",
+      "holdNumber": "121",
+      "rotationDegrees": 0,
+      "sourceHoldId": "113"
+    },
+    {
+      "coordinate": "A10",
+      "scanId": "Y9",
+      "holdset": "Original School Holds",
+      "holdNumber": "9",
+      "rotationDegrees": 225,
+      "sourceHoldId": "10"
+    },
+    {
+      "coordinate": "B10",
+      "scanId": "B148",
+      "holdset": "Hold Set B",
+      "holdNumber": "148",
+      "rotationDegrees": 135,
+      "sourceHoldId": "140"
+    },
+    {
+      "coordinate": "C10",
+      "scanId": "W79",
+      "holdset": "Hold Set A",
+      "holdNumber": "79",
+      "rotationDegrees": 45,
+      "sourceHoldId": "70"
+    },
+    {
+      "coordinate": "D10",
+      "scanId": "Y33",
+      "holdset": "Original School Holds",
+      "holdNumber": "33",
+      "rotationDegrees": 315,
+      "sourceHoldId": "34"
+    },
+    {
+      "coordinate": "E10",
+      "scanId": "W64",
+      "holdset": "Hold Set A",
+      "holdNumber": "64",
+      "rotationDegrees": 315,
+      "sourceHoldId": "56"
+    },
+    {
+      "coordinate": "F10",
+      "scanId": "W65",
+      "holdset": "Hold Set A",
+      "holdNumber": "65",
+      "rotationDegrees": 45,
+      "sourceHoldId": "57"
+    },
+    {
+      "coordinate": "G10",
+      "scanId": "B145",
+      "holdset": "Hold Set B",
+      "holdNumber": "145",
+      "rotationDegrees": 45,
+      "sourceHoldId": "137"
+    },
+    {
+      "coordinate": "H10",
+      "scanId": "B140",
+      "holdset": "Hold Set B",
+      "holdNumber": "140",
+      "rotationDegrees": 45,
+      "sourceHoldId": "132"
+    },
+    {
+      "coordinate": "I10",
+      "scanId": "B120",
+      "holdset": "Hold Set B",
+      "holdNumber": "120",
+      "rotationDegrees": 0,
+      "sourceHoldId": "112"
+    },
+    {
+      "coordinate": "J10",
+      "scanId": "W57",
+      "holdset": "Hold Set A",
+      "holdNumber": "57",
+      "rotationDegrees": 45,
+      "sourceHoldId": "49"
+    },
+    {
+      "coordinate": "K10",
+      "scanId": "Y15",
+      "holdset": "Original School Holds",
+      "holdNumber": "15",
+      "rotationDegrees": 180,
+      "sourceHoldId": "16"
+    },
+    {
+      "coordinate": "A11",
+      "scanId": "Y12",
+      "holdset": "Original School Holds",
+      "holdNumber": "12",
+      "rotationDegrees": 135,
+      "sourceHoldId": "13"
+    },
+    {
+      "coordinate": "B11",
+      "scanId": "W56",
+      "holdset": "Hold Set A",
+      "holdNumber": "56",
+      "rotationDegrees": 315,
+      "sourceHoldId": "48"
+    },
+    {
+      "coordinate": "C11",
+      "scanId": "W94",
+      "holdset": "Hold Set A",
+      "holdNumber": "94",
+      "rotationDegrees": 270,
+      "sourceHoldId": "86"
+    },
+    {
+      "coordinate": "D11",
+      "scanId": "B119",
+      "holdset": "Hold Set B",
+      "holdNumber": "119",
+      "rotationDegrees": 225,
+      "sourceHoldId": "111"
+    },
+    {
+      "coordinate": "E11",
+      "scanId": "W72",
+      "holdset": "Hold Set A",
+      "holdNumber": "72",
+      "rotationDegrees": 0,
+      "sourceHoldId": "63"
+    },
+    {
+      "coordinate": "F11",
+      "scanId": "B118",
+      "holdset": "Hold Set B",
+      "holdNumber": "118",
+      "rotationDegrees": 45,
+      "sourceHoldId": "110"
+    },
+    {
+      "coordinate": "G11",
+      "scanId": "Y27",
+      "holdset": "Original School Holds",
+      "holdNumber": "27",
+      "rotationDegrees": 90,
+      "sourceHoldId": "29"
+    },
+    {
+      "coordinate": "H11",
+      "scanId": "W73",
+      "holdset": "Hold Set A",
+      "holdNumber": "73",
+      "rotationDegrees": 270,
+      "sourceHoldId": "64"
+    },
+    {
+      "coordinate": "I11",
+      "scanId": "W70",
+      "holdset": "Hold Set A",
+      "holdNumber": "70",
+      "rotationDegrees": 0,
+      "sourceHoldId": "61"
+    },
+    {
+      "coordinate": "J11",
+      "scanId": "Y25",
+      "holdset": "Original School Holds",
+      "holdNumber": "25",
+      "rotationDegrees": 0,
+      "sourceHoldId": "27"
+    },
+    {
+      "coordinate": "K11",
+      "scanId": "W84",
+      "holdset": "Hold Set A",
+      "holdNumber": "84",
+      "rotationDegrees": 315,
+      "sourceHoldId": "75"
+    },
+    {
+      "coordinate": "A12",
+      "scanId": "W68",
+      "holdset": "Hold Set A",
+      "holdNumber": "68",
+      "rotationDegrees": 90,
+      "sourceHoldId": "81"
+    },
+    {
+      "coordinate": "B12",
+      "scanId": "B142",
+      "holdset": "Hold Set B",
+      "holdNumber": "142",
+      "rotationDegrees": 135,
+      "sourceHoldId": "134"
+    },
+    {
+      "coordinate": "C12",
+      "scanId": "Y21",
+      "holdset": "Original School Holds",
+      "holdNumber": "21",
+      "rotationDegrees": 0,
+      "sourceHoldId": "22"
+    },
+    {
+      "coordinate": "D12",
+      "scanId": "W75",
+      "holdset": "Hold Set A",
+      "holdNumber": "75",
+      "rotationDegrees": 0,
+      "sourceHoldId": "66"
+    },
+    {
+      "coordinate": "E12",
+      "scanId": "B110",
+      "holdset": "Hold Set B",
+      "holdNumber": "110",
+      "rotationDegrees": 45,
+      "sourceHoldId": "102"
+    },
+    {
+      "coordinate": "F12",
+      "scanId": "W54",
+      "holdset": "Hold Set A",
+      "holdNumber": "54",
+      "rotationDegrees": 90,
+      "sourceHoldId": "46"
+    },
+    {
+      "coordinate": "G12",
+      "scanId": "W55",
+      "holdset": "Hold Set A",
+      "holdNumber": "55",
+      "rotationDegrees": 45,
+      "sourceHoldId": "47"
+    },
+    {
+      "coordinate": "H12",
+      "scanId": "B114",
+      "holdset": "Hold Set B",
+      "holdNumber": "114",
+      "rotationDegrees": 315,
+      "sourceHoldId": "106"
+    },
+    {
+      "coordinate": "I12",
+      "scanId": "Y36",
+      "holdset": "Original School Holds",
+      "holdNumber": "36",
+      "rotationDegrees": 225,
+      "sourceHoldId": "37"
+    },
+    {
+      "coordinate": "J12",
+      "scanId": "B102",
+      "holdset": "Hold Set B",
+      "holdNumber": "102",
+      "rotationDegrees": 45,
+      "sourceHoldId": "94"
+    },
+    {
+      "coordinate": "K12",
+      "scanId": "Y11",
+      "holdset": "Original School Holds",
+      "holdNumber": "11",
+      "rotationDegrees": 0,
+      "sourceHoldId": "12"
+    },
+    {
+      "coordinate": "A13",
+      "scanId": "Y26",
+      "holdset": "Original School Holds",
+      "holdNumber": "26",
+      "rotationDegrees": 0,
+      "sourceHoldId": "28"
+    },
+    {
+      "coordinate": "B13",
+      "scanId": "W77",
+      "holdset": "Hold Set A",
+      "holdNumber": "77",
+      "rotationDegrees": 315,
+      "sourceHoldId": "68"
+    },
+    {
+      "coordinate": "C13",
+      "scanId": "B138",
+      "holdset": "Hold Set B",
+      "holdNumber": "138",
+      "rotationDegrees": 315,
+      "sourceHoldId": "130"
+    },
+    {
+      "coordinate": "D13",
+      "scanId": "Y24",
+      "holdset": "Original School Holds",
+      "holdNumber": "24",
+      "rotationDegrees": 0,
+      "sourceHoldId": "26"
+    },
+    {
+      "coordinate": "E13",
+      "scanId": "W59",
+      "holdset": "Hold Set A",
+      "holdNumber": "59",
+      "rotationDegrees": 0,
+      "sourceHoldId": "51"
+    },
+    {
+      "coordinate": "F13",
+      "scanId": "B105",
+      "holdset": "Hold Set B",
+      "holdNumber": "105",
+      "rotationDegrees": 315,
+      "sourceHoldId": "97"
+    },
+    {
+      "coordinate": "G13",
+      "scanId": "W90",
+      "holdset": "Hold Set A",
+      "holdNumber": "90",
+      "rotationDegrees": 0,
+      "sourceHoldId": "82"
+    },
+    {
+      "coordinate": "H13",
+      "scanId": "B149",
+      "holdset": "Hold Set B",
+      "holdNumber": "149",
+      "rotationDegrees": 225,
+      "sourceHoldId": "141"
+    },
+    {
+      "coordinate": "I13",
+      "scanId": "W63",
+      "holdset": "Hold Set A",
+      "holdNumber": "63",
+      "rotationDegrees": 90,
+      "sourceHoldId": "55"
+    },
+    {
+      "coordinate": "J13",
+      "scanId": "B103",
+      "holdset": "Hold Set B",
+      "holdNumber": "103",
+      "rotationDegrees": 0,
+      "sourceHoldId": "95"
+    },
+    {
+      "coordinate": "K13",
+      "scanId": "Y37",
+      "holdset": "Original School Holds",
+      "holdNumber": "37",
+      "rotationDegrees": 0,
+      "sourceHoldId": "38"
+    },
+    {
+      "coordinate": "A14",
+      "scanId": "B123",
+      "holdset": "Hold Set B",
+      "holdNumber": "123",
+      "rotationDegrees": 315,
+      "sourceHoldId": "116"
+    },
+    {
+      "coordinate": "C14",
+      "scanId": "W50",
+      "holdset": "Hold Set A",
+      "holdNumber": "50",
+      "rotationDegrees": 0,
+      "sourceHoldId": "42"
+    },
+    {
+      "coordinate": "D14",
+      "scanId": "W93",
+      "holdset": "Hold Set A",
+      "holdNumber": "93",
+      "rotationDegrees": 0,
+      "sourceHoldId": "85"
+    },
+    {
+      "coordinate": "E14",
+      "scanId": "B127",
+      "holdset": "Hold Set B",
+      "holdNumber": "127",
+      "rotationDegrees": 90,
+      "sourceHoldId": "120"
+    },
+    {
+      "coordinate": "F14",
+      "scanId": "W62",
+      "holdset": "Hold Set A",
+      "holdNumber": "62",
+      "rotationDegrees": 315,
+      "sourceHoldId": "54"
+    },
+    {
+      "coordinate": "G14",
+      "scanId": "B137",
+      "holdset": "Hold Set B",
+      "holdNumber": "137",
+      "rotationDegrees": 90,
+      "sourceHoldId": "129"
+    },
+    {
+      "coordinate": "H14",
+      "scanId": "Y34",
+      "holdset": "Original School Holds",
+      "holdNumber": "34",
+      "rotationDegrees": 270,
+      "sourceHoldId": "35"
+    },
+    {
+      "coordinate": "I14",
+      "scanId": "B124",
+      "holdset": "Hold Set B",
+      "holdNumber": "124",
+      "rotationDegrees": 315,
+      "sourceHoldId": "117"
+    },
+    {
+      "coordinate": "J14",
+      "scanId": "Y2",
+      "holdset": "Original School Holds",
+      "holdNumber": "2",
+      "rotationDegrees": 315,
+      "sourceHoldId": "3"
+    },
+    {
+      "coordinate": "K14",
+      "scanId": "B144",
+      "holdset": "Hold Set B",
+      "holdNumber": "144",
+      "rotationDegrees": 45,
+      "sourceHoldId": "136"
+    },
+    {
+      "coordinate": "A15",
+      "scanId": "W98",
+      "holdset": "Hold Set A",
+      "holdNumber": "98",
+      "rotationDegrees": 0,
+      "sourceHoldId": "90"
+    },
+    {
+      "coordinate": "B15",
+      "scanId": "B101",
+      "holdset": "Hold Set B",
+      "holdNumber": "101",
+      "rotationDegrees": 0,
+      "sourceHoldId": "93"
+    },
+    {
+      "coordinate": "C15",
+      "scanId": "Y31",
+      "holdset": "Original School Holds",
+      "holdNumber": "31",
+      "rotationDegrees": 315,
+      "sourceHoldId": "32"
+    },
+    {
+      "coordinate": "D15",
+      "scanId": "B126",
+      "holdset": "Hold Set B",
+      "holdNumber": "126",
+      "rotationDegrees": 315,
+      "sourceHoldId": "119"
+    },
+    {
+      "coordinate": "E15",
+      "scanId": "W66",
+      "holdset": "Hold Set A",
+      "holdNumber": "66",
+      "rotationDegrees": 315,
+      "sourceHoldId": "58"
+    },
+    {
+      "coordinate": "F15",
+      "scanId": "Y18",
+      "holdset": "Original School Holds",
+      "holdNumber": "18",
+      "rotationDegrees": 0,
+      "sourceHoldId": "19"
+    },
+    {
+      "coordinate": "G15",
+      "scanId": "B112",
+      "holdset": "Hold Set B",
+      "holdNumber": "112",
+      "rotationDegrees": 315,
+      "sourceHoldId": "104"
+    },
+    {
+      "coordinate": "H15",
+      "scanId": "Y20",
+      "holdset": "Original School Holds",
+      "holdNumber": "20",
+      "rotationDegrees": 45,
+      "sourceHoldId": "21"
+    },
+    {
+      "coordinate": "I15",
+      "scanId": "B108",
+      "holdset": "Hold Set B",
+      "holdNumber": "108",
+      "rotationDegrees": 315,
+      "sourceHoldId": "100"
+    },
+    {
+      "coordinate": "A16",
+      "scanId": "Y5",
+      "holdset": "Original School Holds",
+      "holdNumber": "5",
+      "rotationDegrees": 315,
+      "sourceHoldId": "6"
+    },
+    {
+      "coordinate": "B16",
+      "scanId": "W71",
+      "holdset": "Hold Set A",
+      "holdNumber": "71",
+      "rotationDegrees": 315,
+      "sourceHoldId": "62"
+    },
+    {
+      "coordinate": "C16",
+      "scanId": "B143",
+      "holdset": "Hold Set B",
+      "holdNumber": "143",
+      "rotationDegrees": 0,
+      "sourceHoldId": "135"
+    },
+    {
+      "coordinate": "D16",
+      "scanId": "Y14",
+      "holdset": "Original School Holds",
+      "holdNumber": "14",
+      "rotationDegrees": 0,
+      "sourceHoldId": "15"
+    },
+    {
+      "coordinate": "E16",
+      "scanId": "B106",
+      "holdset": "Hold Set B",
+      "holdNumber": "106",
+      "rotationDegrees": 315,
+      "sourceHoldId": "98"
+    },
+    {
+      "coordinate": "F16",
+      "scanId": "W96",
+      "holdset": "Hold Set A",
+      "holdNumber": "96",
+      "rotationDegrees": 180,
+      "sourceHoldId": "88"
+    },
+    {
+      "coordinate": "G16",
+      "scanId": "Y16",
+      "holdset": "Original School Holds",
+      "holdNumber": "16",
+      "rotationDegrees": 0,
+      "sourceHoldId": "17"
+    },
+    {
+      "coordinate": "H16",
+      "scanId": "B100",
+      "holdset": "Hold Set B",
+      "holdNumber": "100",
+      "rotationDegrees": 0,
+      "sourceHoldId": "92"
+    },
+    {
+      "coordinate": "I16",
+      "scanId": "W69",
+      "holdset": "Hold Set A",
+      "holdNumber": "69",
+      "rotationDegrees": 45,
+      "sourceHoldId": "60"
+    },
+    {
+      "coordinate": "J16",
+      "scanId": "B117",
+      "holdset": "Hold Set B",
+      "holdNumber": "117",
+      "rotationDegrees": 90,
+      "sourceHoldId": "109"
+    },
+    {
+      "coordinate": "K16",
+      "scanId": "B104",
+      "holdset": "Hold Set B",
+      "holdNumber": "104",
+      "rotationDegrees": 0,
+      "sourceHoldId": "96"
+    },
+    {
+      "coordinate": "D17",
+      "scanId": "W51",
+      "holdset": "Hold Set A",
+      "holdNumber": "51",
+      "rotationDegrees": 0,
+      "sourceHoldId": "43"
+    },
+    {
+      "coordinate": "G17",
+      "scanId": "B115",
+      "holdset": "Hold Set B",
+      "holdNumber": "115",
+      "rotationDegrees": 0,
+      "sourceHoldId": "107"
+    },
+    {
+      "coordinate": "A18",
+      "scanId": "B139",
+      "holdset": "Hold Set B",
+      "holdNumber": "139",
+      "rotationDegrees": 0,
+      "sourceHoldId": "131"
+    },
+    {
+      "coordinate": "B18",
+      "scanId": "W99",
+      "holdset": "Hold Set A",
+      "holdNumber": "99",
+      "rotationDegrees": 135,
+      "sourceHoldId": "91"
+    },
+    {
+      "coordinate": "C18",
+      "scanId": "Y39",
+      "holdset": "Original School Holds",
+      "holdNumber": "39",
+      "rotationDegrees": 0,
+      "sourceHoldId": "40"
+    },
+    {
+      "coordinate": "D18",
+      "scanId": "B136",
+      "holdset": "Hold Set B",
+      "holdNumber": "136",
+      "rotationDegrees": 0,
+      "sourceHoldId": "128"
+    },
+    {
+      "coordinate": "E18",
+      "scanId": "W91",
+      "holdset": "Hold Set A",
+      "holdNumber": "91",
+      "rotationDegrees": 0,
+      "sourceHoldId": "83"
+    },
+    {
+      "coordinate": "G18",
+      "scanId": "W82",
+      "holdset": "Hold Set A",
+      "holdNumber": "82",
+      "rotationDegrees": 270,
+      "sourceHoldId": "73"
+    },
+    {
+      "coordinate": "H18",
+      "scanId": "Y28",
+      "holdset": "Original School Holds",
+      "holdNumber": "28",
+      "rotationDegrees": 0,
+      "sourceHoldId": "25"
+    },
+    {
+      "coordinate": "I18",
+      "scanId": "B132",
+      "holdset": "Hold Set B",
+      "holdNumber": "132",
+      "rotationDegrees": 45,
+      "sourceHoldId": "124"
+    },
+    {
+      "coordinate": "K18",
+      "scanId": "W87",
+      "holdset": "Hold Set A",
+      "holdNumber": "87",
+      "rotationDegrees": 270,
+      "sourceHoldId": "78"
+    }
+  ],
+  "routes": [
+    {
+      "id": "MB2016-19215",
+      "sourceProblemId": "19215",
+      "name": "FAR FROM THE MADDING CROWD",
+      "grade": "6B+",
+      "isBenchmark": true,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 7228,
+      "setter": "Ben Moon",
+      "lockedForStudy": true,
+      "selectionMatch": "6B+ benchmark; 7 holds; 2 distinct start holds",
+      "sourceRecordSha256": "a4fff7d386703908bec81765646f2a3f0f9cda7ea04488ac7e5f96a3e58a5832",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "E6",
+          "role": "start",
+          "sourceMoveId": "1518000"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "C5",
+          "role": "start",
+          "sourceMoveId": "1518001"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "E8",
+          "role": "move",
+          "sourceMoveId": "1518002"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "F11",
+          "role": "move",
+          "sourceMoveId": "1518003"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "C13",
+          "role": "move",
+          "sourceMoveId": "1518004"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "D15",
+          "role": "move",
+          "sourceMoveId": "1518005"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "D18",
+          "role": "finish",
+          "sourceMoveId": "1518006"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-21329",
+      "sourceProblemId": "21329",
+      "name": "KLINGON EASY",
+      "grade": "6B+",
+      "isBenchmark": true,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 6357,
+      "setter": "Ben Moon",
+      "lockedForStudy": true,
+      "selectionMatch": "6B+ benchmark; 7 holds; 2 distinct start holds",
+      "sourceRecordSha256": "c35f117ca1dbf4d8d095b810b00fa9f41f00b11afbdb2df2ee97ddc7668767e7",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "G4",
+          "role": "start",
+          "sourceMoveId": "1520000"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "E6",
+          "role": "start",
+          "sourceMoveId": "1520001"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "H10",
+          "role": "move",
+          "sourceMoveId": "1520002"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "E10",
+          "role": "move",
+          "sourceMoveId": "1520003"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "F14",
+          "role": "move",
+          "sourceMoveId": "1520004"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "I14",
+          "role": "move",
+          "sourceMoveId": "1520005"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "G18",
+          "role": "finish",
+          "sourceMoveId": "1520006"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-170190",
+      "sourceProblemId": "170190",
+      "name": "SALUHALLEN 6",
+      "grade": "6B+",
+      "isBenchmark": true,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 4312,
+      "setter": "Joakim Aagaerd",
+      "lockedForStudy": true,
+      "selectionMatch": "6B+ benchmark; 7 holds; 2 distinct start holds",
+      "sourceRecordSha256": "89ee7f8933d6e9d281732fae4a70d52e18c9c33e37a7a881bf76d634b1a56eee",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "B11",
+          "role": "move",
+          "sourceMoveId": "1622018"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "E6",
+          "role": "start",
+          "sourceMoveId": "1622019"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "E15",
+          "role": "move",
+          "sourceMoveId": "1622020"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "G9",
+          "role": "move",
+          "sourceMoveId": "1622021"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "G13",
+          "role": "move",
+          "sourceMoveId": "1622022"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "H5",
+          "role": "start",
+          "sourceMoveId": "1622023"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "I18",
+          "role": "finish",
+          "sourceMoveId": "1622024"
+        }
+      ]
+    }
+  ]
+}
