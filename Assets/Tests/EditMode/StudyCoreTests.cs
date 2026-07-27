@@ -184,8 +184,13 @@ public sealed class StudyCoreTests
 
         Assert.That(Vector3.Distance(a3, k3), Is.EqualTo(2f).Within(0.0001f));
         Assert.That(Vector3.Distance(a3, a18), Is.EqualTo(3f).Within(0.0001f));
-        Assert.That(g2.y, Is.EqualTo(0.30f).Within(0.0001f));
-        Assert.That(g2.z, Is.Zero.Within(0.0001f));
+        // Row 2 lives on the 40-degree main surface, one grid pitch below row 3, above the
+        // kicker seam (official panel layout + Movement Harlem July 2026 photos).
+        Vector3 g2ToA3 = a3 - g2;
+        Assert.That(new Vector2(g2ToA3.y, g2ToA3.z).magnitude, Is.EqualTo(0.2f).Within(0.0001f));
+        float lowRowOverhang = Mathf.Atan2(Mathf.Abs(g2ToA3.z), g2ToA3.y) * Mathf.Rad2Deg;
+        Assert.That(lowRowOverhang, Is.EqualTo(40f).Within(0.001f));
+        Assert.That(g2.y, Is.GreaterThan(0.37f));
         Vector3 rise = a18 - a3;
         float overhang = Mathf.Atan2(Mathf.Abs(rise.z), rise.y) * Mathf.Rad2Deg;
         Assert.That(overhang, Is.EqualTo(40f).Within(0.001f));

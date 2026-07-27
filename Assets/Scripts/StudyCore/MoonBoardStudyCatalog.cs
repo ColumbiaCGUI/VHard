@@ -197,14 +197,11 @@ public sealed class MoonBoardStudyCatalog
         }
 
         float x = (column - (geometry.columns - 1) * 0.5f) * geometry.gridSpacingMeters;
-        if (row <= 2)
-        {
-            float height = row == 1
-                ? geometry.row1KickerHeightMeters
-                : geometry.row2KickerHeightMeters;
-            return new Vector3(x, height, 0f);
-        }
-
+        // All 18 grid rows live on the 40-degree main surface: the official 2016 panel layout
+        // (3x1220 mm main panels = rows 1-18 at 200 mm pitch) and the Movement Harlem photos
+        // (July 2026 Videos, 4_iphone13.JPG) both show G2/J2 - the only sub-row-3 holds -
+        // mounted above the kicker seam; the vertical kicker carries only screw-on foot jibs.
+        // row1/row2KickerHeightMeters remain in the approved catalog schema but are unused.
         float distance = geometry.mainFirstRowOffsetMeters + (row - 3) * geometry.gridSpacingMeters;
         float tiltRadians = Mathf.Deg2Rad * SurfaceTiltDegrees;
         return new Vector3(
@@ -219,8 +216,7 @@ public sealed class MoonBoardStudyCatalog
         {
             throw new ArgumentException("Invalid MoonBoard coordinate: " + hold.coordinate, nameof(hold));
         }
-        float surfaceTilt = row <= 2 ? 90f : SurfaceTiltDegrees;
-        Quaternion mount = Quaternion.Euler(surfaceTilt, 0f, 180f);
+        Quaternion mount = Quaternion.Euler(SurfaceTiltDegrees, 0f, 180f);
         Quaternion scanOrientation = Quaternion.Euler(270f, 360f - hold.rotationDegrees, 0f);
         return mount * scanOrientation;
     }
