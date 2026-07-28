@@ -12,8 +12,8 @@ DEFAULT_CATALOG = Path(__file__).resolve().parents[1] / "Assets/StreamingAssets/
 
 def load_routes(catalog_path: Path) -> tuple[str, str, str]:
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
-    if catalog.get("schemaVersion") != 1:
-        raise ValueError("MoonBoard catalog schemaVersion must be 1")
+    if catalog.get("schemaVersion") != 3:
+        raise ValueError("MoonBoard catalog schemaVersion must be 3")
     if catalog.get("setupId") != "moonboard-2016" or catalog.get("overhangAngleDegrees") != 40:
         raise ValueError("Study routes must use MoonBoard 2016 at 40 degrees")
     routes = tuple(route["id"] for route in catalog.get("routes", ()) if route.get("lockedForStudy"))

@@ -197,6 +197,201 @@ public sealed class StudyCoreTests
     }
 
     [Test]
+    public void CatalogPreservesApprovedPhysicalCalibrations()
+    {
+        MoonBoardStudyCatalog catalog = LoadCatalog();
+        Assert.That(catalog.schemaVersion, Is.EqualTo(3));
+
+        int correctedMeshes = 0;
+        foreach (MoonBoardHoldDefinition hold in catalog.holds)
+        {
+            // Seating offsets are half the hold's physical depth, so they shrank with the
+            // schema-3 scale calibration (they were normalised-mesh sized before).
+            Assert.That(hold.surfaceOffsetMeters, Is.InRange(0.009f, 0.040f), hold.coordinate);
+            if (hold.hasMeshFrameCorrection)
+            {
+                correctedMeshes++;
+                Assert.That(hold.scanId, Is.EqualTo("W98"));
+            }
+        }
+        Assert.That(correctedMeshes, Is.EqualTo(1));
+
+        Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
+        Assert.That(a15.surfaceOffsetMeters, Is.EqualTo(0.0386675299f).Within(0.0000001f));
+        Vector3 expectedPosition = new(-1f, 2.4288543f, -1.7780607f);
+        Quaternion expectedRotation = new(0.3159854f, -0.3596048f, 0.13088544f, -0.8681628f);
+        Assert.That(Vector3.Distance(catalog.GetSeatedBoardLocalPosition(a15), expectedPosition),
+            Is.LessThan(0.00001f));
+        Assert.That(Quaternion.Angle(catalog.GetBoardLocalRotation(a15), expectedRotation),
+            Is.LessThan(0.001f));
+    }
+
+    [Test]
+    public void CatalogPinsPhysicalHoldScale()
+    {
+        MoonBoardStudyCatalog catalog = LoadCatalog();
+        int metricScans = 0;
+        int unalignedScans = 0;
+        int photoEstimates = 0;
+        foreach (MoonBoardHoldDefinition hold in catalog.holds)
+        {
+            Assert.That(hold.meshScaleMultiplier,
+                Is.InRange(MoonBoardStudyCatalog.MinScaleMultiplier,
+                           MoonBoardStudyCatalog.MaxScaleMultiplier), hold.coordinate);
+            Assert.That(MoonBoardStudyCatalog.ScaleCalibrationSources,
+                Does.Contain(hold.scaleCalibrationSource), hold.coordinate);
+            if (hold.scaleCalibrationSource == "metric-scan")
+            {
+                metricScans++;
+            }
+            else if (hold.scaleCalibrationSource == "metric-scan-unaligned")
+            {
+                unalignedScans++;
+            }
+            else
+            {
+                photoEstimates++;
+            }
+
+            // A hold must render at its calibrated physical size, never at the
+            // normalised 200 mm grid-cell size the aggregate FBX ships with.
+            Vector3 scale = catalog.GetHoldLocalScale(hold);
+            Assert.That(scale.x, Is.EqualTo(scale.y).Within(0.000001f), hold.coordinate);
+            Assert.That(scale.x, Is.EqualTo(scale.z).Within(0.000001f), hold.coordinate);
+            Assert.That(scale.x,
+                Is.EqualTo(MoonBoardStudyCatalog.NormalizedMeshScale * hold.meshScaleMultiplier)
+                    .Within(0.000001f), hold.coordinate);
+            Assert.That(scale.x, Is.LessThan(MoonBoardStudyCatalog.NormalizedMeshScale * 1.5f),
+                hold.coordinate);
+        }
+
+        // Every hold with local metric scan geometry is exact; the rest are photo-estimated
+        // from the rectified Movement Harlem board photograph and must stay auditable.
+        // All 140 are exact: depth read off the base-plane-aligned scan, an axis that reproduces
+        // the trusted dimension to the last float32 bit on 12 known holds. Nothing is estimated
+        // from a photograph, and nothing falls back to the weaker frame-independent descriptor -
+        // W98 was the last such hold and is now resolved by a volume-ratio cross-check against the
+        // normalised FBX child, which is invariant to frame and centre and agrees to 0.007%.
+        Assert.That(metricScans, Is.EqualTo(140));
+        Assert.That(unalignedScans, Is.Zero);
+        Assert.That(photoEstimates, Is.Zero);
+
+        Assert.That(catalog.TryGetHold("G2", out MoonBoardHoldDefinition g2), Is.True);
+        Assert.That(g2.scanId, Is.EqualTo("W81"));
+        Assert.That(g2.scaleCalibrationSource, Is.EqualTo("metric-scan"));
+        Assert.That(g2.meshScaleMultiplier, Is.EqualTo(0.402781267f).Within(0.0000001f));
+        Assert.That(catalog.GetHoldLocalScale(g2).x, Is.EqualTo(40.2781267f).Within(0.0001f));
+
+        Assert.That(catalog.TryGetHold("E14", out MoonBoardHoldDefinition e14), Is.True);
+        Assert.That(e14.scanId, Is.EqualTo("B127"));
+        // B127 had no local geometry AND its Creality file was deleted; recovered from the
+        // re-oriented "Zplane" scan variant, which a rotation-invariant descriptor tolerates.
+        Assert.That(e14.scaleCalibrationSource, Is.EqualTo("metric-scan"));
+    }
+
+    [Test]
+    public void KickerFootJibsFormTheObservedLattice()
+    {
+        MoonBoardStudyCatalog catalog = LoadCatalog();
+        Vector3[] jibs = catalog.GetKickerJibLocalPositions();
+
+        // 5 columns x 2 rows, matching the 10 jibs detected in physical_4_iphone13.jpg.
+        Assert.That(jibs.Length, Is.EqualTo(10));
+
+        float[] rows = { catalog.geometry.row1KickerHeightMeters, catalog.geometry.row2KickerHeightMeters };
+        foreach (float row in rows)
+        {
+            // Each row sits on the vertical kicker, never above it.
+            Assert.That(row, Is.GreaterThan(0f));
+            Assert.That(row, Is.LessThan(catalog.geometry.kickerHeightMeters));
+        }
+
+        List<float> columns = new();
+        foreach (Vector3 jib in jibs)
+        {
+            Assert.That(rows, Does.Contain(jib.y));
+            // Seated proud of the kicker face, on the climber's side.
+            Assert.That(jib.z, Is.LessThan(0f));
+            if (!columns.Contains(jib.x))
+            {
+                columns.Add(jib.x);
+            }
+        }
+        columns.Sort();
+        Assert.That(columns.Count, Is.EqualTo(5));
+
+        // Column pitch is two grid cells, and the lattice is symmetric about board centre.
+        for (int i = 1; i < columns.Count; i++)
+        {
+            Assert.That(columns[i] - columns[i - 1],
+                Is.EqualTo(catalog.geometry.gridSpacingMeters * MoonBoardStudyCatalog.KickerJibColumnStride)
+                    .Within(0.000001f));
+        }
+        Assert.That(columns[0], Is.EqualTo(-columns[columns.Count - 1]).Within(0.000001f));
+
+        // Jibs are furniture: they must never collide with the 140 study holds.
+        foreach (MoonBoardHoldDefinition hold in catalog.holds)
+        {
+            Vector3 holdPosition = catalog.GetSeatedBoardLocalPosition(hold);
+            foreach (Vector3 jib in jibs)
+            {
+                Assert.That(Vector3.Distance(holdPosition, jib), Is.GreaterThan(0.05f),
+                    hold.coordinate);
+            }
+        }
+    }
+
+    [Test]
+    public void CatalogRejectsInvalidHoldScale()
+    {
+        MoonBoardStudyCatalog catalog = LoadCatalog();
+        Assert.That(catalog.TryGetHold("G2", out MoonBoardHoldDefinition zero), Is.True);
+        zero.meshScaleMultiplier = 0f;
+        Assert.That(catalog.TryValidate(out string zeroError), Is.False);
+        Assert.That(zeroError, Does.Contain("physical calibration").And.Contain("G2"));
+
+        catalog = LoadCatalog();
+        Assert.That(catalog.TryGetHold("G2", out MoonBoardHoldDefinition huge), Is.True);
+        huge.meshScaleMultiplier = 2f;
+        Assert.That(catalog.TryValidate(out string hugeError), Is.False);
+        Assert.That(hugeError, Does.Contain("physical calibration").And.Contain("G2"));
+
+        catalog = LoadCatalog();
+        Assert.That(catalog.TryGetHold("G2", out MoonBoardHoldDefinition unknown), Is.True);
+        unknown.scaleCalibrationSource = "guessed";
+        Assert.That(catalog.TryValidate(out string sourceError), Is.False);
+        Assert.That(sourceError, Does.Contain("physical calibration").And.Contain("G2"));
+
+        catalog = LoadCatalog();
+        Assert.That(catalog.TryGetHold("G2", out MoonBoardHoldDefinition bad), Is.True);
+        bad.meshScaleMultiplier = float.NaN;
+        Assert.That(() => catalog.GetHoldLocalScale(bad), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void CatalogRejectsInvalidPhysicalCalibration()
+    {
+        MoonBoardStudyCatalog catalog = LoadCatalog();
+        Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
+        a15.surfaceOffsetMeters = 0f;
+
+        Assert.That(catalog.TryValidate(out string offsetError), Is.False);
+        Assert.That(offsetError, Does.Contain("physical calibration").And.Contain("A15"));
+
+        catalog = LoadCatalog();
+        Assert.That(catalog.TryGetHold("A15", out a15), Is.True);
+        a15.meshFrameCorrection.w = 0f;
+        Assert.That(catalog.TryValidate(out string quaternionError), Is.False);
+        Assert.That(quaternionError, Does.Contain("physical calibration").And.Contain("A15"));
+
+        catalog = LoadCatalog();
+        Assert.That(catalog.TryGetHold("G2", out MoonBoardHoldDefinition g2), Is.True);
+        g2.meshFrameCorrection.w = 1f;
+        Assert.That(catalog.TryValidate(out string unflaggedError), Is.False);
+        Assert.That(unflaggedError, Does.Contain("physical calibration").And.Contain("G2"));
+    }
+
+    [Test]
     public void CatalogRejectsTamperedMeshProvenance()
     {
         string path = Path.Combine(Application.streamingAssetsPath, "moonboard_2016_40.json");

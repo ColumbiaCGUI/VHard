@@ -74,8 +74,9 @@ public sealed class MoonBoard2016Layout : MonoBehaviour
                 error = "MoonBoard scene is missing hold " + definition.coordinate + ".";
                 return false;
             }
-            hold.localPosition = catalog.GetBoardLocalPosition(definition.coordinate);
+            hold.localPosition = catalog.GetSeatedBoardLocalPosition(definition);
             hold.localRotation = catalog.GetBoardLocalRotation(definition);
+            hold.localScale = catalog.GetHoldLocalScale(definition);
         }
 
         return TryValidateAppliedLayout(catalog, out error);
@@ -116,10 +117,15 @@ public sealed class MoonBoard2016Layout : MonoBehaviour
                 error = "MoonBoard layout is missing hold " + definition.coordinate + ".";
                 return false;
             }
-            if (Vector3.Distance(hold.localPosition, catalog.GetBoardLocalPosition(definition.coordinate)) > 0.001f ||
+            if (Vector3.Distance(hold.localPosition, catalog.GetSeatedBoardLocalPosition(definition)) > 0.001f ||
                 Quaternion.Angle(hold.localRotation, catalog.GetBoardLocalRotation(definition)) > 0.1f)
             {
                 error = "MoonBoard hold transform does not match the catalog: " + definition.coordinate + ".";
+                return false;
+            }
+            if (Vector3.Distance(hold.localScale, catalog.GetHoldLocalScale(definition)) > 0.001f)
+            {
+                error = "MoonBoard hold is not at its calibrated physical scale: " + definition.coordinate + ".";
                 return false;
             }
         }

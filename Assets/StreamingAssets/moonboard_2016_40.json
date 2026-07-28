@@ -1,9 +1,9 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "setupId": "moonboard-2016",
   "setupName": "MoonBoard 2016",
   "overhangAngleDegrees": 40,
-  "archiveDate": "2026-07-21",
+  "archiveDate": "2026-07-27",
   "geometry": {
     "boardWidthMeters": 2.44,
     "totalHeightMeters": 3.15,
@@ -33,6 +33,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "81",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.027520821935745923,
+      "meshScaleMultiplier": 0.402781267,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "72"
     },
     {
@@ -41,6 +44,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "58",
       "rotationDegrees": 135,
+      "surfaceOffsetMeters": 0.01701382093266606,
+      "meshScaleMultiplier": 0.534399224,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "50"
     },
     {
@@ -49,6 +55,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "80",
       "rotationDegrees": 225,
+      "surfaceOffsetMeters": 0.02541495523412923,
+      "meshScaleMultiplier": 0.711280066,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "71"
     },
     {
@@ -57,6 +66,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "23",
       "rotationDegrees": 180,
+      "surfaceOffsetMeters": 0.013613278163763207,
+      "meshScaleMultiplier": 0.320772347,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "24"
     },
     {
@@ -65,6 +77,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "29",
       "rotationDegrees": 225,
+      "surfaceOffsetMeters": 0.013744046678762202,
+      "meshScaleMultiplier": 0.482812656,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "30"
     },
     {
@@ -73,6 +88,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "141",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.02820067441780232,
+      "meshScaleMultiplier": 0.845071513,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "133"
     },
     {
@@ -81,6 +99,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "83",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.023265284798551725,
+      "meshScaleMultiplier": 0.974671944,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "74"
     },
     {
@@ -89,6 +110,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "85",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01551629157494089,
+      "meshScaleMultiplier": 0.730033846,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "76"
     },
     {
@@ -97,6 +121,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "125",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01213476196343283,
+      "meshScaleMultiplier": 0.620536027,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "118"
     },
     {
@@ -105,6 +132,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "97",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.021305520809210388,
+      "meshScaleMultiplier": 0.85948137,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "89"
     },
     {
@@ -113,6 +143,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "89",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.022406605641238538,
+      "meshScaleMultiplier": 0.713183173,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "80"
     },
     {
@@ -121,6 +154,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "111",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.016045478623369663,
+      "meshScaleMultiplier": 0.424710929,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "103"
     },
     {
@@ -129,6 +165,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "35",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.02084807194454959,
+      "meshScaleMultiplier": 0.554730843,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "36"
     },
     {
@@ -137,6 +176,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "130",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.025483449545644955,
+      "meshScaleMultiplier": 0.881061245,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "122"
     },
     {
@@ -145,6 +187,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "86",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.025983797134071705,
+      "meshScaleMultiplier": 0.556571144,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "77"
     },
     {
@@ -153,6 +198,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "147",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.021081071992618185,
+      "meshScaleMultiplier": 0.722229623,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "139"
     },
     {
@@ -161,6 +209,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "95",
       "rotationDegrees": 180,
+      "surfaceOffsetMeters": 0.023600143274159206,
+      "meshScaleMultiplier": 0.608542761,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "87"
     },
     {
@@ -169,6 +220,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "22",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.010581566965491009,
+      "meshScaleMultiplier": 0.445441102,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "23"
     },
     {
@@ -177,6 +231,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "129",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.019963794264003895,
+      "meshScaleMultiplier": 0.599985034,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "115"
     },
     {
@@ -185,6 +242,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "6",
       "rotationDegrees": 90,
+      "surfaceOffsetMeters": 0.01140566787516696,
+      "meshScaleMultiplier": 0.291977324,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "7"
     },
     {
@@ -193,6 +253,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "134",
       "rotationDegrees": 225,
+      "surfaceOffsetMeters": 0.02280181336780041,
+      "meshScaleMultiplier": 0.775152755,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "126"
     },
     {
@@ -201,6 +264,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "60",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.012119490321170831,
+      "meshScaleMultiplier": 0.657467003,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "52"
     },
     {
@@ -209,6 +275,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "92",
       "rotationDegrees": 180,
+      "surfaceOffsetMeters": 0.01674771210155841,
+      "meshScaleMultiplier": 0.461290417,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "84"
     },
     {
@@ -217,6 +286,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "7",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.009368394063129542,
+      "meshScaleMultiplier": 0.295436029,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "8"
     },
     {
@@ -225,6 +297,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "13",
       "rotationDegrees": 180,
+      "surfaceOffsetMeters": 0.010269019638178303,
+      "meshScaleMultiplier": 0.33853146,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "14"
     },
     {
@@ -233,6 +308,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "38",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01795171115782892,
+      "meshScaleMultiplier": 0.458190246,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "39"
     },
     {
@@ -241,6 +319,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "146",
       "rotationDegrees": 180,
+      "surfaceOffsetMeters": 0.021006953256282993,
+      "meshScaleMultiplier": 0.621559713,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "138"
     },
     {
@@ -249,6 +330,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "74",
       "rotationDegrees": 180,
+      "surfaceOffsetMeters": 0.02884049340961419,
+      "meshScaleMultiplier": 0.602323031,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "65"
     },
     {
@@ -257,6 +341,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "53",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.019445828096374896,
+      "meshScaleMultiplier": 0.507582467,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "45"
     },
     {
@@ -265,6 +352,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "19",
       "rotationDegrees": 225,
+      "surfaceOffsetMeters": 0.01093174839491825,
+      "meshScaleMultiplier": 0.390264004,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "20"
     },
     {
@@ -273,6 +363,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "1",
       "rotationDegrees": 135,
+      "surfaceOffsetMeters": 0.013403745962040588,
+      "meshScaleMultiplier": 0.368080045,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "2"
     },
     {
@@ -281,6 +374,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "107",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.022571900030467208,
+      "meshScaleMultiplier": 0.523779278,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "99"
     },
     {
@@ -289,6 +385,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "113",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01784628326363659,
+      "meshScaleMultiplier": 0.461038203,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "105"
     },
     {
@@ -297,6 +396,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "3",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.011858666439054085,
+      "meshScaleMultiplier": 0.341255013,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "4"
     },
     {
@@ -305,6 +407,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "67",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.0152117983666924,
+      "meshScaleMultiplier": 0.51234448,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "59"
     },
     {
@@ -313,6 +418,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "135",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.024227075875071332,
+      "meshScaleMultiplier": 0.872497675,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "127"
     },
     {
@@ -321,6 +429,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "4",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.011909603865832919,
+      "meshScaleMultiplier": 0.340103297,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "5"
     },
     {
@@ -329,6 +440,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "122",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.019340825195756414,
+      "meshScaleMultiplier": 0.551241283,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "114"
     },
     {
@@ -337,6 +451,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "17",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.012619430764575225,
+      "meshScaleMultiplier": 0.348786294,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "18"
     },
     {
@@ -345,6 +462,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "88",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01993151113720721,
+      "meshScaleMultiplier": 0.719157927,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "79"
     },
     {
@@ -353,6 +473,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "131",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.021814209230799263,
+      "meshScaleMultiplier": 0.841662765,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "123"
     },
     {
@@ -361,6 +484,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "10",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.009410749840561061,
+      "meshScaleMultiplier": 0.366017043,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "11"
     },
     {
@@ -369,6 +495,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "76",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01677209471277782,
+      "meshScaleMultiplier": 0.523982846,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "67"
     },
     {
@@ -377,6 +506,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "30",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.010790099776043456,
+      "meshScaleMultiplier": 0.373698743,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "31"
     },
     {
@@ -385,6 +517,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "133",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.024851026265765165,
+      "meshScaleMultiplier": 0.57624167,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "125"
     },
     {
@@ -393,6 +528,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "78",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.01828712215973099,
+      "meshScaleMultiplier": 0.861472751,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "69"
     },
     {
@@ -401,6 +539,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "8",
       "rotationDegrees": 270,
+      "surfaceOffsetMeters": 0.011882295835804845,
+      "meshScaleMultiplier": 0.30637276,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "9"
     },
     {
@@ -409,6 +550,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "52",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.020494224589418228,
+      "meshScaleMultiplier": 0.505410647,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "44"
     },
     {
@@ -417,6 +561,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "116",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.012564843343091922,
+      "meshScaleMultiplier": 0.551617867,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "108"
     },
     {
@@ -425,6 +572,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "40",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.0166060378692582,
+      "meshScaleMultiplier": 0.334811301,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "41"
     },
     {
@@ -433,6 +583,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "128",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.021531898353981768,
+      "meshScaleMultiplier": 0.529249528,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "121"
     },
     {
@@ -441,6 +594,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "32",
       "rotationDegrees": 90,
+      "surfaceOffsetMeters": 0.01736373014678217,
+      "meshScaleMultiplier": 0.371068994,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "33"
     },
     {
@@ -449,6 +605,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "109",
       "rotationDegrees": 135,
+      "surfaceOffsetMeters": 0.017919965448968168,
+      "meshScaleMultiplier": 0.41217733,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "101"
     },
     {
@@ -457,6 +616,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "61",
       "rotationDegrees": 135,
+      "surfaceOffsetMeters": 0.015417701735633416,
+      "meshScaleMultiplier": 0.721413135,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "53"
     },
     {
@@ -465,6 +627,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "121",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.013338054488934187,
+      "meshScaleMultiplier": 0.438418234,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "113"
     },
     {
@@ -473,6 +638,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "9",
       "rotationDegrees": 225,
+      "surfaceOffsetMeters": 0.009920032585771309,
+      "meshScaleMultiplier": 0.422103253,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "10"
     },
     {
@@ -481,6 +649,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "148",
       "rotationDegrees": 135,
+      "surfaceOffsetMeters": 0.023970000010406806,
+      "meshScaleMultiplier": 0.801630551,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "140"
     },
     {
@@ -489,6 +660,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "79",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.020202558686639498,
+      "meshScaleMultiplier": 0.762676482,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "70"
     },
     {
@@ -497,6 +671,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "33",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.039508453423311655,
+      "meshScaleMultiplier": 0.418324422,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "34"
     },
     {
@@ -505,6 +682,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "64",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.018843472447541056,
+      "meshScaleMultiplier": 0.658398272,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "56"
     },
     {
@@ -513,6 +693,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "65",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.013812668735644153,
+      "meshScaleMultiplier": 0.682601099,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "57"
     },
     {
@@ -521,6 +704,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "145",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.01800499935762568,
+      "meshScaleMultiplier": 0.5422061,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "137"
     },
     {
@@ -529,6 +715,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "140",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.02785039897379355,
+      "meshScaleMultiplier": 0.87304327,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "132"
     },
     {
@@ -537,6 +726,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "120",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.013043785218905818,
+      "meshScaleMultiplier": 0.590557419,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "112"
     },
     {
@@ -545,6 +737,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "57",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.012461696854340695,
+      "meshScaleMultiplier": 0.545719045,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "49"
     },
     {
@@ -553,6 +748,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "15",
       "rotationDegrees": 180,
+      "surfaceOffsetMeters": 0.012001410381438466,
+      "meshScaleMultiplier": 0.323185774,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "16"
     },
     {
@@ -561,6 +759,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "12",
       "rotationDegrees": 135,
+      "surfaceOffsetMeters": 0.012184977559458793,
+      "meshScaleMultiplier": 0.459882042,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "13"
     },
     {
@@ -569,6 +770,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "56",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.01687132699823206,
+      "meshScaleMultiplier": 0.683585585,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "48"
     },
     {
@@ -577,6 +781,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "94",
       "rotationDegrees": 270,
+      "surfaceOffsetMeters": 0.01351651343333076,
+      "meshScaleMultiplier": 0.563333118,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "86"
     },
     {
@@ -585,6 +792,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "119",
       "rotationDegrees": 225,
+      "surfaceOffsetMeters": 0.01500323328207267,
+      "meshScaleMultiplier": 0.660384068,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "111"
     },
     {
@@ -593,6 +803,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "72",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01384238534550588,
+      "meshScaleMultiplier": 0.550294812,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "63"
     },
     {
@@ -601,6 +814,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "118",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.016335197954428848,
+      "meshScaleMultiplier": 0.620535332,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "110"
     },
     {
@@ -609,6 +825,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "27",
       "rotationDegrees": 90,
+      "surfaceOffsetMeters": 0.012079115949576048,
+      "meshScaleMultiplier": 0.360342191,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "29"
     },
     {
@@ -617,6 +836,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "73",
       "rotationDegrees": 270,
+      "surfaceOffsetMeters": 0.017034609323520473,
+      "meshScaleMultiplier": 0.776349917,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "64"
     },
     {
@@ -625,6 +847,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "70",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.019649710163392,
+      "meshScaleMultiplier": 0.426350604,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "61"
     },
     {
@@ -633,6 +858,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "25",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01109128046609404,
+      "meshScaleMultiplier": 0.391628537,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "27"
     },
     {
@@ -641,6 +869,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "84",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.016635176445338185,
+      "meshScaleMultiplier": 0.731873496,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "75"
     },
     {
@@ -649,6 +880,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "68",
       "rotationDegrees": 90,
+      "surfaceOffsetMeters": 0.020344770659689874,
+      "meshScaleMultiplier": 0.503697375,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "81"
     },
     {
@@ -657,6 +891,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "142",
       "rotationDegrees": 135,
+      "surfaceOffsetMeters": 0.023191755180748518,
+      "meshScaleMultiplier": 0.577176873,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "134"
     },
     {
@@ -665,6 +902,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "21",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.013399294694851396,
+      "meshScaleMultiplier": 0.302337676,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "22"
     },
     {
@@ -673,6 +913,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "75",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.024217906798012258,
+      "meshScaleMultiplier": 0.475408243,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "66"
     },
     {
@@ -681,6 +924,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "110",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.015715964117205057,
+      "meshScaleMultiplier": 0.650492188,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "102"
     },
     {
@@ -689,6 +935,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "54",
       "rotationDegrees": 90,
+      "surfaceOffsetMeters": 0.017924549980950253,
+      "meshScaleMultiplier": 0.514876273,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "46"
     },
     {
@@ -697,6 +946,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "55",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.018462748638329224,
+      "meshScaleMultiplier": 0.585639232,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "47"
     },
     {
@@ -705,6 +957,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "114",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.012495221712103863,
+      "meshScaleMultiplier": 0.514212199,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "106"
     },
     {
@@ -713,6 +968,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "36",
       "rotationDegrees": 225,
+      "surfaceOffsetMeters": 0.01753947317694134,
+      "meshScaleMultiplier": 0.554864071,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "37"
     },
     {
@@ -721,6 +979,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "102",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.012995063813928094,
+      "meshScaleMultiplier": 0.55791101,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "94"
     },
     {
@@ -729,6 +990,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "11",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.011657051313412832,
+      "meshScaleMultiplier": 0.392487152,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "12"
     },
     {
@@ -737,6 +1001,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "26",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.013350545683886831,
+      "meshScaleMultiplier": 0.319417867,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "28"
     },
     {
@@ -745,6 +1012,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "77",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.021815576021634104,
+      "meshScaleMultiplier": 0.751917608,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "68"
     },
     {
@@ -753,6 +1023,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "138",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.0241288461420104,
+      "meshScaleMultiplier": 0.92680168,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "130"
     },
     {
@@ -761,6 +1034,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "24",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.016783747291987096,
+      "meshScaleMultiplier": 0.277058888,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "26"
     },
     {
@@ -769,6 +1045,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "59",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.015777075736944274,
+      "meshScaleMultiplier": 0.481681311,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "51"
     },
     {
@@ -777,6 +1056,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "105",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.013176164915590186,
+      "meshScaleMultiplier": 0.462240919,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "97"
     },
     {
@@ -785,6 +1067,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "90",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.02030282550457902,
+      "meshScaleMultiplier": 0.75743418,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "82"
     },
     {
@@ -793,6 +1078,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "149",
       "rotationDegrees": 225,
+      "surfaceOffsetMeters": 0.02425589861774581,
+      "meshScaleMultiplier": 1.008292451,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "141"
     },
     {
@@ -801,6 +1089,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "63",
       "rotationDegrees": 90,
+      "surfaceOffsetMeters": 0.015789996781728384,
+      "meshScaleMultiplier": 0.572654816,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "55"
     },
     {
@@ -809,6 +1100,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "103",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.014602805515231921,
+      "meshScaleMultiplier": 0.473641268,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "95"
     },
     {
@@ -817,6 +1111,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "37",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.014731679376208676,
+      "meshScaleMultiplier": 0.373124497,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "38"
     },
     {
@@ -825,6 +1122,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "123",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.015829312543222195,
+      "meshScaleMultiplier": 0.811547658,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "116"
     },
     {
@@ -833,6 +1133,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "50",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.013370761845267405,
+      "meshScaleMultiplier": 0.363169954,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "42"
     },
     {
@@ -841,6 +1144,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "93",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.0204380447252686,
+      "meshScaleMultiplier": 0.552061801,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "85"
     },
     {
@@ -849,6 +1155,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "127",
       "rotationDegrees": 90,
+      "surfaceOffsetMeters": 0.01277625036585458,
+      "meshScaleMultiplier": 0.64022941,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "120"
     },
     {
@@ -857,6 +1166,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "62",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.02296765451608686,
+      "meshScaleMultiplier": 0.504534941,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "54"
     },
     {
@@ -865,6 +1177,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "137",
       "rotationDegrees": 90,
+      "surfaceOffsetMeters": 0.029400789790849015,
+      "meshScaleMultiplier": 0.719880919,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "129"
     },
     {
@@ -873,6 +1188,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "34",
       "rotationDegrees": 270,
+      "surfaceOffsetMeters": 0.014751419357239741,
+      "meshScaleMultiplier": 0.419348726,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "35"
     },
     {
@@ -881,6 +1199,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "124",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.02384950295890266,
+      "meshScaleMultiplier": 0.734676362,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "117"
     },
     {
@@ -889,6 +1210,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "2",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.010400989392392196,
+      "meshScaleMultiplier": 0.425105564,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "3"
     },
     {
@@ -897,6 +1221,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "144",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.021266136075860278,
+      "meshScaleMultiplier": 0.6833037,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "136"
     },
     {
@@ -905,7 +1232,17 @@
       "holdset": "Hold Set A",
       "holdNumber": "98",
       "rotationDegrees": 0,
-      "sourceHoldId": "90"
+      "surfaceOffsetMeters": 0.0386675298586605,
+      "meshScaleMultiplier": 0.665173,
+      "scaleCalibrationSource": "metric-scan",
+      "sourceHoldId": "90",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": -0.92387953,
+        "z": 0.0,
+        "w": 0.38268343
+      }
     },
     {
       "coordinate": "B15",
@@ -913,6 +1250,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "101",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01237106173250792,
+      "meshScaleMultiplier": 0.416924191,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "93"
     },
     {
@@ -921,6 +1261,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "31",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.013552156638096516,
+      "meshScaleMultiplier": 0.563930004,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "32"
     },
     {
@@ -929,6 +1272,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "126",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.02017098405620529,
+      "meshScaleMultiplier": 0.803702031,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "119"
     },
     {
@@ -937,6 +1283,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "66",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.018636194113845587,
+      "meshScaleMultiplier": 0.578755945,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "58"
     },
     {
@@ -945,6 +1294,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "18",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01098493767158253,
+      "meshScaleMultiplier": 0.371858101,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "19"
     },
     {
@@ -953,6 +1305,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "112",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.01881666953604014,
+      "meshScaleMultiplier": 0.561564416,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "104"
     },
     {
@@ -961,6 +1316,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "20",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.014112973929453954,
+      "meshScaleMultiplier": 0.39383108,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "21"
     },
     {
@@ -969,6 +1327,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "108",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.013687575992583481,
+      "meshScaleMultiplier": 0.661132872,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "100"
     },
     {
@@ -977,6 +1338,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "5",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.010834637223085898,
+      "meshScaleMultiplier": 0.446405053,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "6"
     },
     {
@@ -985,6 +1349,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "71",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.016223857076555298,
+      "meshScaleMultiplier": 0.931728202,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "62"
     },
     {
@@ -993,6 +1360,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "143",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.020805331325421433,
+      "meshScaleMultiplier": 0.489693149,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "135"
     },
     {
@@ -1001,6 +1371,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "14",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.010602833370815362,
+      "meshScaleMultiplier": 0.302686645,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "15"
     },
     {
@@ -1009,6 +1382,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "106",
       "rotationDegrees": 315,
+      "surfaceOffsetMeters": 0.016499429927732363,
+      "meshScaleMultiplier": 0.30898487,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "98"
     },
     {
@@ -1017,6 +1393,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "96",
       "rotationDegrees": 180,
+      "surfaceOffsetMeters": 0.023356994845911132,
+      "meshScaleMultiplier": 0.553566968,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "88"
     },
     {
@@ -1025,6 +1404,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "16",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.009532073203721337,
+      "meshScaleMultiplier": 0.287543702,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "17"
     },
     {
@@ -1033,6 +1415,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "100",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.014162634702154883,
+      "meshScaleMultiplier": 0.407341205,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "92"
     },
     {
@@ -1041,6 +1426,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "69",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.021647668794779716,
+      "meshScaleMultiplier": 0.73372003,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "60"
     },
     {
@@ -1049,6 +1437,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "117",
       "rotationDegrees": 90,
+      "surfaceOffsetMeters": 0.014692439649634594,
+      "meshScaleMultiplier": 0.448225217,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "109"
     },
     {
@@ -1057,6 +1448,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "104",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.015917896308779118,
+      "meshScaleMultiplier": 0.321602711,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "96"
     },
     {
@@ -1065,6 +1459,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "51",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01769157143978025,
+      "meshScaleMultiplier": 0.495693809,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "43"
     },
     {
@@ -1073,6 +1470,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "115",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.015774181434244923,
+      "meshScaleMultiplier": 0.530847662,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "107"
     },
     {
@@ -1081,6 +1481,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "139",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.02316498235622395,
+      "meshScaleMultiplier": 0.787681988,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "131"
     },
     {
@@ -1089,6 +1492,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "99",
       "rotationDegrees": 135,
+      "surfaceOffsetMeters": 0.025872121925303755,
+      "meshScaleMultiplier": 1.063472638,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "91"
     },
     {
@@ -1097,6 +1503,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "39",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.017255314199235386,
+      "meshScaleMultiplier": 0.530175139,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "40"
     },
     {
@@ -1105,6 +1514,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "136",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.027184477736420933,
+      "meshScaleMultiplier": 0.66307742,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "128"
     },
     {
@@ -1113,6 +1525,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "91",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.029891214002499757,
+      "meshScaleMultiplier": 0.63598214,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "83"
     },
     {
@@ -1121,6 +1536,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "82",
       "rotationDegrees": 270,
+      "surfaceOffsetMeters": 0.02531858538734976,
+      "meshScaleMultiplier": 0.574533696,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "73"
     },
     {
@@ -1129,6 +1547,9 @@
       "holdset": "Original School Holds",
       "holdNumber": "28",
       "rotationDegrees": 0,
+      "surfaceOffsetMeters": 0.01600981186188589,
+      "meshScaleMultiplier": 0.331822687,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "25"
     },
     {
@@ -1137,6 +1558,9 @@
       "holdset": "Hold Set B",
       "holdNumber": "132",
       "rotationDegrees": 45,
+      "surfaceOffsetMeters": 0.026229895299909625,
+      "meshScaleMultiplier": 0.610225287,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "124"
     },
     {
@@ -1145,6 +1569,9 @@
       "holdset": "Hold Set A",
       "holdNumber": "87",
       "rotationDegrees": 270,
+      "surfaceOffsetMeters": 0.027197110672212855,
+      "meshScaleMultiplier": 0.562586813,
+      "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "78"
     }
   ],

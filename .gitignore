@@ -105,3 +105,6 @@ InitTestScene*.unity*
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
 __pycache__/
+
+# Editor screenshots captured via MCP (manage_scene requires a project-relative folder)
+/[Cc]aptures/

@@ -16,6 +16,9 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
     private const string CatalogPath = "Assets/StreamingAssets/moonboard_2016_40.json";
     private const string SchedulePath = "Assets/StreamingAssets/study_schedule.csv";
     private const string OculusConfigPath = "Assets/Oculus/OculusProjectConfig.asset";
+    private const string BoardMaterialPath = "Assets/Materials/MovementHarlemMoonBoard.mat";
+    private const string BoardTexturePath = "Assets/Materials/MovementHarlemMoonBoard.png";
+    private const string KickerMaterialPath = "Assets/Materials/MovementHarlemKicker.mat";
 
     public int callbackOrder => -1100;
 
@@ -123,6 +126,16 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
         if (!layouts[0].TryValidateAppliedLayout(catalog, out string error))
         {
             throw new BuildFailedException(error);
+        }
+
+        Renderer boardRenderer = layouts[0].transform.Find("Main Surface")?.GetComponent<Renderer>();
+        Renderer kickerRenderer = layouts[0].transform.Find("Kicker")?.GetComponent<Renderer>();
+        Material boardMaterial = boardRenderer?.sharedMaterial;
+        if (AssetDatabase.GetAssetPath(boardMaterial) != BoardMaterialPath ||
+            AssetDatabase.GetAssetPath(boardMaterial.GetTexture("_BaseMap")) != BoardTexturePath ||
+            AssetDatabase.GetAssetPath(kickerRenderer?.sharedMaterial) != KickerMaterialPath)
+        {
+            throw new BuildFailedException("Movement Harlem board surface materials are missing or invalid.");
         }
 
         SceneConfiguror configuror = configurors[0];
