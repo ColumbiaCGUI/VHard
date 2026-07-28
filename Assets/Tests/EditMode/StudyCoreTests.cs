@@ -265,8 +265,6 @@ public sealed class StudyCoreTests
                 hold.coordinate);
         }
 
-        // Every hold with local metric scan geometry is exact; the rest are photo-estimated
-        // from the rectified Movement Harlem board photograph and must stay auditable.
         // All 140 are exact: depth read off the base-plane-aligned scan, an axis that reproduces
         // the trusted dimension to the last float32 bit on 12 known holds. Nothing is estimated
         // from a photograph, and nothing falls back to the weaker frame-independent descriptor -
@@ -284,8 +282,8 @@ public sealed class StudyCoreTests
 
         Assert.That(catalog.TryGetHold("E14", out MoonBoardHoldDefinition e14), Is.True);
         Assert.That(e14.scanId, Is.EqualTo("B127"));
-        // B127 had no local geometry AND its Creality file was deleted; recovered from the
-        // re-oriented "Zplane" scan variant, which a rotation-invariant descriptor tolerates.
+        // B127's plain Creality file was deleted; its base-plane-aligned Zplane scan supplies
+        // the exact depth used by the shipped calibration.
         Assert.That(e14.scaleCalibrationSource, Is.EqualTo("metric-scan"));
     }
 

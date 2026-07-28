@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -37,6 +38,16 @@ MESH = ROOT / "Assets/Resources/New_Decimated_Holds.fbx"
 # mesh, so allow a hair of slack -- but nothing near a real authoring mistake. The bug
 # this gate was written for was 33.7%; decimation noise on the worst hold is ~2.6%.
 TOLERANCE = 0.05
+
+
+def has_materialized_mesh(path: Path | None = None) -> bool:
+    """True only when path starts with the binary FBX header, not an LFS pointer."""
+    mesh_path = MESH if path is None else path
+    try:
+        with mesh_path.open("rb") as stream:
+            return stream.read(20).startswith(b"Kaydara FBX Binary")
+    except OSError:
+        return False
 
 
 def mesh_name_for(scan_id: str, meshes: dict) -> str | None:
@@ -55,37 +66,50 @@ def check(verbose: bool = False, catalog: dict | None = None, meshes: dict | Non
     `catalog` and `meshes` may be injected so a test can verify the gate actually bites
     on a known-bad input, and so the ~5 s FBX parse can be reused across tests.
     """
-    if catalog is None:
-        catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
-    if meshes is None:
-        meshes = fbx_mesh.geometry_vertices(MESH)
+    loaded_catalog = (
+        catalog if catalog is not None else json.loads(CATALOG.read_text(encoding="utf-8"))
+    )
+    loaded_meshes = meshes if meshes is not None else fbx_mesh.geometry_vertices(MESH)
     failures: list[str] = []
 
-    if len(meshes) != len(catalog["holds"]):
+    if len(loaded_meshes) != len(loaded_catalog["holds"]):
         failures.append(
             "aggregate FBX has %d meshes but the catalog has %d holds"
-            % (len(meshes), len(catalog["holds"]))
+            % (len(loaded_meshes), len(loaded_catalog["holds"]))
         )
 
-    for hold in catalog["holds"]:
+    for hold in loaded_catalog["holds"]:
         scan_id = hold["scanId"]
-        name = mesh_name_for(scan_id, meshes)
+        name = mesh_name_for(scan_id, loaded_meshes)
         if name is None:
             failures.append("%s (%s): no mesh in the aggregate FBX" % (hold["coordinate"], scan_id))
             continue
-        depth_mm = fbx_mesh.extent_mm(meshes[name])[2]
+        depth_mm = fbx_mesh.extent_mm(loaded_meshes[name])[2]
+        if not math.isfinite(depth_mm) or depth_mm <= 0.0:
+            failures.append(
+                "%s (%s): aggregate mesh has invalid depth %r mm"
+                % (hold["coordinate"], scan_id, depth_mm)
+            )
+            continue
         expected = (depth_mm / 2000.0) * hold["meshScaleMultiplier"]
         actual = hold["surfaceOffsetMeters"]
-        error = abs(actual / expected - 1.0) if expected else float("inf")
+        if not math.isfinite(expected) or expected <= 0.0 or not math.isfinite(actual):
+            failures.append(
+                "%s (%s): invalid expected/actual offset (%r m / %r m)"
+                % (hold["coordinate"], scan_id, expected, actual)
+            )
+            continue
+        relative_error = actual / expected - 1.0
+        error = abs(relative_error)
         if error > TOLERANCE:
             failures.append(
                 "%s (%s): offset %.7f m but its own multiplier implies %.7f m (%+.1f%%)"
-                % (hold["coordinate"], scan_id, actual, expected, 100.0 * (actual / expected - 1.0))
+                % (hold["coordinate"], scan_id, actual, expected, 100.0 * relative_error)
             )
         elif verbose:
             print(
                 "  %-4s %-5s mesh=%-22s depth %7.3f mm  offset %.7f  (%+.2f%%)"
-                % (hold["coordinate"], scan_id, name, depth_mm, actual, 100.0 * (actual / expected - 1.0))
+                % (hold["coordinate"], scan_id, name, depth_mm, actual, 100.0 * relative_error)
             )
     return failures
 
@@ -95,9 +119,13 @@ def main() -> int:
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
-    if not MESH.exists() or MESH.read_bytes()[:20] != b"Kaydara FBX Binary  "[:20]:
-        print("SKIP: %s is absent or an unmaterialised Git LFS pointer; run `git lfs pull`" % MESH.name)
-        return 0
+    if not has_materialized_mesh():
+        print(
+            "ERROR: %s is absent or an unmaterialised Git LFS pointer; run `git lfs pull`"
+            % MESH.name,
+            file=sys.stderr,
+        )
+        return 2
 
     failures = check(args.verbose)
     if failures:

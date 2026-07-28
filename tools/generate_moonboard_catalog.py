@@ -163,34 +163,22 @@ SURFACE_OFFSETS_METERS = {
 # dimensions in tools' axis metrics (G2 -> 200.00 x 172.42 x 136.65 mm).
 # meshScaleMultiplier restores physical size: renderedSize = normalisedSize * multiplier.
 #
-# "metric-scan" (104 holds): multiplier = sourceExtentMm / currentExtentMm, averaged over the
-#   three axes. The source and normalised meshes differ by a pure uniform scale -- the three
-#   per-axis ratios agree to 0.012% median -- so the multiplier is exact and unambiguous.
-#   The legacy aggregate child localScale of 0.7 is deliberately NOT part of this formula:
-#   including it would enlarge every hold by 1.4286x, which an independent photogrammetric
-#   rectification of the physical board (1 px = 1 mm) contradicts. That rectification agrees
-#   with the source dimensions at a median ratio of 1.0000 over 90 holds, and with the 0.7
-#   the largest hold would measure 229 mm on a 200 mm grid pitch, which is impossible.
-# "metric-scan" also now covers 35 holds whose geometry was absent locally but whose raw
-#   laser scans were recovered from the team Drive on 2026-07-27 and measured directly. For
-#   those the multiplier is scanMaxRadiusMm / (normalisedMaxRadius * 1000) -- a rotation-
-#   invariant descriptor, required because a raw scanner-frame STL is NOT axis-aligned with
-#   the normalised mesh. Validated end to end on 5 holds with trusted dimensions (B100, B112,
-#   B140, B123, B136): median error 0.73%, worst 2.18% -- roughly 9x better than the photo
-#   estimator it replaced. Flagged for a human eyeball because they exceed the known-subset
-#   size envelope (legitimate: the recovered holds are different SKUs): B138 (187.6 mm) and
-#   B141 (169.9 mm).
-# "movement-harlem-photo" (1 hold: B127 / E14): the ONLY remaining estimate. Its Creality
-#   source file was deleted, so no metric scan exists to measure -- it is also the hold that
-#   renders pale on the board contact sheet. The multiplier comes
-#   from the same rectified photograph of the physical board. Cross-validated against the 104
-#   knowns, this estimator's error by hold set is: Set B 6.5% median / 21.6% worst (n=18),
-#   Original School 4.2% / 19.9% (n=29). 35 of these 36 belong to those two sets. The single
-#   exception is W98, a Set A (white) hold; white-on-grey segmentation is the estimator's weak
-#   case (5.0% median but 82% worst, n=43), so W98 is the least certain record here and is
-#   also flagged for rescanning in the team's scan record. Every photo-derived multiplier
-#   falls inside the exact-scan band and implies a physically plausible hold, but these 36
-#   remains an estimate, not a measurement -- replace it once B127 is rescanned.
+# All 140 records are "metric-scan". The final multiplier uses depth from the base-plane-
+# aligned Zplane scan divided by the matching normalised-mesh depth. That scan axis reproduces
+# the trusted depth to the last float32 bit on 12 controls; arbitrary in-plane yaw makes the
+# other two AABB axes unsuitable. The 36 recovered records use the Zplane children already
+# present in the aggregate FBX, including B127 whose plain Creality file was deleted.
+#
+# W98 is independently cross-checked by the rotation-invariant mesh-volume ratio, which agrees
+# with its depth ratio to 0.007%. Y6's plain and Zplane source meshes differ by 24.2% in volume;
+# the catalog deliberately keeps the Zplane-consistent depth ratio while the team determines
+# which source mesh is authoritative. No shipped multiplier uses the weaker max-radius or board-
+# photo estimators; their source labels remain valid schema values only for future explicit use.
+#
+# The legacy aggregate child localScale of 0.7 is deliberately NOT part of this formula.
+# Independent board photogrammetry anchored to the 200 mm T-nut pitch finds no systematic scale
+# offset (+3.0% signed median against the scans), whereas including 0.7 would enlarge every hold
+# by 1.4286x.
 NORMALIZED_MESH_SCALE = 100.0
 MIN_SCALE_MULTIPLIER = 0.15
 MAX_SCALE_MULTIPLIER = 1.50

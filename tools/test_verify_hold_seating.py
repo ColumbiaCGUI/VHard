@@ -1,6 +1,12 @@
 """Tests for the hold-seating gate, including proof that it bites on a real regression."""
+import contextlib
+import io
 import json
+import sys
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 import fbx_mesh
 import verify_hold_seating as gate
@@ -20,11 +26,35 @@ def catalog():
     return json.loads(gate.CATALOG.read_text(encoding="utf-8"))
 
 
-@unittest.skipUnless(
-    gate.MESH.exists() and gate.MESH.read_bytes()[:18] == b"Kaydara FBX Binary",
-    "aggregate FBX absent or an unmaterialised Git LFS pointer; run `git lfs pull`",
-)
 class HoldSeatingGateTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if not gate.has_materialized_mesh():
+            raise AssertionError(
+                "aggregate FBX absent or an unmaterialised Git LFS pointer; run `git lfs pull`"
+            )
+
+    def test_materialized_mesh_check_rejects_missing_and_lfs_pointer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "holds.fbx"
+            self.assertFalse(gate.has_materialized_mesh(path))
+            path.write_text(
+                "version https://git-lfs.github.com/spec/v1\n"
+                "oid sha256:deadbeef\nsize 274147276\n",
+                encoding="ascii",
+            )
+            self.assertFalse(gate.has_materialized_mesh(path))
+            path.write_bytes(b"Kaydara FBX Binary  \x00\x1a\x00")
+            self.assertTrue(gate.has_materialized_mesh(path))
+
+    def test_command_fails_when_mesh_is_not_materialized(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "holds.fbx"
+            with mock.patch.object(gate, "MESH", missing), mock.patch.object(
+                sys, "argv", ["verify_hold_seating.py"]
+            ), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(gate.main(), 2)
+
     def test_every_shipped_offset_follows_from_its_own_multiplier(self):
         self.assertEqual(gate.check(catalog=catalog(), meshes=meshes()), [])
 
@@ -58,6 +88,24 @@ class HoldSeatingGateTests(unittest.TestCase):
         trimmed.pop("B100", None)
         failures = gate.check(catalog=catalog(), meshes=trimmed)
         self.assertTrue(any("B100" in failure for failure in failures), failures)
+
+    def test_gate_reports_zero_depth_instead_of_dividing_by_zero(self):
+        one_hold_catalog = {
+            "holds": [
+                {
+                    "coordinate": "A1",
+                    "scanId": "B100",
+                    "meshScaleMultiplier": 0.5,
+                    "surfaceOffsetMeters": 0.01,
+                }
+            ]
+        }
+        flat_mesh = {"B100": (0.0, 0.0, 0.0, 1.0, 1.0, 0.0)}
+
+        failures = gate.check(catalog=one_hold_catalog, meshes=flat_mesh)
+
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("invalid depth", failures[0])
 
     def test_the_36_recovered_holds_use_the_reoriented_meshes(self):
         # Provenance inside the mesh asset itself: the 36 recovered holds were built from

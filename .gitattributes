@@ -5,3 +5,6 @@ Assets/StreamingAssets/** -text
 
 # Shapes package primitives are tiny; keep out of LFS (org LFS budget exhausted 2026-07-27)
 Assets/Shapes/Models/shapes_primitives.fbx -filter -diff -merge
+
+# This text mesh has a documented byte hash; preserve LF bytes across platforms.
+Assets/Resources/MoonBoardFootJib.obj -text
