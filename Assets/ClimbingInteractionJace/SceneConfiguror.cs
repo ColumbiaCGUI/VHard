@@ -221,15 +221,6 @@ public class SceneConfiguror : MonoBehaviour
         SetGameMode(gameMode);
     }
 
-    void TraverseBones(GameObject rootBone, List<GameObject> bones)
-    {
-        bones.Add(rootBone);
-        foreach (Transform child in rootBone.transform)
-        {
-            TraverseBones(child.gameObject, bones);
-        }
-    }
-
     void Update()
     {
         EnsureHoldsDictionary();
@@ -615,23 +606,6 @@ public class SceneConfiguror : MonoBehaviour
     public List<string> GetAvailableRouteNames()
     {
         return routes.GetAvailableRouteNames();
-    }
-
-    private bool TryGetRouteHolds(string routeName, out List<string> routeHolds)
-    {
-        if (routeName == "[PREVIEW ALL (SHADER OFF)]")
-        {
-            EnsureHoldsDictionary();
-            routeHolds = holdsDictionary.Keys.OrderBy(coordinate => coordinate).ToList();
-            return true;
-        }
-        if (routes.Catalog != null && routes.Catalog.TryGetRoute(routeName, out MoonBoardRouteDefinition route))
-        {
-            routeHolds = route.moves.OrderBy(move => move.sequence).Select(move => move.coordinate).ToList();
-            return true;
-        }
-        routeHolds = null;
-        return false;
     }
 
     public void SetGameMode(GameMode newMode)
