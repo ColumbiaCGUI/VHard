@@ -1,23 +1,64 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class HandHoverCollider : MonoBehaviour
 {
     public int handIndex;
     public SceneConfiguror sceneConfiguror;
+    private readonly HashSet<Collider> overlappingColliders = new();
+    private int observedHoverContactEpoch = -1;
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.gameObject.CompareTag("ClimbingHold"))
+        TrackEnter(other);
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        TrackEnter(other);
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        SynchronizeContactEpoch();
+        if (other != null && overlappingColliders.Remove(other) && sceneConfiguror != null)
+        {
+            sceneConfiguror.HandHoverExit(handIndex, other.gameObject);
+        }
+    }
+
+    private void OnDisable()
+    {
+        SynchronizeContactEpoch();
+        if (sceneConfiguror != null)
+        {
+            foreach (Collider overlap in overlappingColliders)
+            {
+                if (overlap != null)
+                {
+                    sceneConfiguror.HandHoverExit(handIndex, overlap.gameObject);
+                }
+            }
+        }
+        overlappingColliders.Clear();
+    }
+
+    private void TrackEnter(Collider other)
+    {
+        SynchronizeContactEpoch();
+        if (other != null && other.gameObject.CompareTag("ClimbingHold") &&
+            overlappingColliders.Add(other) && sceneConfiguror != null)
         {
             sceneConfiguror.HandHoverEnter(handIndex, other.gameObject);
         }
     }
 
-    private void OnTriggerExit(Collider other)
+    private void SynchronizeContactEpoch()
     {
-        if (other.gameObject.CompareTag("ClimbingHold"))
+        if (sceneConfiguror != null && observedHoverContactEpoch != sceneConfiguror.HoverContactEpoch)
         {
-            sceneConfiguror.HandHoverExit(handIndex, other.gameObject);
+            overlappingColliders.Clear();
+            observedHoverContactEpoch = sceneConfiguror.HoverContactEpoch;
         }
     }
 }

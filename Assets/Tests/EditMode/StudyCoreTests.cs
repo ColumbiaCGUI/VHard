@@ -202,6 +202,10 @@ public sealed class StudyCoreTests
         MoonBoardStudyCatalog catalog = LoadCatalog();
         Assert.That(catalog.schemaVersion, Is.EqualTo(3));
 
+        HashSet<string> expectedCorrectedMeshes = new()
+        {
+            "W98", "B127", "B109", "B115", "B141", "Y28", "Y6", "B138",
+        };
         int correctedMeshes = 0;
         foreach (MoonBoardHoldDefinition hold in catalog.holds)
         {
@@ -211,10 +215,11 @@ public sealed class StudyCoreTests
             if (hold.hasMeshFrameCorrection)
             {
                 correctedMeshes++;
-                Assert.That(hold.scanId, Is.EqualTo("W98"));
+                Assert.That(expectedCorrectedMeshes.Remove(hold.scanId), Is.True, hold.coordinate);
             }
         }
-        Assert.That(correctedMeshes, Is.EqualTo(1));
+        Assert.That(correctedMeshes, Is.EqualTo(8));
+        Assert.That(expectedCorrectedMeshes, Is.Empty);
 
         Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
         Assert.That(a15.surfaceOffsetMeters, Is.EqualTo(0.0386675299f).Within(0.0000001f));
@@ -224,6 +229,66 @@ public sealed class StudyCoreTests
             Is.LessThan(0.00001f));
         Assert.That(Quaternion.Angle(catalog.GetBoardLocalRotation(a15), expectedRotation),
             Is.LessThan(0.001f));
+    }
+
+    [Test]
+    public void CatalogPreservesApprovedMeshFrameYawCorrections()
+    {
+        MoonBoardStudyCatalog catalog = LoadCatalog();
+        Dictionary<string, (string scanId, int setupDegrees, float correctionDegrees)> expected = new()
+        {
+            { "E14", ("B127", 90, 105f) },
+            { "I9", ("B109", 135, -140f) },
+            { "G17", ("B115", 0, -55f) },
+            { "G4", ("B141", 0, -140f) },
+            { "H18", ("Y28", 0, 20f) },
+            { "F6", ("Y6", 90, 70f) },
+            { "C13", ("B138", 315, -120f) },
+        };
+        Quaternion boardMount = Quaternion.Euler(catalog.SurfaceTiltDegrees, 0f, 180f);
+        Vector3 climbingSideNormal = boardMount * Vector3.up;
+        Assert.That(Vector3.Distance(
+            climbingSideNormal,
+            new Vector3(0f, -Mathf.Sin(40f * Mathf.Deg2Rad), -Mathf.Cos(40f * Mathf.Deg2Rad))),
+            Is.LessThan(0.000001f));
+
+        foreach (KeyValuePair<string,
+                     (string scanId, int setupDegrees, float correctionDegrees)> entry in expected)
+        {
+            Assert.That(catalog.TryGetHold(entry.Key, out MoonBoardHoldDefinition hold), Is.True);
+            Assert.That(hold.scanId, Is.EqualTo(entry.Value.scanId));
+            Assert.That(hold.rotationDegrees, Is.EqualTo(entry.Value.setupDegrees), entry.Key);
+            Assert.That(hold.hasMeshFrameCorrection, Is.True);
+            Assert.That(hold.meshFrameCorrection.TryGetQuaternion(out Quaternion correction), Is.True);
+            Quaternion expectedCorrection = Quaternion.AngleAxis(
+                entry.Value.correctionDegrees,
+                Vector3.forward);
+            Assert.That(Quaternion.Angle(correction, expectedCorrection), Is.LessThan(0.001f), entry.Key);
+
+            Quaternion uncorrected = boardMount *
+                                     Quaternion.Euler(270f, 360f - hold.rotationDegrees, 0f);
+            Quaternion corrected = catalog.GetBoardLocalRotation(hold);
+            Quaternion expectedBoardDelta = Quaternion.AngleAxis(
+                entry.Value.correctionDegrees,
+                climbingSideNormal);
+            Quaternion actualBoardDelta = corrected * Quaternion.Inverse(uncorrected);
+            Assert.That(Quaternion.Angle(actualBoardDelta, expectedBoardDelta),
+                Is.LessThan(0.001f), entry.Key);
+            Assert.That(Vector3.Angle(corrected * Vector3.forward, climbingSideNormal),
+                Is.LessThan(0.001f), entry.Key);
+        }
+
+        Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
+        Assert.That(a15.scanId, Is.EqualTo("W98"));
+        Assert.That(a15.rotationDegrees, Is.Zero);
+        Assert.That(a15.hasMeshFrameCorrection, Is.True);
+
+        Assert.That(catalog.TryGetHold("K8", out MoonBoardHoldDefinition k8), Is.True);
+        Assert.That(k8.scanId, Is.EqualTo("Y30"));
+        Assert.That(k8.hasMeshFrameCorrection, Is.False);
+        Assert.That(catalog.TryGetHold("D10", out MoonBoardHoldDefinition d10), Is.True);
+        Assert.That(d10.scanId, Is.EqualTo("Y33"));
+        Assert.That(d10.hasMeshFrameCorrection, Is.False);
     }
 
     [Test]

@@ -1,0 +1,862 @@
+{
+  "schemaVersion": 1,
+  "setupId": "moonboard-2016",
+  "setupName": "MoonBoard 2016",
+  "overhangAngleDegrees": 40,
+  "archiveDate": "2026-07-21",
+  "provenance": {
+    "sourceArchive": "problems_2023_01_30.zip",
+    "sourceArchiveUrl": "https://drive.google.com/file/d/1Zoqsmc15IHtGekY99xazemxjGGx07Kep/view",
+    "sourceArchiveSha256": "f7f8becff8d1bcb3bd93feaee67cea4b5cecf27d84e079115ef9590b0efe5c05",
+    "sourceFile": "problems MoonBoard 2016 .json",
+    "sourceFileSha256": "355792de881324a51accc32e7478b7cd4535a63a4b2bf8cedf56d4280044723d",
+    "practiceSourceRepository": "https://github.com/e-sr/moonboard",
+    "practiceSourceRevision": "ccd78f587ab189acea6dd7ce8a6d4f086f65db69",
+    "practiceProblemsSha256": "f0b035f53d8aef73fcadd3cbfe23ac776856b3d2d714928089c2d54d63abdcc8"
+  },
+  "problems": [
+    {
+      "id": "MB2016-386882",
+      "apiId": 386882,
+      "name": "Le Calle",
+      "grade": "6B+",
+      "vGrade": "V4",
+      "userGrade": "6B+",
+      "isBenchmark": false,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 216,
+      "setter": "Riccardo Caprasecca",
+      "dateInserted": "2021-01-10T14:08:34.78",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "7125341e24e45f57a735affded7c8d8216a23f1aaa1cf3d15637747954b55906",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "G4",
+          "role": "start",
+          "sourceMoveId": "386882"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "E8",
+          "role": "move",
+          "sourceMoveId": "386882"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "I10",
+          "role": "move",
+          "sourceMoveId": "386882"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "H12",
+          "role": "move",
+          "sourceMoveId": "386882"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "I14",
+          "role": "move",
+          "sourceMoveId": "386882"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "E16",
+          "role": "move",
+          "sourceMoveId": "386882"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "D18",
+          "role": "finish",
+          "sourceMoveId": "386882"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-386902",
+      "apiId": 386902,
+      "name": "Too easy to be true 6a+",
+      "grade": "6B+",
+      "vGrade": "V4",
+      "userGrade": "6B+",
+      "isBenchmark": false,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 174,
+      "setter": "hejwo1987",
+      "dateInserted": "2021-01-10T18:42:26.69",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "bafa19e8f70f58e21dd3d08dd217b5892df40a1dd544bfd398e4c4dfd7094aab",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "G2",
+          "role": "start",
+          "sourceMoveId": "386902"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "F5",
+          "role": "start",
+          "sourceMoveId": "386902"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "G8",
+          "role": "move",
+          "sourceMoveId": "386902"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "E10",
+          "role": "move",
+          "sourceMoveId": "386902"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "H11",
+          "role": "move",
+          "sourceMoveId": "386902"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "E13",
+          "role": "move",
+          "sourceMoveId": "386902"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "E15",
+          "role": "move",
+          "sourceMoveId": "386902"
+        },
+        {
+          "sequence": 7,
+          "coordinate": "E18",
+          "role": "finish",
+          "sourceMoveId": "386902"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-389008",
+      "apiId": 389008,
+      "name": "STELLAR EXPLOSION",
+      "grade": "6B+",
+      "vGrade": "V4",
+      "userGrade": "6B+",
+      "isBenchmark": false,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 158,
+      "setter": "Tonip",
+      "dateInserted": "2021-01-28T15:16:30.053",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "95c8cc3fe38c446295abdb02276e0a21fb3f0147b5de0df2558a31c67f0cafd9",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "G4",
+          "role": "start",
+          "sourceMoveId": "389008"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "G9",
+          "role": "move",
+          "sourceMoveId": "389008"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "E10",
+          "role": "move",
+          "sourceMoveId": "389008"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "E12",
+          "role": "move",
+          "sourceMoveId": "389008"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "C13",
+          "role": "move",
+          "sourceMoveId": "389008"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "D15",
+          "role": "move",
+          "sourceMoveId": "389008"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "B16",
+          "role": "move",
+          "sourceMoveId": "389008"
+        },
+        {
+          "sequence": 7,
+          "coordinate": "D18",
+          "role": "finish",
+          "sourceMoveId": "389008"
+        },
+        {
+          "sequence": 8,
+          "coordinate": "E6",
+          "role": "start",
+          "sourceMoveId": "389008"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-404248",
+      "apiId": 404248,
+      "name": "Drama Queens",
+      "grade": "6C",
+      "vGrade": "V5",
+      "userGrade": "6C",
+      "isBenchmark": false,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 165,
+      "setter": "Kyle Knapp",
+      "dateInserted": "2021-05-23T16:14:23.757",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "e80d11b2f014d4d482d48ce1d6051d2b7cef67e096ad50c349c6820dea85aad1",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "C5",
+          "role": "start",
+          "sourceMoveId": "404248"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "E8",
+          "role": "move",
+          "sourceMoveId": "404248"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "E10",
+          "role": "move",
+          "sourceMoveId": "404248"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "I12",
+          "role": "move",
+          "sourceMoveId": "404248"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "E15",
+          "role": "move",
+          "sourceMoveId": "404248"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "D17",
+          "role": "move",
+          "sourceMoveId": "404248"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "A18",
+          "role": "finish",
+          "sourceMoveId": "404248"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-389660",
+      "apiId": 389660,
+      "name": "YOU HAVE FOUND THE SOURCE",
+      "grade": "6C",
+      "vGrade": "V5",
+      "userGrade": "6C",
+      "isBenchmark": false,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 141,
+      "setter": "Tonip",
+      "dateInserted": "2021-02-03T14:45:21.753",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "62937c272ff52804cca06346fb3af98b7797e3197c9ea338b56bd16501e073a7",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "F5",
+          "role": "start",
+          "sourceMoveId": "389660"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "B10",
+          "role": "move",
+          "sourceMoveId": "389660"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "A14",
+          "role": "move",
+          "sourceMoveId": "389660"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "D15",
+          "role": "move",
+          "sourceMoveId": "389660"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "D18",
+          "role": "finish",
+          "sourceMoveId": "389660"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "E12",
+          "role": "move",
+          "sourceMoveId": "389660"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "E8",
+          "role": "move",
+          "sourceMoveId": "389660"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-397202",
+      "apiId": 397202,
+      "name": "\u2018One Star\u2019 GOAT",
+      "grade": "6C",
+      "vGrade": "V5",
+      "userGrade": "6C",
+      "isBenchmark": false,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 141,
+      "setter": "Kyle Knapp",
+      "dateInserted": "2021-03-21T15:44:10.917",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "5f8a2a2ed29fbe6b167df2a76e4f5807b05444f0f426d1ff5da597be07df0a63",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "B3",
+          "role": "start",
+          "sourceMoveId": "397202"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "E8",
+          "role": "move",
+          "sourceMoveId": "397202"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "E10",
+          "role": "move",
+          "sourceMoveId": "397202"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "I11",
+          "role": "move",
+          "sourceMoveId": "397202"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "G15",
+          "role": "move",
+          "sourceMoveId": "397202"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "H16",
+          "role": "move",
+          "sourceMoveId": "397202"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "D18",
+          "role": "finish",
+          "sourceMoveId": "397202"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-452771",
+      "apiId": 452771,
+      "name": "OFF BALANCED",
+      "grade": "7A",
+      "vGrade": "V6",
+      "userGrade": "7A",
+      "isBenchmark": true,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 1182,
+      "setter": "Jace Einerson",
+      "dateInserted": "2022-11-16T01:19:44.243",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "f26bc36e28811b0ef383a64865afb611a9107f0b26a7889051cd6513bcac27a0",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "I10",
+          "role": "move",
+          "sourceMoveId": "452771"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "H11",
+          "role": "move",
+          "sourceMoveId": "452771"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "C13",
+          "role": "move",
+          "sourceMoveId": "452771"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "J5",
+          "role": "start",
+          "sourceMoveId": "452771"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "D15",
+          "role": "move",
+          "sourceMoveId": "452771"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "C18",
+          "role": "finish",
+          "sourceMoveId": "452771"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-424830",
+      "apiId": 424830,
+      "name": "THE COMIC BOOK",
+      "grade": "7A",
+      "vGrade": "V6",
+      "userGrade": "7A",
+      "isBenchmark": true,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 857,
+      "setter": "Heky Lee",
+      "dateInserted": "2022-01-12T08:30:11.767",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "21161c75f273d106be39d77bdae75324c087c933f6974849757914a5fdebdc41",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "D3",
+          "role": "start",
+          "sourceMoveId": "424830"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "B4",
+          "role": "start",
+          "sourceMoveId": "424830"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "E8",
+          "role": "move",
+          "sourceMoveId": "424830"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "I9",
+          "role": "move",
+          "sourceMoveId": "424830"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "J5",
+          "role": "move",
+          "sourceMoveId": "424830"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "K6",
+          "role": "move",
+          "sourceMoveId": "424830"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "F13",
+          "role": "move",
+          "sourceMoveId": "424830"
+        },
+        {
+          "sequence": 7,
+          "coordinate": "F15",
+          "role": "move",
+          "sourceMoveId": "424830"
+        },
+        {
+          "sequence": 8,
+          "coordinate": "C18",
+          "role": "finish",
+          "sourceMoveId": "424830"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-388011",
+      "apiId": 388011,
+      "name": "Tetrijeb",
+      "grade": "7A",
+      "vGrade": "V6",
+      "userGrade": "7A",
+      "isBenchmark": false,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 110,
+      "setter": "Bakir",
+      "dateInserted": "2021-01-21T15:07:16.227",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "3aaaaa67ee1f19e4a495db82ec61d6161108eff2126f50c48427cd6273f997f7",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "B3",
+          "role": "start",
+          "sourceMoveId": "388011"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "F5",
+          "role": "start",
+          "sourceMoveId": "388011"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "D9",
+          "role": "move",
+          "sourceMoveId": "388011"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "C10",
+          "role": "move",
+          "sourceMoveId": "388011"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "E13",
+          "role": "move",
+          "sourceMoveId": "388011"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "C14",
+          "role": "move",
+          "sourceMoveId": "388011"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "E18",
+          "role": "finish",
+          "sourceMoveId": "388011"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-395431",
+      "apiId": 395431,
+      "name": "RED RONNIE",
+      "grade": "7A+",
+      "vGrade": "V7",
+      "userGrade": "7A+",
+      "isBenchmark": true,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 717,
+      "setter": "Riccardo Caprasecca",
+      "dateInserted": "2021-03-11T15:23:11.053",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "59df2b520b1a9fd31a84b5a188102dc59b418b46737a1e6117bd70119ec7726a",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "E6",
+          "role": "start",
+          "sourceMoveId": "395431"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "B4",
+          "role": "start",
+          "sourceMoveId": "395431"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "D10",
+          "role": "move",
+          "sourceMoveId": "395431"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "B12",
+          "role": "move",
+          "sourceMoveId": "395431"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "D16",
+          "role": "move",
+          "sourceMoveId": "395431"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "A18",
+          "role": "finish",
+          "sourceMoveId": "395431"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-441349",
+      "apiId": 441349,
+      "name": "PINCH OF SALTY",
+      "grade": "7A+",
+      "vGrade": "V7",
+      "userGrade": "7A+",
+      "isBenchmark": true,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 404,
+      "setter": "Liting",
+      "dateInserted": "2022-07-22T13:56:52.127",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "fbf262e18eb23c8d3d75a31271c431cd30be756e7adba240bfb2836fbd95739a",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "D6",
+          "role": "start",
+          "sourceMoveId": "441349"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "G6",
+          "role": "move",
+          "sourceMoveId": "441349"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "B9",
+          "role": "move",
+          "sourceMoveId": "441349"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "F11",
+          "role": "move",
+          "sourceMoveId": "441349"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "G14",
+          "role": "move",
+          "sourceMoveId": "441349"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "I15",
+          "role": "move",
+          "sourceMoveId": "441349"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "E18",
+          "role": "finish",
+          "sourceMoveId": "441349"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-387486",
+      "apiId": 387486,
+      "name": "\"POOL PARTY 1966\"",
+      "grade": "7A+",
+      "vGrade": "V7",
+      "userGrade": "7A+",
+      "isBenchmark": false,
+      "upgraded": false,
+      "downgraded": false,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 159,
+      "setter": "Tonip",
+      "dateInserted": "2021-01-16T00:42:16.147",
+      "purpose": "estimation-only",
+      "sourceRecordSha256": "9065b75c41282e8b9e3599a0eefdf18a6d049b9b91d9a94bd7e3d2c1bc5810a3",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "E12",
+          "role": "move",
+          "sourceMoveId": "387486"
+        },
+        {
+          "sequence": 1,
+          "coordinate": "F14",
+          "role": "move",
+          "sourceMoveId": "387486"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "B9",
+          "role": "move",
+          "sourceMoveId": "387486"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "E8",
+          "role": "move",
+          "sourceMoveId": "387486"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "G4",
+          "role": "start",
+          "sourceMoveId": "387486"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "E7",
+          "role": "move",
+          "sourceMoveId": "387486"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "I18",
+          "role": "finish",
+          "sourceMoveId": "387486"
+        }
+      ]
+    }
+  ],
+  "estimationSets": [
+    {
+      "setIndex": 1,
+      "climbRouteId": "MB2016-19215",
+      "problemIds": [
+        386882,
+        404248,
+        452771,
+        395431
+      ]
+    },
+    {
+      "setIndex": 2,
+      "climbRouteId": "MB2016-21329",
+      "problemIds": [
+        386902,
+        389660,
+        424830,
+        441349
+      ]
+    },
+    {
+      "setIndex": 3,
+      "climbRouteId": "MB2016-170190",
+      "problemIds": [
+        389008,
+        397202,
+        388011,
+        387486
+      ]
+    }
+  ],
+  "practiceProblem": {
+    "id": "MB2016-19216",
+    "apiId": 19216,
+    "name": "WUTHERING HEIGHTS",
+    "grade": "6B+",
+    "vGrade": "V4",
+    "userGrade": "6B+",
+    "isBenchmark": true,
+    "upgraded": false,
+    "downgraded": false,
+    "method": "Feet follow hands",
+    "repeatsAtArchive": 9138,
+    "setter": "Ben Moon",
+    "dateInserted": "/Date(1456826427000)/",
+    "purpose": "practice-only",
+    "sourceRecordSha256": "a511e1fbf4d204f8f9cf1af9cc99c9850422e0c43609a2f3e91ea39508d56bfb",
+    "moves": [
+      {
+        "sequence": 0,
+        "coordinate": "F5",
+        "role": "start",
+        "sourceMoveId": "1518007"
+      },
+      {
+        "sequence": 1,
+        "coordinate": "J8",
+        "role": "move",
+        "sourceMoveId": "1518008"
+      },
+      {
+        "sequence": 2,
+        "coordinate": "I11",
+        "role": "move",
+        "sourceMoveId": "1518009"
+      },
+      {
+        "sequence": 3,
+        "coordinate": "K11",
+        "role": "move",
+        "sourceMoveId": "1518010"
+      },
+      {
+        "sequence": 4,
+        "coordinate": "G13",
+        "role": "move",
+        "sourceMoveId": "1518011"
+      },
+      {
+        "sequence": 5,
+        "coordinate": "E15",
+        "role": "move",
+        "sourceMoveId": "1518012"
+      },
+      {
+        "sequence": 6,
+        "coordinate": "E18",
+        "role": "finish",
+        "sourceMoveId": "1518013"
+      }
+    ]
+  }
+}

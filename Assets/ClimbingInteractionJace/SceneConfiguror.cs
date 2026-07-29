@@ -30,21 +30,37 @@ public enum RoutesLoadState
     Failed,
 }
 
+public enum HoldAffordancesLoadState
+{
+    Loading,
+    Ready,
+    Failed,
+}
+
 public class SceneConfiguror : MonoBehaviour
 {
     private const int TrackedBoneCount = 26;
     private const string StudyHoldsLayerName = "StudyHolds";
     private const string StudyGhostHoldsLayerName = "StudyGhostHolds";
     private static readonly int[] FingertipBoneIndices = { 5, 10, 15, 20, 25 };
+    private static readonly OVRHand.HandFinger[] TrackedFingers =
+    {
+        OVRHand.HandFinger.Thumb,
+        OVRHand.HandFinger.Index,
+        OVRHand.HandFinger.Middle,
+        OVRHand.HandFinger.Ring,
+        OVRHand.HandFinger.Pinky,
+    };
     [Header("Action Recorder")]
     public ActionRecorder actionRecorder;
     [Header("HighlightCircle")]
     public GameObject highlightCirclePrefab;
     private List<GameObject> activeHighlightCircles = new();
     private Material highlightCircleMaterial;
-    private static readonly Color StartHaloColor = new(0f, 0.85f, 0.25f, 1f);
-    private static readonly Color IntermediateHaloColor = new(0.2f, 0.55f, 1f, 1f);
-    private static readonly Color FinishHaloColor = new(0.95f, 0.15f, 0.1f, 1f);
+
+    [Header("Route Cues")]
+    [SerializeField] private RouteCuePresentation baselineRouteCuePresentation =
+        RouteCuePresentation.PhysicalBoardLeds;
 
     [Header("Minimap Settings")]
     public Camera mainCamera;     // assign your main/world camera here
@@ -109,6 +125,9 @@ public class SceneConfiguror : MonoBehaviour
     public RoutesLoadState RoutesJsonLoadState { get; private set; } = RoutesLoadState.Loading;
     public string RoutesLoadFailureReason { get; private set; } = string.Empty;
     public string RoutesJsonSha256 { get; private set; }
+    public HoldAffordancesLoadState HoldAffordancesState { get; private set; } =
+        HoldAffordancesLoadState.Loading;
+    public string HoldAffordancesFailureReason { get; private set; } = string.Empty;
 
     [Header("Interaction Settings")]
     public float interactionColorMaxDistanceOverride;
@@ -119,6 +138,7 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Interaction State")]
     public GameObject leftHandInteractingClimbingHold;
     public GameObject rightHandInteractingClimbingHold;
+    public int HoverContactEpoch { get; private set; }
 
     [Header("Interaction Compute Shader Settings")]
     public ComputeShader distanceToClosestBoneComputeShader;
@@ -130,6 +150,15 @@ public class SceneConfiguror : MonoBehaviour
     public GameObject leftHandGripStatusDisplayHelper;
     public GameObject rightHandGripStatusDisplayHelper;
     public GripScoreConfig gripScoreConfig;
+    [Range(1, 4)] public int defaultMinFingers = 3;
+    [Range(0f, 1f)] public float gripFlexionEngageThreshold = 0.55f;
+    [Range(0f, 1f)] public float gripFlexionReleaseThreshold = 0.35f;
+    [Min(0f)] public float gripReleaseGraceSeconds = 0.15f;
+    [Min(0f)] public float gripTrackingFreezeSeconds = 0.25f;
+    [Min(0.01f)] public float gripFrozenTimeoutSeconds = 2f;
+    [Min(0.01f)] public float gripOneEuroMinCutoff = 1f;
+    [Min(0f)] public float gripOneEuroBeta = 0.007f;
+    [Min(0.01f)] public float gripMaximumAcceleration = 12f;
 
     [Header("Grip State")]
     public float[] leftHandBoneToHoldMinDistances;
@@ -143,6 +172,9 @@ public class SceneConfiguror : MonoBehaviour
     public int rightFingerContactMask;
     public float leftHandGripScore;
     public float rightHandGripScore;
+    public IReadOnlyList<float> LeftFingerCurls => leftFingerCurls;
+    public IReadOnlyList<float> RightFingerCurls => rightFingerCurls;
+    public event Action<string, Hand, GameObject, string> GripEngagementRecorded;
     public Vector3 leftHandGripStartPosition;
     public Vector3 leftHandGripLastPosition;
     public Vector3 rightHandGripStartPosition;
@@ -158,18 +190,47 @@ public class SceneConfiguror : MonoBehaviour
     private bool hasInitialMoonBoardTransform;
     private OVRHand leftTrackedHand;
     private OVRHand rightTrackedHand;
+    private bool leftTrackingValid;
+    private bool rightTrackingValid;
     private Hand? gripLocomotionHand;
     private bool gripRecoveryAttempted;
     private bool debugForceGripReadbackFailures;
+    private bool studyFeedbackVisible = true;
     public bool IsGripFeedbackDegraded { get; private set; }
     public string GripFeedbackDegradedUtc { get; private set; }
+    public bool IsDegradedGripAcquisitionActive { get; private set; }
+    public string DegradedGripAcquisitionFailureReason { get; private set; } = string.Empty;
     private MoonBoardStudyCatalog routeCatalog;
+    private HoldAffordanceCatalog holdAffordanceCatalog;
+    private GripLatchStateMachine leftGripLatch;
+    private GripLatchStateMachine rightGripLatch;
+    private GripLocomotionFilter leftLocomotionFilter;
+    private GripLocomotionFilter rightLocomotionFilter;
+    private GameObject leftLatchedHold;
+    private GameObject rightLatchedHold;
+    private readonly float[] leftFingerCurls = new float[FingerCurlEstimator.FingerCount];
+    private readonly float[] rightFingerCurls = new float[FingerCurlEstimator.FingerCount];
+    private readonly GripAcquisitionSample leftGripAcquisitionSample = new();
+    private readonly GripAcquisitionSample rightGripAcquisitionSample = new();
+    private readonly bool[] leftFingerConfidence = new bool[FingerCurlEstimator.FingerCount];
+    private readonly bool[] rightFingerConfidence = new bool[FingerCurlEstimator.FingerCount];
+    private readonly OverlapContactResolver<GameObject> leftHoverContacts = new();
+    private readonly OverlapContactResolver<GameObject> rightHoverContacts = new();
+    private readonly Dictionary<Mesh, DegradedGripContactGeometry> degradedGripGeometry = new();
+    private readonly HashSet<int> reportedDegradedGripGeometryFailures = new();
+    private readonly float[] leftDegradedGripDistances =
+        new float[GripEngagementGate.RequiredBoneDistanceCount];
+    private readonly float[] rightDegradedGripDistances =
+        new float[GripEngagementGate.RequiredBoneDistanceCount];
+    private bool leftLegacyFiveTipContact;
+    private bool rightLegacyFiveTipContact;
     private string holdsDictionaryError = string.Empty;
     private MaterialPropertyBlock holdProperties;
     private MaterialPropertyBlock HoldProperties => holdProperties ??= new MaterialPropertyBlock();
 
     private void Awake()
     {
+        InitializeGripFacades();
         EnsureRuntimeControllers();
         EnsureExaminationHeadlamp();
     }
@@ -201,6 +262,7 @@ public class SceneConfiguror : MonoBehaviour
         EnsureHoldsDictionary();
         EnsureGripPipeline();
         StartCoroutine(LoadRoutesJson());
+        StartCoroutine(LoadHoldAffordances());
 
         EnsureRuntimeControllers();
         ghostHoldController.Initialize(this);
@@ -240,24 +302,18 @@ public class SceneConfiguror : MonoBehaviour
                 interactionColorMaxDistanceOverride);
         }
 
-        bool leftTrackingValid = IsHandTrackingValid(leftHandOVRSkeleton, ref leftTrackedHand);
-        bool rightTrackingValid = IsHandTrackingValid(rightHandOVRSkeleton, ref rightTrackedHand);
-        if (!leftTrackingValid)
-        {
-            ClearHandInteractionState(0);
-        }
-        if (!rightTrackingValid)
-        {
-            ClearHandInteractionState(1);
-        }
+        leftTrackingValid = IsHandTrackingValid(leftHandOVRSkeleton, ref leftTrackedHand);
+        rightTrackingValid = IsHandTrackingValid(rightHandOVRSkeleton, ref rightTrackedHand);
         numBonesPerHand = leftTrackingValid || rightTrackingValid ? TrackedBoneCount : 0;
         if (leftTrackingValid)
         {
             CopyHandBones(leftHandOVRSkeleton, leftHandBonePositions, leftHandBoneQuaternions, TrackedBoneCount);
+            UpdateFingerCurls(Hand.Left, leftFingerCurls);
         }
         if (rightTrackingValid)
         {
             CopyHandBones(rightHandOVRSkeleton, rightHandBonePositions, rightHandBoneQuaternions, TrackedBoneCount);
+            UpdateFingerCurls(Hand.Right, rightFingerCurls);
         }
         EnsureGripDistanceArrays(TrackedBoneCount);
         gripContactPipeline?.Process(
@@ -265,13 +321,10 @@ public class SceneConfiguror : MonoBehaviour
             rightHandInteractingClimbingHold,
             leftHandBonePositions,
             rightHandBonePositions,
+            leftFingerCurls,
+            rightFingerCurls,
             leftTrackingValid,
             rightTrackingValid);
-
-        if (!leftTrackingValid && !rightTrackingValid)
-        {
-            return;
-        }
 
         // Grip state is shared by in-context and detached examination. Only Grip mode may move the board.
         if (gameMode == GameMode.Grip)
@@ -282,6 +335,11 @@ public class SceneConfiguror : MonoBehaviour
                  ghostHoldController.CurrentGhost != null)
         {
             UpdateGripMode(false);
+        }
+
+        if (!leftTrackingValid && !rightTrackingValid)
+        {
+            return;
         }
 
         // Update networked hands
@@ -370,138 +428,366 @@ public class SceneConfiguror : MonoBehaviour
 
     public void UpdateGripMode(bool allowLocomotion = true)
     {
-        float gripPoseBoneDriftThreshold = 0.05f;
-        if (!leftHandIsGripping)
-        {
-            // If a hand was not gripping, we check if it started gripping by calling CheckIfHandIsGrippingHold() to check for the "start condition".
-            leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(0, leftHandInteractingClimbingHold);
-            if (leftHandIsGripping)
-            {
-                // "Wasn't gripping, now gripping"
-                // Save the start pose of the hand (joint positions).
-                CopyRelativePose(leftHandBonePositions, ref leftHandGripStartPose);
-                actionRecorder?.Record(
-                    "GripStart",
-                    "Left",
-                    leftHandInteractingClimbingHold
-                );                                                                  // Save "relative positions" by subtracting the base position (index 0) from all other positions.
-            }
-        }
-        else if (leftHandInteractingClimbingHold == null)
-        {
-            leftHandIsGripping = false;
-        }
-        else
-        {
-            // However, if a hand is already gripping, we instead check if the hand is still gripping by comparing the start pose and the current pose.
-            CopyRelativePose(leftHandBonePositions, ref leftHandGripCurrentPose);
-            leftHandIsGripping = AreHandPosesApproximatelyEqual(leftHandGripStartPose, leftHandGripCurrentPose, gripPoseBoneDriftThreshold);
-        }
-        if (!rightHandIsGripping)
-        {
-            rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(1, rightHandInteractingClimbingHold);
-            if (rightHandIsGripping)
-            {
-                CopyRelativePose(rightHandBonePositions, ref rightHandGripStartPose);
-                actionRecorder?.Record(
-                    "GripStart",
-                    "Right",
-                    rightHandInteractingClimbingHold
-                );
-            }
-        }
-        else if (rightHandInteractingClimbingHold == null)
-        {
-            rightHandIsGripping = false;
-        }
-        else
-        {
-            CopyRelativePose(rightHandBonePositions, ref rightHandGripCurrentPose);
-            rightHandIsGripping = AreHandPosesApproximatelyEqual(rightHandGripStartPose, rightHandGripCurrentPose, gripPoseBoneDriftThreshold);
-        }
+        InitializeGripFacades();
+        float now = Time.unscaledTime;
+        UpdateHandGripLatch(Hand.Left, now);
+        UpdateHandGripLatch(Hand.Right, now);
+        UpdateLegacyGripTelemetry(Hand.Left);
+        UpdateLegacyGripTelemetry(Hand.Right);
+        leftHandIsGripping = leftGripLatch.IsEngaged;
+        rightHandIsGripping = rightGripLatch.IsEngaged;
 
         if (!allowLocomotion)
-        {
-            isGripLocomotionActive = false;
-            return;
-        }
-
-        // leftHandIsGripping = leftHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(0, leftHandInteractingClimbingHold);
-        // rightHandIsGripping = rightHandInteractingClimbingHold == null ? false : CheckIfHandIsGrippingHold(1, rightHandInteractingClimbingHold);
-
-        // If neither hand is gripping, don't move
-        if (!leftHandIsGripping && !rightHandIsGripping)
-        {
-            if (isGripLocomotionActive)
-            {
-                UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now not gripping with either hand. Stopping movement.");
-                StopGripLocomotion();
-            }
-            return;
-        }
-
-        // If both hands are gripping, don't move
-        if (leftHandIsGripping && rightHandIsGripping)
-        {
-            if (isGripLocomotionActive)
-            {
-                UnityEngine.Debug.Log("[SceneConfiguror] Was gripping with only one hand and moving, but now gripping with both hands. Stopping movement.");
-                StopGripLocomotion();
-            }
-            return;
-        }
-
-        // At this point, only one hand is gripping
-        // First, check isGripLocomotionActive -- If false, we are just starting to grip and need to record the grip start position
-        if (!isGripLocomotionActive)
-        {
-            UnityEngine.Debug.Log("Started gripping with only one hand, now moving!");
-            actionRecorder?.Record(
-                "LocomotionStart",
-                leftHandIsGripping ? "Left" : "Right",
-                leftHandIsGripping ? leftHandInteractingClimbingHold : rightHandInteractingClimbingHold,
-                "one-hand grip locomotion started"
-            );
-            isGripLocomotionActive = true;
-            if (leftHandIsGripping)
-            {
-                gripLocomotionHand = Hand.Left;
-                leftHandGripStartPosition = leftHandBonePositions[0];
-                leftHandGripLastPosition = leftHandGripStartPosition;
-            }
-            else
-            {
-                gripLocomotionHand = Hand.Right;
-                rightHandGripStartPosition = rightHandBonePositions[0];
-                rightHandGripLastPosition = rightHandGripStartPosition;
-            }
-        }
-
-        // Finally, we are sure that the player needs to move.
-        // We move by getting the distance since last frame, and moving the player by that distance, then recording the new last position.
-        Vector3 vectorToMovePlayer = Vector3.zero;
-        if (gripLocomotionHand == Hand.Left && leftHandIsGripping)
-        {
-            vectorToMovePlayer = leftHandBonePositions[0] - leftHandGripLastPosition;
-            // Compensate by moving the hands back
-            // leftHand.transform.position -= vectorToMovePlayer;
-            leftHandGripLastPosition = leftHandBonePositions[0];
-        }
-        else if (gripLocomotionHand == Hand.Right && rightHandIsGripping)
-        {
-            vectorToMovePlayer = rightHandBonePositions[0] - rightHandGripLastPosition;
-            // Compensate by moving the hands back
-            // rightHand.transform.position -= vectorToMovePlayer;
-            rightHandGripLastPosition = rightHandBonePositions[0];
-        }
-        else
         {
             StopGripLocomotion();
             return;
         }
-        // cameraOffset.transform.position -= vectorToMovePlayer; // Move player
-        moonBoardEnv.transform.position += vectorToMovePlayer;
+
+        GripLocomotionDriver driver = GripLocomotionPolicy.SelectDriver(
+            leftGripLatch.Phase,
+            leftTrackingValid,
+            rightGripLatch.Phase,
+            rightTrackingValid);
+        if (driver == GripLocomotionDriver.None)
+        {
+            StopGripLocomotion();
+            return;
+        }
+
+        Hand drivingHand = driver == GripLocomotionDriver.Left ? Hand.Left : Hand.Right;
+        if (!isGripLocomotionActive || gripLocomotionHand != drivingHand)
+        {
+            StopGripLocomotion();
+            StartGripLocomotion(drivingHand, now);
+        }
+
+        Vector3 movement;
+        if (drivingHand == Hand.Left)
+        {
+            Vector3 wristPosition = GripLocomotionAnchor.GetWristPosition(leftHandBonePositions);
+            movement = AdvanceGripLocomotion(Hand.Left, wristPosition, now);
+            leftHandGripLastPosition = wristPosition;
+        }
+        else
+        {
+            Vector3 wristPosition = GripLocomotionAnchor.GetWristPosition(rightHandBonePositions);
+            movement = AdvanceGripLocomotion(Hand.Right, wristPosition, now);
+            rightHandGripLastPosition = wristPosition;
+        }
+        if (moonBoardEnv != null)
+        {
+            moonBoardEnv.transform.position += movement;
+        }
     }
+
+    private void UpdateHandGripLatch(Hand hand, float now)
+    {
+        bool trackingValid = hand == Hand.Left ? leftTrackingValid : rightTrackingValid;
+        GameObject candidate = hand == Hand.Left
+            ? leftHandInteractingClimbingHold
+            : rightHandInteractingClimbingHold;
+        float[] curls = hand == Hand.Left ? leftFingerCurls : rightFingerCurls;
+        GripAcquisitionSample acquisitionSample = hand == Hand.Left
+            ? leftGripAcquisitionSample
+            : rightGripAcquisitionSample;
+        GripLatchStateMachine latch = hand == Hand.Left ? leftGripLatch : rightGripLatch;
+
+        int minFingers = ResolveMinFingers(candidate);
+        int candidateHoldId = candidate != null ? candidate.GetInstanceID() : 0;
+        bool canEvaluateAcquisition = latch.Phase == GripLatchPhase.Free &&
+                                      candidate != null &&
+                                      trackingValid &&
+                                      HoldAffordancesState == HoldAffordancesLoadState.Ready;
+        bool useDegradedCpu = DegradedGripContactAcquisition.ShouldUseCpu(
+            IsDegradedGripAcquisitionActive,
+            GetGripAcquisitionContext());
+        bool acquisitionReady = false;
+        int highFlexedContactMask = 0;
+        if (canEvaluateAcquisition && useDegradedCpu)
+        {
+            acquisitionReady = TryBuildDegradedGripContactMask(
+                hand,
+                candidate,
+                curls,
+                out highFlexedContactMask);
+        }
+        else if (canEvaluateAcquisition && !IsGripFeedbackDegraded && acquisitionSample.IsValid)
+        {
+            acquisitionReady = true;
+            highFlexedContactMask = acquisitionSample.ConsumeFlexedContactMask(
+                candidateHoldId,
+                curls,
+                gripFlexionEngageThreshold,
+                gripFingertipRange,
+                now);
+        }
+        int lowFlexedMask = GripEngagementGate.BuildFlexedMask(curls, gripFlexionReleaseThreshold);
+        GripLatchTransition transition = latch.Update(
+            now,
+            trackingValid,
+            acquisitionReady,
+            acquisitionReady ? candidateHoldId : 0,
+            minFingers,
+            highFlexedContactMask,
+            lowFlexedMask);
+
+        HandleGripLatchTransition(hand, candidate, minFingers, transition, now, trackingValid);
+    }
+
+    private GripAcquisitionContext GetGripAcquisitionContext()
+    {
+        return gameMode switch
+        {
+            GameMode.Grip => GripAcquisitionContext.WallGrip,
+            GameMode.Ghost => GripAcquisitionContext.DetachedInspection,
+            _ => GripAcquisitionContext.None,
+        };
+    }
+
+    private bool TryBuildDegradedGripContactMask(
+        Hand hand,
+        GameObject hold,
+        IReadOnlyList<float> curls,
+        out int contactMask)
+    {
+        contactMask = 0;
+        if (!TryGetDegradedGripGeometry(
+                hold,
+                out DegradedGripContactGeometry geometry,
+                out string error))
+        {
+            RecordDegradedGripGeometryFailure(hand, hold, error);
+            return false;
+        }
+
+        List<Vector3> positions = hand == Hand.Left
+            ? leftHandBonePositions
+            : rightHandBonePositions;
+        float[] distances = hand == Hand.Left
+            ? leftDegradedGripDistances
+            : rightDegradedGripDistances;
+        if (!DegradedGripContactAcquisition.TryMeasureFingertipDistances(
+                hold,
+                geometry,
+                positions,
+                distances,
+                out error))
+        {
+            RecordDegradedGripGeometryFailure(hand, hold, error);
+            return false;
+        }
+
+        contactMask = GripEngagementGate.BuildFlexedContactMask(
+            curls,
+            distances,
+            gripFlexionEngageThreshold,
+            gripFingertipRange);
+        return true;
+    }
+
+    private void UpdateFingerCurls(Hand hand, float[] curls)
+    {
+        OVRHand trackedHand = hand == Hand.Left ? leftTrackedHand : rightTrackedHand;
+        bool[] confidence = hand == Hand.Left ? leftFingerConfidence : rightFingerConfidence;
+        List<Quaternion> rotations = hand == Hand.Left
+            ? leftHandBoneQuaternions
+            : rightHandBoneQuaternions;
+        for (int finger = 0; finger < TrackedFingers.Length; finger++)
+        {
+            confidence[finger] = trackedHand.GetFingerConfidence(TrackedFingers[finger]) ==
+                                 OVRHand.TrackingConfidence.High;
+        }
+        FingerCurlEstimator.Update(rotations, confidence, curls);
+    }
+
+    private void HandleGripLatchTransition(
+        Hand hand,
+        GameObject candidate,
+        int minFingers,
+        GripLatchTransition transition,
+        float now,
+        bool trackingValid)
+    {
+        GameObject latchedHold = hand == Hand.Left ? leftLatchedHold : rightLatchedHold;
+        if (transition.Kind == GripLatchTransitionKind.Latched)
+        {
+            latchedHold = candidate;
+            SetLatchedHold(hand, latchedHold);
+            PublishGripEngagement(
+                "GripLatched",
+                hand,
+                latchedHold,
+                "min_fingers=" + minFingers);
+        }
+        else if (transition.Kind == GripLatchTransitionKind.Frozen)
+        {
+            PublishGripEngagement("GripFrozen", hand, latchedHold, "tracking_lost");
+        }
+        else if (transition.Kind == GripLatchTransitionKind.Released)
+        {
+            CompleteGripLocomotion(hand);
+            PublishGripEngagement(
+                "GripReleased",
+                hand,
+                latchedHold,
+                transition.ReleaseReason.ToRecorderValue());
+            SetLatchedHold(hand, null);
+            InvalidateGripAcquisitionSample(hand);
+        }
+
+        if (transition.ResetAnchor && trackingValid)
+        {
+            ResetGripAnchor(hand, now);
+        }
+    }
+
+    private void StartGripLocomotion(Hand hand, float now)
+    {
+        ResetGripAnchor(hand, now);
+        gripLocomotionHand = hand;
+        isGripLocomotionActive = true;
+        actionRecorder?.Record(
+            "LocomotionStart",
+            hand == Hand.Left ? "Left" : "Right",
+            hand == Hand.Left ? leftLatchedHold : rightLatchedHold,
+            "one-hand grip locomotion started");
+    }
+
+    private Vector3 AdvanceGripLocomotion(
+        Hand hand,
+        Vector3 wristPosition,
+        float now)
+    {
+        GripLocomotionFilter filter = hand == Hand.Left
+            ? leftLocomotionFilter
+            : rightLocomotionFilter;
+        Vector3 movement = filter.Update(wristPosition, now);
+        if (filter.LastDiscontinuityReason != GripLocomotionDiscontinuityReason.None)
+        {
+            Debug.LogWarning("[SceneConfiguror] " +
+                             (hand == Hand.Left ? "Left" : "Right") +
+                             " grip locomotion re-anchored after " +
+                             filter.LastDiscontinuityReason + ".");
+        }
+        return movement;
+    }
+
+    private void CompleteGripLocomotion(Hand hand)
+    {
+        if (!isGripLocomotionActive || gripLocomotionHand != hand)
+        {
+            return;
+        }
+
+        GripLocomotionFilter filter = hand == Hand.Left
+            ? leftLocomotionFilter
+            : rightLocomotionFilter;
+        filter.Complete();
+    }
+
+    private void ResetGripAnchor(Hand hand, float now)
+    {
+        List<Vector3> positions = hand == Hand.Left ? leftHandBonePositions : rightHandBonePositions;
+        if (positions == null || positions.Count <= GripLocomotionAnchor.OpenXrWristBoneIndex)
+        {
+            return;
+        }
+
+        Vector3 wristPosition = GripLocomotionAnchor.GetWristPosition(positions);
+        if (hand == Hand.Left)
+        {
+            leftHandGripStartPosition = wristPosition;
+            leftHandGripLastPosition = wristPosition;
+            leftLocomotionFilter.Reset(wristPosition, now);
+            if (leftLocomotionFilter.LastDiscontinuityReason !=
+                GripLocomotionDiscontinuityReason.None)
+            {
+                Debug.LogError("[SceneConfiguror] Left grip anchor rejected: " +
+                               leftLocomotionFilter.LastDiscontinuityReason + ".");
+            }
+        }
+        else
+        {
+            rightHandGripStartPosition = wristPosition;
+            rightHandGripLastPosition = wristPosition;
+            rightLocomotionFilter.Reset(wristPosition, now);
+            if (rightLocomotionFilter.LastDiscontinuityReason !=
+                GripLocomotionDiscontinuityReason.None)
+            {
+                Debug.LogError("[SceneConfiguror] Right grip anchor rejected: " +
+                               rightLocomotionFilter.LastDiscontinuityReason + ".");
+            }
+        }
+    }
+
+    private void UpdateLegacyGripTelemetry(Hand hand)
+    {
+        GameObject hold = hand == Hand.Left
+            ? leftHandInteractingClimbingHold
+            : rightHandInteractingClimbingHold;
+        bool trackingValid = hand == Hand.Left ? leftTrackingValid : rightTrackingValid;
+        bool isFiveTipContact = trackingValid && hold != null &&
+                                CheckIfHandIsGrippingHold((int)hand, hold);
+        bool wasFiveTipContact = hand == Hand.Left
+            ? leftLegacyFiveTipContact
+            : rightLegacyFiveTipContact;
+        if (isFiveTipContact && !wasFiveTipContact)
+        {
+            actionRecorder?.Record(
+                "GripStart",
+                hand == Hand.Left ? "Left" : "Right",
+                hold,
+                "legacy_all_five_tips");
+        }
+        if (hand == Hand.Left)
+        {
+            leftLegacyFiveTipContact = isFiveTipContact;
+        }
+        else
+        {
+            rightLegacyFiveTipContact = isFiveTipContact;
+        }
+    }
+
+    private void SetLatchedHold(Hand hand, GameObject hold)
+    {
+        if (hand == Hand.Left)
+        {
+            leftLatchedHold = hold;
+        }
+        else
+        {
+            rightLatchedHold = hold;
+        }
+    }
+
+    private void PublishGripEngagement(string action, Hand hand, GameObject hold, string details)
+    {
+        GripEngagementRecorded?.Invoke(action, hand, hold, details);
+        actionRecorder?.Record(action, hand == Hand.Left ? "Left" : "Right", hold, details);
+    }
+
+    internal void PublishGripAcquisitionSample(
+        Hand hand,
+        int holdId,
+        IReadOnlyList<float> curls,
+        IReadOnlyList<float> distances,
+        float sampledAt)
+    {
+        GripAcquisitionSample sample = hand == Hand.Left
+            ? leftGripAcquisitionSample
+            : rightGripAcquisitionSample;
+        sample.Publish(holdId, curls, distances, sampledAt);
+    }
+
+    internal void InvalidateGripAcquisitionSample(Hand hand)
+    {
+        GripAcquisitionSample sample = hand == Hand.Left
+            ? leftGripAcquisitionSample
+            : rightGripAcquisitionSample;
+        sample.Invalidate();
+    }
+
     public bool CheckIfHandIsGrippingHold(int handIndex, GameObject climbingHold)
     {
         // If we don't have access to the expected hand bone positions, return false.
@@ -523,7 +809,8 @@ public class SceneConfiguror : MonoBehaviour
             return false;
         }
 
-        // Keep the legacy all-five-fingertips event threshold for locomotion and event compatibility.
+        // Keep the legacy all-five-fingertips threshold as telemetry only. Locomotion consumes
+        // GripLatchStateMachine instead.
         // Currently, the following will check if each fingertip is close to the hold. (When using Meta SDK v71's new OpenXR Hand Skeleton, bone indices 5, 10, 15, 20, 25 for thumb, pointer, middle, ring, and little fingertips respectively)
         bool isGripping = true;
         foreach (int boneIndex in FingertipBoneIndices)
@@ -535,23 +822,7 @@ public class SceneConfiguror : MonoBehaviour
             }
         }
 
-        if (isGripping)
-        {
-            // UnityEngine.Debug.Log("[SceneConfiguror] DEV: Hand " + handIndex + " is gripping hold " + climbingHold.name);
-            UnityEngine.Debug.Log(
-                        $"[GripCheck] hand={handIndex}, hold={climbingHold.name}, " +
-                        $"range={gripFingertipRange}, " +
-                        $"thumb={handBoneToHoldMinDistances[5]:F4}, " +
-                        $"index={handBoneToHoldMinDistances[10]:F4}, " +
-                        $"middle={handBoneToHoldMinDistances[15]:F4}, " +
-                        $"ring={handBoneToHoldMinDistances[20]:F4}, " +
-                        $"pinky={handBoneToHoldMinDistances[25]:F4}");
-            return true;
-        }
-        else
-        {
-            return false;
-        }
+        return isGripping;
     }
     public bool AreHandPosesApproximatelyEqual(List<Vector3> pose1, List<Vector3> pose2, float threshold)
     {
@@ -587,96 +858,133 @@ public class SceneConfiguror : MonoBehaviour
     }
     public void HandHoverEnter(int hand, GameObject hoveredGameObject)
     {
-        UnityEngine.Debug.Log("SceneConfiguror: HandHoverEnter() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
-        OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
-        OVRHand handOVRHand = handOVRSkeleton.GetComponent<OVRHand>();
-        if (hoveredGameObject.CompareTag("ClimbingHold"))
+        GameObject hold = ResolveEligibleHoverHold(hoveredGameObject);
+        if (hold == null)
         {
-            bool isGhost = IsGhostHold(hoveredGameObject);
-            if (gameMode == GameMode.Basic || (gameMode == GameMode.Ghost && !isGhost) ||
-                (gameMode == GameMode.Grip && isGhost))
-            {
-                return;
-            }
-
-            if (IsActiveRouteHold(hoveredGameObject) || isGhost)
-            {
-                UnityEngine.Debug.Log("Hand hover enter: " + handOVRHand.name + " is now interacting with Climbing Hold " + hoveredGameObject.name);
-                actionRecorder?.Record(
-                    "HoverEnter",
-                    hand == 0 ? "Left" : "Right",
-                    hoveredGameObject
-                );
-                SetInteractionVisual(
-                    hoveredGameObject,
-                    gripContactPipeline == null && !IsGripFeedbackDegraded);
-
-            if (hand == 0)
-            {
-                ResetHandDistances(0);
-                if (!IsSameHold(leftHandInteractingClimbingHold, hoveredGameObject))
-                {
-                    leftHandIsGripping = false;
-                    StopGripLocomotion(Hand.Left);
-                }
-                leftHandInteractingClimbingHold = hoveredGameObject;
-            }
-            else if (hand == 1)
-            {
-                ResetHandDistances(1);
-                if (!IsSameHold(rightHandInteractingClimbingHold, hoveredGameObject))
-                {
-                    rightHandIsGripping = false;
-                    StopGripLocomotion(Hand.Right);
-                }
-                rightHandInteractingClimbingHold = hoveredGameObject;
-                }
-            }
+            return;
         }
+
+        GetHoverResolver(hand)?.Enter(hold);
+        RefreshHandHoverTarget(hand);
     }
+
     public void HandHoverExit(int hand, GameObject hoveredGameObject)
     {
-        UnityEngine.Debug.Log("SceneConfiguror: HandHoverExit() triggered with hand " + hand + " and GameObject " + hoveredGameObject.name);
-        OVRSkeleton handOVRSkeleton = GetOVRSkeletonFromHandIndex(hand);
-        OVRHand ovrHand = handOVRSkeleton.GetComponent<OVRHand>();
-        if (hoveredGameObject.CompareTag("ClimbingHold"))
+        GameObject hold = ResolveCanonicalHoverHold(hoveredGameObject);
+        if (hold == null)
         {
-            bool isGhost = IsGhostHold(hoveredGameObject);
-            if (gameMode == GameMode.Basic || (gameMode == GameMode.Ghost && !isGhost) ||
-                (gameMode == GameMode.Grip && isGhost))
+            return;
+        }
+
+        GetHoverResolver(hand)?.Exit(hold);
+        RefreshHandHoverTarget(hand);
+    }
+
+    private OverlapContactResolver<GameObject> GetHoverResolver(int hand)
+    {
+        if (hand == 0)
+        {
+            return leftHoverContacts;
+        }
+        if (hand == 1)
+        {
+            return rightHoverContacts;
+        }
+        Debug.LogError("Hand index " + hand + " not found.");
+        return null;
+    }
+
+    private GameObject ResolveEligibleHoverHold(GameObject candidate)
+    {
+        GameObject hold = ResolveCanonicalHoverHold(candidate);
+        if (hold == null || gameMode == GameMode.Basic)
+        {
+            return null;
+        }
+        bool isGhost = IsGhostHold(hold);
+        if ((gameMode == GameMode.Ghost && !isGhost) || (gameMode == GameMode.Grip && isGhost))
+        {
+            return null;
+        }
+        return isGhost || IsActiveRouteHold(hold) ? hold : null;
+    }
+
+    private GameObject ResolveCanonicalHoverHold(GameObject candidate)
+    {
+        if (candidate == null)
+        {
+            return null;
+        }
+        if (IsGhostHold(candidate))
+        {
+            return ghostHoldController.CurrentGhost;
+        }
+
+        GameObject activeHold = GetActiveRouteHold(candidate);
+        if (activeHold != null)
+        {
+            return activeHold;
+        }
+        for (Transform current = candidate.transform; current != null; current = current.parent)
+        {
+            if (holdsParentGameObject != null && current.parent == holdsParentGameObject.transform)
             {
-                return;
+                return current.gameObject;
             }
-            UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with Climbing Hold " + hoveredGameObject.name);
+        }
+        return null;
+    }
+
+    private void RefreshHandHoverTarget(int hand, string exitDetails = "")
+    {
+        OverlapContactResolver<GameObject> resolver = GetHoverResolver(hand);
+        if (resolver == null)
+        {
+            return;
+        }
+        GameObject previous = hand == 0
+            ? leftHandInteractingClimbingHold
+            : rightHandInteractingClimbingHold;
+        GameObject current = resolver.Current;
+        if (previous == current)
+        {
+            return;
+        }
+
+        Hand handSide = hand == 0 ? Hand.Left : Hand.Right;
+        InvalidateGripAcquisitionSample(handSide);
+        gripContactPipeline?.NotifyTargetDiscontinuity(handSide);
+
+        GameObject otherHandTarget = hand == 0
+            ? rightHandInteractingClimbingHold
+            : leftHandInteractingClimbingHold;
+        if (previous != null)
+        {
             actionRecorder?.Record(
                 "HoverExit",
                 hand == 0 ? "Left" : "Right",
-                hoveredGameObject
-            );
-            SetInteractionVisual(hoveredGameObject, false);
+                previous,
+                exitDetails);
+            if (otherHandTarget != previous)
+            {
+                SetInteractionVisual(previous, false);
+            }
+        }
 
-            if (hand == 0)
-            {
-                if (IsSameHold(leftHandInteractingClimbingHold, hoveredGameObject))
-                {
-                    leftHandInteractingClimbingHold = null;
-                    leftHandIsGripping = false;
-                    StopGripLocomotion(Hand.Left);
-                }
-            }
-            else if (hand == 1)
-            {
-                if (IsSameHold(rightHandInteractingClimbingHold, hoveredGameObject))
-                {
-                    rightHandInteractingClimbingHold = null;
-                    rightHandIsGripping = false;
-                    StopGripLocomotion(Hand.Right);
-                }
-            }
+        if (hand == 0)
+        {
+            leftHandInteractingClimbingHold = current;
         }
         else
         {
-            UnityEngine.Debug.Log("Hand hover exit: " + ovrHand.name + " is no longer interacting with GameObject " + hoveredGameObject.name);
+            rightHandInteractingClimbingHold = current;
+        }
+        ResetHandDistances(hand);
+
+        if (current != null)
+        {
+            actionRecorder?.Record("HoverEnter", hand == 0 ? "Left" : "Right", current);
+            SetInteractionVisual(current, gripContactPipeline == null && !IsGripFeedbackDegraded);
         }
     }
 
@@ -690,6 +998,8 @@ public class SceneConfiguror : MonoBehaviour
             return;
         }
 
+        ResetInteractionState();
+        degradedGripGeometry.Clear();
         ActiveRouteDefinition = route;
         activeRouteHoldsNamesList = new List<string>(route.holds);
         currentRouteName = routeName;
@@ -718,6 +1028,11 @@ public class SceneConfiguror : MonoBehaviour
             return false;
         }
         if (!catalog.TryValidate(out error))
+        {
+            return false;
+        }
+        if (holdAffordanceCatalog != null &&
+            !TryValidateHoldAffordances(catalog, holdAffordanceCatalog, out error))
         {
             return false;
         }
@@ -959,6 +1274,98 @@ public class SceneConfiguror : MonoBehaviour
         Debug.LogError("[SceneConfiguror] routes.json failed: " + reason);
     }
 
+    private IEnumerator LoadHoldAffordances()
+    {
+        HoldAffordancesState = HoldAffordancesLoadState.Loading;
+        HoldAffordancesFailureReason = string.Empty;
+        holdAffordanceCatalog = null;
+        string path = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/hold_affordances.json";
+        string json = null;
+        if (path.Contains("://") || path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase))
+        {
+            using UnityWebRequest request = UnityWebRequest.Get(path);
+            yield return request.SendWebRequest();
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                json = request.downloadHandler.text;
+            }
+            else
+            {
+                SetHoldAffordancesFailed("request failed: " + request.error);
+                yield break;
+            }
+        }
+        else
+        {
+            Exception readException = null;
+            try
+            {
+                if (File.Exists(path))
+                {
+                    json = File.ReadAllText(path);
+                }
+            }
+            catch (Exception exception)
+            {
+                readException = exception;
+                Debug.LogException(exception);
+            }
+            if (readException != null)
+            {
+                SetHoldAffordancesFailed("read failed: " + readException.Message);
+                yield break;
+            }
+        }
+
+        if (json == null)
+        {
+            SetHoldAffordancesFailed("file not found in StreamingAssets.");
+            yield break;
+        }
+        if (!HoldAffordanceCatalog.TryParse(json, out holdAffordanceCatalog, out string error))
+        {
+            SetHoldAffordancesFailed(error);
+            yield break;
+        }
+        if (routeCatalog != null &&
+            !TryValidateHoldAffordances(routeCatalog, holdAffordanceCatalog, out error))
+        {
+            SetHoldAffordancesFailed(error);
+            yield break;
+        }
+
+        HoldAffordancesState = HoldAffordancesLoadState.Ready;
+        Debug.Log("[SceneConfiguror] Loaded " + holdAffordanceCatalog.Count +
+                  " pocket affordance override(s).");
+    }
+
+    private void SetHoldAffordancesFailed(string reason)
+    {
+        holdAffordanceCatalog = null;
+        HoldAffordancesState = HoldAffordancesLoadState.Failed;
+        HoldAffordancesFailureReason = reason;
+        Debug.LogError("[SceneConfiguror] hold_affordances.json failed: " + reason);
+    }
+
+    private static bool TryValidateHoldAffordances(
+        MoonBoardStudyCatalog catalog,
+        HoldAffordanceCatalog affordances,
+        out string error)
+    {
+        HashSet<string> knownScans = new(catalog.holds.Select(hold => hold.scanId),
+            StringComparer.OrdinalIgnoreCase);
+        foreach (string scanId in affordances.ScanIds)
+        {
+            if (!knownScans.Contains(scanId))
+            {
+                error = "Hold affordance references unknown scan ID " + scanId + ".";
+                return false;
+            }
+        }
+        error = string.Empty;
+        return true;
+    }
+
     private static string ComputeSha256(byte[] value)
     {
         using SHA256 sha256 = SHA256.Create();
@@ -1049,15 +1456,18 @@ public class SceneConfiguror : MonoBehaviour
         }
         ResetInteractionState();
         gameMode = newMode;
-        if (newMode == GameMode.Basic)
-        {
-            ClearHighlightCircles();
-        }
+        SetRouteCuePresentation(newMode == GameMode.Basic
+            ? baselineRouteCuePresentation
+            : RouteCuePresentation.VirtualHalos);
         if (examinationHeadlamp != null)
         {
             examinationHeadlamp.enabled = newMode == GameMode.Grip || newMode == GameMode.Ghost;
         }
         ApplyModeToRouteHolds();
+        if (newMode == GameMode.Grip || newMode == GameMode.Ghost)
+        {
+            PrewarmDegradedGripGeometry(activeHoldsList);
+        }
         if (!leavingGhostMode && ghostHoldController != null)
         {
             ghostHoldController.SetModeActive(newMode == GameMode.Ghost);
@@ -1072,6 +1482,61 @@ public class SceneConfiguror : MonoBehaviour
             gripContactPipeline?.Prepare((IReadOnlyList<GameObject>)null);
         }
         actionRecorder?.Record("ModeChanged", "", null, newMode.ToString());
+    }
+
+    public RouteCuePresentation BaselineRouteCuePresentation => baselineRouteCuePresentation;
+    public RouteCuePresentation CurrentRouteCuePresentation { get; private set; } =
+        RouteCuePresentation.Hidden;
+    public bool AreVirtualRouteCuesVisible =>
+        CurrentRouteCuePresentation == RouteCuePresentation.VirtualHalos;
+
+    public RouteCuePresentation GetRouteCuePresentationForCondition(string condition)
+    {
+        return RouteCuePolicy.ForCondition(condition, baselineRouteCuePresentation);
+    }
+
+    public RouteCueRole GetRouteCueRole(string holdCoordinate)
+    {
+        if (ActiveRouteDefinition?.start != null &&
+            Array.Exists(ActiveRouteDefinition.start,
+                coordinate => string.Equals(coordinate, holdCoordinate, StringComparison.OrdinalIgnoreCase)))
+        {
+            return RouteCueRole.Start;
+        }
+        if (ActiveRouteDefinition?.finish != null &&
+            Array.Exists(ActiveRouteDefinition.finish,
+                coordinate => string.Equals(coordinate, holdCoordinate, StringComparison.OrdinalIgnoreCase)))
+        {
+            return RouteCueRole.Finish;
+        }
+        return RouteCueRole.Intermediate;
+    }
+
+    public RouteCueStyle GetRouteCueStyle(string holdCoordinate)
+    {
+        return RouteCuePolicy.GetStyle(GetRouteCueRole(holdCoordinate));
+    }
+
+    public void SetBaselineRouteCuePresentation(RouteCuePresentation presentation)
+    {
+        baselineRouteCuePresentation = presentation;
+        if (gameMode == GameMode.Basic)
+        {
+            SetRouteCuePresentation(presentation);
+        }
+    }
+
+    public void SetRouteCuePresentation(RouteCuePresentation presentation)
+    {
+        CurrentRouteCuePresentation = presentation;
+        bool showVirtualHalos = presentation == RouteCuePresentation.VirtualHalos;
+        foreach (GameObject circle in activeHighlightCircles)
+        {
+            if (circle != null)
+            {
+                circle.SetActive(showVirtualHalos);
+            }
+        }
     }
 
     public void PrepareGripHold(GameObject hold)
@@ -1235,21 +1700,20 @@ public class SceneConfiguror : MonoBehaviour
     }
 
     public bool IsGripFeedbackReady => !IsGripFeedbackDegraded &&
-                                       gripContactPipeline != null && gripContactPipeline.IsSupported;
+                                        HoldAffordancesState == HoldAffordancesLoadState.Ready &&
+                                        gripContactPipeline != null && gripContactPipeline.IsSupported;
 
     public void SetStudyFeedbackVisible(bool visible)
     {
         bool effectiveVisibility = visible && !IsGripFeedbackDegraded;
+        studyFeedbackVisible = effectiveVisibility;
         foreach (HandBoneTracker tracker in FindObjectsByType<HandBoneTracker>(
                      FindObjectsInactive.Include,
                      FindObjectsSortMode.None))
         {
             tracker.SetFeedbackVisible(effectiveVisibility);
         }
-        if (!effectiveVisibility)
-        {
-            gripContactPipeline?.ClearFeedback();
-        }
+        gripContactPipeline?.SetFeedbackVisible(effectiveVisibility);
     }
 
     public void DebugInjectGripReadbackFailures(int epochCount = 1)
@@ -1336,22 +1800,25 @@ public class SceneConfiguror : MonoBehaviour
             return;
         }
 
-        if (leftHandInteractingClimbingHold != null &&
-            (leftHandInteractingClimbingHold == ghost ||
-             leftHandInteractingClimbingHold.transform.IsChildOf(ghost.transform)))
+        leftHoverContacts.Remove(ghost);
+        rightHoverContacts.Remove(ghost);
+        RefreshHandHoverTarget(0);
+        RefreshHandHoverTarget(1);
+        int ghostId = ghost.GetInstanceID();
+        if (leftGripLatch != null && leftGripLatch.HoldId == ghostId)
         {
-            actionRecorder?.Record("HoverExit", "Left", ghost);
-            leftHandInteractingClimbingHold = null;
+            leftGripLatch.Reset();
+            leftLatchedHold = null;
+            StopGripLocomotion(Hand.Left);
         }
-        if (rightHandInteractingClimbingHold != null &&
-            (rightHandInteractingClimbingHold == ghost ||
-             rightHandInteractingClimbingHold.transform.IsChildOf(ghost.transform)))
+        if (rightGripLatch != null && rightGripLatch.HoldId == ghostId)
         {
-            actionRecorder?.Record("HoverExit", "Right", ghost);
-            rightHandInteractingClimbingHold = null;
+            rightGripLatch.Reset();
+            rightLatchedHold = null;
+            StopGripLocomotion(Hand.Right);
         }
-        leftHandIsGripping = false;
-        rightHandIsGripping = false;
+        leftHandIsGripping = leftGripLatch != null && leftGripLatch.IsEngaged;
+        rightHandIsGripping = rightGripLatch != null && rightGripLatch.IsEngaged;
     }
 
     private void ApplyModeToRouteHolds()
@@ -1392,39 +1859,30 @@ public class SceneConfiguror : MonoBehaviour
         }
         leftHandInteractingClimbingHold = null;
         rightHandInteractingClimbingHold = null;
+        leftHoverContacts.Clear();
+        rightHoverContacts.Clear();
+        HoverContactEpoch++;
+        gripContactPipeline?.ClearFeedback();
+        leftGripLatch?.Reset();
+        rightGripLatch?.Reset();
+        leftGripAcquisitionSample.Invalidate();
+        rightGripAcquisitionSample.Invalidate();
+        ResetHandDistances(0);
+        ResetHandDistances(1);
+        leftFingerContactMask = 0;
+        rightFingerContactMask = 0;
+        perFingerContactMask = 0;
+        leftHandGripScore = 0f;
+        rightHandGripScore = 0f;
+        currentGripScore = 0f;
+        leftLatchedHold = null;
+        rightLatchedHold = null;
+        leftLegacyFiveTipContact = false;
+        rightLegacyFiveTipContact = false;
         leftHandIsGripping = false;
         rightHandIsGripping = false;
         isGripLocomotionActive = false;
         gripLocomotionHand = null;
-    }
-
-    private void ClearHandInteractionState(int hand)
-    {
-        GameObject hold = hand == 0
-            ? leftHandInteractingClimbingHold
-            : rightHandInteractingClimbingHold;
-        if (hold != null)
-        {
-            actionRecorder?.Record(
-                "HoverExit",
-                hand == 0 ? "Left" : "Right",
-                hold,
-                "tracking_lost");
-        }
-        SetInteractionVisual(hold, false);
-        if (hand == 0)
-        {
-            leftHandInteractingClimbingHold = null;
-            leftHandIsGripping = false;
-            ResetHandDistances(0);
-        }
-        else
-        {
-            rightHandInteractingClimbingHold = null;
-            rightHandIsGripping = false;
-            ResetHandDistances(1);
-        }
-        StopGripLocomotion(hand == 0 ? Hand.Left : Hand.Right);
     }
 
     private void StopGripLocomotion(Hand? hand = null)
@@ -1434,16 +1892,17 @@ public class SceneConfiguror : MonoBehaviour
             return;
         }
 
+        if (gripLocomotionHand == Hand.Left)
+        {
+            leftLocomotionFilter?.Cancel();
+        }
+        else if (gripLocomotionHand == Hand.Right)
+        {
+            rightLocomotionFilter?.Cancel();
+        }
         actionRecorder?.Record("LocomotionStop", "", null, "grip locomotion stopped");
         isGripLocomotionActive = false;
         gripLocomotionHand = null;
-    }
-
-    private static bool IsSameHold(GameObject current, GameObject candidate)
-    {
-        return current != null && candidate != null &&
-               (current == candidate || current.transform.IsChildOf(candidate.transform) ||
-                candidate.transform.IsChildOf(current.transform));
     }
 
     private void SetInteractionVisual(GameObject hold, bool active, float maxDistance = -1f)
@@ -1553,12 +2012,17 @@ public class SceneConfiguror : MonoBehaviour
         }
 
         Transform board = holdsParentGameObject.transform;
-        // The imported MoonBoard grid lies in the holds parent's local XZ plane; local Y is
-        // the trusted wall-normal axis used by the scanned-hold seating offsets.
-        Vector3 boardNormal = board.up.normalized;
-        Vector3 boardHorizontal = board.right.normalized;
-        Vector3 boardVertical = board.forward.normalized;
-        Vector3 boardPlanePoint = board.position;
+        Transform boardSurface = board.parent?.Find("Main Surface") ?? board.parent?.Find("Plane");
+        if (boardSurface == null)
+        {
+            Debug.LogError("MoonBoard main surface is unavailable; route halos cannot be projected.");
+            return;
+        }
+
+        Vector3 boardNormal = boardSurface.up.normalized;
+        Vector3 boardHorizontal = boardSurface.right.normalized;
+        Vector3 boardVertical = RouteCuePolicy.GetBoardVertical(boardNormal);
+        Vector3 boardPlanePoint = boardSurface.position;
         Transform viewer = centerEyeAnchor != null ? centerEyeAnchor.transform : mainCamera?.transform;
         if (viewer != null && Vector3.Dot(boardNormal, viewer.position - boardPlanePoint) < 0f)
         {
@@ -1585,24 +2049,30 @@ public class SceneConfiguror : MonoBehaviour
             float width = ProjectedBoundsDiameter(bounds, boardHorizontal);
             float height = ProjectedBoundsDiameter(bounds, boardVertical);
             float outerDiameter = Mathf.Clamp(Mathf.Max(width, height) * 1.35f, 0.14f, 0.30f);
-            Vector3 projectedCenter = bounds.center -
-                                      boardNormal * Vector3.Dot(bounds.center - boardPlanePoint, boardNormal);
-            Vector3 position = projectedCenter + boardNormal * 0.015f;
+            // Renderer bounds are scan-frame data and can be off-center. The hold transform is
+            // the calibrated MoonBoard grid anchor, so it is the only valid point to project.
+            Vector3 position = RouteCuePolicy.ProjectGridAnchorOntoBoard(
+                hold.transform.position,
+                boardPlanePoint,
+                boardNormal,
+                0.015f);
             Quaternion rotation = Quaternion.LookRotation(boardNormal, boardVertical);
 
             bool isStart = hasRoles && starts.Contains(holdName);
             bool isFinish = hasRoles && finishes.Contains(holdName);
-            Color color = isStart
-                ? StartHaloColor
+            RouteCueRole role = isStart
+                ? RouteCueRole.Start
                 : isFinish
-                    ? FinishHaloColor
-                    : IntermediateHaloColor;
-            CreateHaloRing(holdName, position, rotation, outerDiameter, color, 0);
-            if (isStart || isFinish)
+                    ? RouteCueRole.Finish
+                    : RouteCueRole.Intermediate;
+            RouteCueStyle style = RouteCuePolicy.GetStyle(role);
+            CreateHaloRing(holdName, position, rotation, outerDiameter, style.Color, 0);
+            if (style.RingCount == 2)
             {
-                CreateHaloRing(holdName, position, rotation, outerDiameter * 0.65f, color, 1);
+                CreateHaloRing(holdName, position, rotation, outerDiameter * 0.65f, style.Color, 1);
             }
         }
+        SetRouteCuePresentation(CurrentRouteCuePresentation);
     }
 
     private void CreateHaloRing(
@@ -1745,7 +2215,11 @@ public class SceneConfiguror : MonoBehaviour
     {
         foreach (var circle in activeHighlightCircles)
         {
-            Destroy(circle);
+            if (circle != null)
+            {
+                circle.SetActive(false);
+                Destroy(circle);
+            }
         }
         activeHighlightCircles.Clear();
     }
@@ -1902,6 +2376,65 @@ public class SceneConfiguror : MonoBehaviour
         hasInitialMoonBoardTransform = true;
     }
 
+    private void InitializeGripFacades()
+    {
+        if (leftGripLatch != null)
+        {
+            return;
+        }
+        GripEngagementGate.ValidateMinFingers(defaultMinFingers);
+        if (gripFlexionReleaseThreshold >= gripFlexionEngageThreshold)
+        {
+            throw new InvalidOperationException(
+                "Grip release flexion threshold must be lower than the engagement threshold.");
+        }
+
+        leftGripLatch = new GripLatchStateMachine(
+            gripReleaseGraceSeconds,
+            gripTrackingFreezeSeconds,
+            gripFrozenTimeoutSeconds);
+        rightGripLatch = new GripLatchStateMachine(
+            gripReleaseGraceSeconds,
+            gripTrackingFreezeSeconds,
+            gripFrozenTimeoutSeconds);
+        leftLocomotionFilter = new GripLocomotionFilter(
+            gripOneEuroMinCutoff,
+            gripOneEuroBeta,
+            gripMaximumAcceleration);
+        rightLocomotionFilter = new GripLocomotionFilter(
+            gripOneEuroMinCutoff,
+            gripOneEuroBeta,
+            gripMaximumAcceleration);
+    }
+
+    public int GetMinFingersForHold(GameObject hold)
+    {
+        return ResolveMinFingers(hold);
+    }
+
+    private int ResolveMinFingers(GameObject hold)
+    {
+        if (holdAffordanceCatalog == null || hold == null)
+        {
+            return defaultMinFingers;
+        }
+
+        GameObject sourceHold = IsGhostHold(hold) && ghostHoldController.WallReferent != null
+            ? ghostHoldController.WallReferent
+            : hold;
+        string coordinate = sourceHold.name.Split('.')[0];
+        int ghostMarker = coordinate.IndexOf('#');
+        if (ghostMarker >= 0)
+        {
+            coordinate = coordinate.Substring(0, ghostMarker);
+        }
+        coordinate = coordinate.ToUpperInvariant();
+        return routeCatalog != null &&
+               routeCatalog.TryGetHold(coordinate, out MoonBoardHoldDefinition definition)
+            ? holdAffordanceCatalog.ResolveMinFingers(definition.scanId, defaultMinFingers)
+            : defaultMinFingers;
+    }
+
     private static bool IsHandTrackingValid(OVRSkeleton skeleton, ref OVRHand hand)
     {
         if (skeleton == null || skeleton.Bones == null || skeleton.Bones.Count < TrackedBoneCount)
@@ -1913,20 +2446,102 @@ public class SceneConfiguror : MonoBehaviour
         return hand != null && hand.IsTracked && hand.IsDataHighConfidence;
     }
 
-    private static void CopyRelativePose(List<Vector3> source, ref List<Vector3> destination)
+    private bool TryGetDegradedGripGeometry(
+        GameObject hold,
+        out DegradedGripContactGeometry geometry,
+        out string error)
     {
-        destination ??= new List<Vector3>(source.Count);
-        destination.Clear();
-        if (destination.Capacity < source.Count)
+        geometry = null;
+        if (hold == null)
         {
-            destination.Capacity = source.Count;
+            error = "A hovered hold is required.";
+            return false;
         }
 
-        Vector3 origin = source[0];
-        for (int i = 0; i < source.Count; i++)
+        if (!hold.TryGetComponent(out MeshFilter meshFilter) ||
+            meshFilter.sharedMesh == null)
         {
-            destination.Add(source[i] - origin);
+            error = "No root MeshFilter geometry is available.";
+            return false;
         }
+
+        Mesh mesh = meshFilter.sharedMesh;
+        if (degradedGripGeometry.TryGetValue(mesh, out geometry) &&
+            geometry != null)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        if (!DegradedGripContactAcquisition.TryCollectReliableGeometry(
+                hold,
+                out geometry,
+                out error))
+        {
+            return false;
+        }
+
+        degradedGripGeometry[mesh] = geometry;
+        return true;
+    }
+
+    private void PrewarmDegradedGripGeometry(IReadOnlyList<GameObject> holds)
+    {
+        if (holds == null)
+        {
+            return;
+        }
+
+        foreach (GameObject hold in holds)
+        {
+            if (!TryGetDegradedGripGeometry(hold, out _, out string error))
+            {
+                throw new InvalidOperationException(
+                    "Cannot prepare degraded grip acquisition for " +
+                    (hold != null ? hold.name : "<missing>") + ": " + error);
+            }
+        }
+    }
+
+    private void RecordDegradedGripGeometryFailure(Hand hand, GameObject hold, string reason)
+    {
+        string holdName = hold != null ? hold.name : "<missing>";
+        string details = "hold=" + holdName + "; " + reason;
+        DegradedGripAcquisitionFailureReason = details;
+        int holdId = hold != null ? hold.GetInstanceID() : 0;
+        if (!reportedDegradedGripGeometryFailures.Add(holdId))
+        {
+            return;
+        }
+
+        string side = hand == Hand.Left ? "Left" : "Right";
+        Debug.LogError("[SceneConfiguror] DEGRADED CPU grip acquisition rejected: " + details);
+        actionRecorder?.Record("GripAcquisitionFallbackRejected", side, hold, details);
+    }
+
+    private void ActivateDegradedGripAcquisition()
+    {
+        if (IsDegradedGripAcquisitionActive)
+        {
+            return;
+        }
+
+        IsDegradedGripAcquisitionActive = true;
+        DegradedGripAcquisitionFailureReason = string.Empty;
+        reportedDegradedGripGeometryFailures.Clear();
+        const string activationDetails =
+            "cpu_mesh_vertex_distance; degraded_only; grip_visuals_off";
+        Debug.LogWarning(
+            "[SceneConfiguror] DEGRADED CPU mesh-vertex grip acquisition ACTIVE; " +
+            "GPU grip cues remain off.");
+        actionRecorder?.Record(
+            "GripAcquisitionFallbackActivated",
+            "",
+            null,
+            activationDetails);
+
+        // Geometry is cached lazily for the hovered hold so degradation cannot create a
+        // frame-spike by copying every active route mesh at once.
     }
 
     private void EnsureGripPipeline()
@@ -1948,6 +2563,7 @@ public class SceneConfiguror : MonoBehaviour
             distanceToClosestBoneComputeShader,
             gripScoreConfig,
             gripRecoveryAttempted);
+        gripContactPipeline.SetFeedbackVisible(studyFeedbackVisible && !IsGripFeedbackDegraded);
         gripContactPipeline.DebugSetReadbackFailures(debugForceGripReadbackFailures);
     }
 
@@ -1981,6 +2597,7 @@ public class SceneConfiguror : MonoBehaviour
             SetStudyFeedbackVisible(false);
             gripContactPipeline.Dispose();
             gripContactPipeline = null;
+            ActivateDegradedGripAcquisition();
         }
     }
 

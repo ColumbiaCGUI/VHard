@@ -7,7 +7,7 @@ using UnityEngine;
 [Serializable]
 public sealed class MoonBoardStudyCatalog
 {
-    public const string ApprovedCatalogSha256 = "5fe13b67b24d174beaba7b0508f40351622f00d066728e725653e41f7f643062";
+    public const string ApprovedCatalogSha256 = "e80eadcf5f053c24c199d52ad210164c02c31eab1696658132761f7cb553cfaa";
 
     /// <summary>Local scale at which the aggregate FBX imports each normalised hold child.</summary>
     public const float NormalizedMeshScale = 100f;
@@ -58,6 +58,7 @@ public static readonly string[] ScaleCalibrationSources =
     public MoonBoardProvenance provenance;
     public MoonBoardHoldDefinition[] holds = Array.Empty<MoonBoardHoldDefinition>();
     public MoonBoardRouteDefinition[] routes = Array.Empty<MoonBoardRouteDefinition>();
+    [NonSerialized] private Dictionary<string, MoonBoardRouteDefinition> supplementalRoutes;
 
     public static bool TryParse(string json, out MoonBoardStudyCatalog catalog, out string error)
     {
@@ -218,7 +219,62 @@ public static readonly string[] ScaleCalibrationSources =
                 return true;
             }
         }
-        return false;
+        return supplementalRoutes != null && supplementalRoutes.TryGetValue(routeId, out route);
+    }
+
+    public bool TrySetSupplementalRoutes(
+        IReadOnlyList<MoonBoardRouteDefinition> supplemental,
+        out string error)
+    {
+        supplementalRoutes = null;
+        if (supplemental == null || supplemental.Count == 0)
+        {
+            error = "MoonBoard supplemental routes are empty.";
+            return false;
+        }
+
+        HashSet<string> mountedCoordinates = new(StringComparer.Ordinal);
+        foreach (MoonBoardHoldDefinition hold in holds)
+        {
+            mountedCoordinates.Add(hold.coordinate);
+        }
+        HashSet<string> routeIds = new(StringComparer.Ordinal);
+        foreach (MoonBoardRouteDefinition studyRoute in routes)
+        {
+            routeIds.Add(studyRoute.id);
+        }
+
+        Dictionary<string, MoonBoardRouteDefinition> parsed = new(StringComparer.Ordinal);
+        foreach (MoonBoardRouteDefinition candidate in supplemental)
+        {
+            if (candidate == null || candidate.lockedForStudy || string.IsNullOrWhiteSpace(candidate.id) ||
+                string.IsNullOrWhiteSpace(candidate.sourceProblemId) ||
+                string.IsNullOrWhiteSpace(candidate.sourceRecordSha256) ||
+                candidate.moves == null || candidate.moves.Length == 0 || !routeIds.Add(candidate.id))
+            {
+                error = "MoonBoard supplemental routes contain an invalid or conflicting route.";
+                return false;
+            }
+            foreach (MoonBoardRouteMove move in candidate.moves)
+            {
+                if (move == null || !mountedCoordinates.Contains(move.coordinate))
+                {
+                    error = "MoonBoard supplemental route references an unmounted coordinate: " +
+                            candidate.id + ".";
+                    return false;
+                }
+            }
+            parsed.Add(candidate.id, candidate);
+        }
+
+        supplementalRoutes = parsed;
+        error = string.Empty;
+        return true;
+    }
+
+    public void ClearSupplementalRoutes()
+    {
+        supplementalRoutes = null;
     }
 
     public bool TryGetHold(string coordinate, out MoonBoardHoldDefinition hold)

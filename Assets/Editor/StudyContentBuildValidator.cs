@@ -14,6 +14,8 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
 {
     private const string ScenePath = "Assets/Scenes/SampleScene.unity";
     private const string CatalogPath = "Assets/StreamingAssets/moonboard_2016_40.json";
+    private const string EstimationCatalogPath =
+        "Assets/StreamingAssets/moonboard_2016_40_estimation.json";
     private const string SchedulePath = "Assets/StreamingAssets/study_schedule.csv";
     private const string OculusConfigPath = "Assets/Oculus/OculusProjectConfig.asset";
     private const string BoardMaterialPath = "Assets/Materials/MovementHarlemMoonBoard.mat";
@@ -31,7 +33,7 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
     public static void ValidateFromMenu()
     {
         ValidateOrThrow();
-        Debug.Log("[StudyContentBuildValidator] MoonBoard study content is valid.");
+        Debug.Log("[StudyContentBuildValidator] MoonBoard climb, estimation, and practice content is valid.");
     }
 
     public static void ValidateOrThrow()
@@ -51,6 +53,15 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
         if (ComputeFileSha256(catalog.provenance.meshAsset) != MoonBoardStudyCatalog.ApprovedMeshSha256)
         {
             throw new BuildFailedException("MoonBoard mesh asset does not match its approved SHA-256.");
+        }
+        string estimationJson = File.ReadAllText(EstimationCatalogPath);
+        if (!MoonBoardEstimationCatalog.TryParseApproved(
+                estimationJson,
+                catalog,
+                out _,
+                out error))
+        {
+            throw new BuildFailedException(error);
         }
         if (!StudySchedule.TryParse(
                 File.ReadAllText(SchedulePath),
@@ -180,9 +191,13 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
             }
             MeshFilter sceneMesh = hold.GetComponent<MeshFilter>();
             MeshFilter sourceMesh = sourceHold.GetComponent<MeshFilter>();
-            if (sceneMesh == null || sourceMesh == null || sceneMesh.sharedMesh != sourceMesh.sharedMesh)
+            if (sceneMesh == null || sourceMesh == null ||
+                sceneMesh.sharedMesh != sourceMesh.sharedMesh ||
+                !sceneMesh.sharedMesh.isReadable)
             {
-                throw new BuildFailedException("Hold mesh overrides its approved physical scan: " + hold.name + ".");
+                throw new BuildFailedException(
+                    "Hold mesh is unreadable or overrides its approved physical scan: " +
+                    hold.name + ".");
             }
             string expectedMaterial = definition.holdset switch
             {

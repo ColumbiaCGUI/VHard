@@ -2,12 +2,32 @@
 import argparse
 import hashlib
 import json
+import math
+import zipfile
 from pathlib import Path
 
 
 SOURCE_REPOSITORY = "https://github.com/e-sr/moonboard"
 SOURCE_REVISION = "ccd78f587ab189acea6dd7ce8a6d4f086f65db69"
 ROUTE_SOURCE_IDS = ("19215", "21329", "170190")
+ESTIMATION_SOURCE_ARCHIVE = "problems_2023_01_30.zip"
+ESTIMATION_SOURCE_URL = (
+    "https://drive.google.com/file/d/1Zoqsmc15IHtGekY99xazemxjGGx07Kep/view"
+)
+ESTIMATION_SOURCE_SHA256 = "f7f8becff8d1bcb3bd93feaee67cea4b5cecf27d84e079115ef9590b0efe5c05"
+ESTIMATION_INNER_FILE = "problems MoonBoard 2016 .json"
+ESTIMATION_INNER_SHA256 = "355792de881324a51accc32e7478b7cd4535a63a4b2bf8cedf56d4280044723d"
+ESTIMATION_GRADES = ("6B+", "6C", "7A", "7A+")
+ESTIMATION_V_GRADES = {"6B+": "V4", "6C": "V5", "7A": "V6", "7A+": "V7"}
+ESTIMATION_EXPECTED_IDS = {
+    "6B+": (386882, 386902, 389008),
+    "6C": (404248, 389660, 397202),
+    "7A": (452771, 424830, 388011),
+    "7A+": (395431, 441349, 387486),
+}
+ESTIMATION_EXPECTED_POOL_SIZES = {"6B+": 23, "6C": 6, "7A": 4, "7A+": 4}
+ESTIMATION_NAME_EXCLUSIONS = frozenset()
+PRACTICE_EXPECTED_ID = 19216
 HOLDSET_PREFIXES = {
     "Original School Holds": "Y",
     "Hold Set A": "W",
@@ -170,10 +190,11 @@ SURFACE_OFFSETS_METERS = {
 # present in the aggregate FBX, including B127 whose plain Creality file was deleted.
 #
 # W98 is independently cross-checked by the rotation-invariant mesh-volume ratio, which agrees
-# with its depth ratio to 0.007%. Y6's plain and Zplane source meshes differ by 24.2% in volume;
-# the catalog deliberately keeps the Zplane-consistent depth ratio while the team determines
-# which source mesh is authoritative. No shipped multiplier uses the weaker max-radius or board-
-# photo estimators; their source labels remain valid schema values only for future explicit use.
+# with its depth ratio to 0.007%. Y6's plain scan is open, so its signed volume is not comparable;
+# rigid registration shows the closed Zplane repair preserves the climbing shell and expected bolt
+# bore. The catalog therefore uses the authoritative Zplane-consistent depth ratio. No shipped
+# multiplier uses the weaker max-radius or board-photo estimators; their source labels remain valid
+# schema values only for future explicit use.
 #
 # The legacy aggregate child localScale of 0.7 is deliberately NOT part of this formula.
 # Independent board photogrammetry anchored to the 200 mm T-nut pitch finds no systematic scale
@@ -325,9 +346,34 @@ HOLD_SCALE_CALIBRATION = {
     "B132": (0.610225287, "metric-scan"),  # I18
     "W87": (0.562586813, "metric-scan"),  # K18
 }
+
+
+def z_axis_correction(degrees: float) -> dict[str, float]:
+    half_angle = math.radians(degrees) * 0.5
+    return {"x": 0.0, "y": 0.0, "z": math.sin(half_angle), "w": math.cos(half_angle)}
+
+
+# Local-Z residuals from climbing-side silhouettes against both the official setup image and
+# rectified Movement Harlem photos, rounded to 5 degrees. These are right-hand mesh-local +Z
+# angles. GetBoardLocalRotation maps that axis to the climbing-side panel normal; the measured
+# front-image residuals have the opposite sign because those images are mirrored into board A-K
+# order before comparison.
+MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
+    "B127": 105.0,  # E14; observed board residual -105 deg
+    "B109": -140.0,  # I9; observed board residual +140 deg
+    "B115": -55.0,  # G17; observed board residual +55 deg
+    "B141": -140.0,  # G4; observed board residual +140 deg
+    "Y28": 20.0,  # H18; observed board residual -20 deg
+    "Y6": 70.0,  # F6; observed board residual -70 deg
+    "B138": -120.0,  # C13; observed board residual +120 deg
+}
 MESH_FRAME_CORRECTIONS = {
     # Approved by-eye W98 orientation from 1b9df47, expressed after the FBX -90-degree X basis.
     "W98": {"x": 0.0, "y": -0.92387953, "z": 0.0, "w": 0.38268343},
+    **{
+        scan_id: z_axis_correction(degrees)
+        for scan_id, degrees in MESH_FRAME_YAW_CORRECTIONS_DEGREES.items()
+    },
 }
 
 
@@ -339,9 +385,18 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def text_sha256(path: Path) -> str:
+    # Git may check this JSON out with CRLF on Windows; provenance pins repository bytes.
+    return bytes_sha256(path.read_bytes().replace(b"\r\n", b"\n"))
+
+
 def record_sha256(record: dict) -> str:
     encoded = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def bytes_sha256(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
 
 def coordinate_key(coordinate: str) -> tuple[int, int]:
@@ -495,7 +550,7 @@ def build_catalog(source_root: Path, project_root: Path) -> dict:
         "provenance": {
             "sourceRepository": SOURCE_REPOSITORY,
             "sourceRevision": SOURCE_REVISION,
-            "problemsSha256": sha256(problems_path),
+            "problemsSha256": text_sha256(problems_path),
             "holdsSha256": sha256(holds_path),
             "dimensionsSha256": sha256(dimensions_path),
             "meshAsset": "Assets/Resources/New_Decimated_Holds.fbx",
@@ -504,6 +559,231 @@ def build_catalog(source_root: Path, project_root: Path) -> dict:
         "holds": holds,
         "routes": routes,
     }
+
+
+def load_estimation_records(source_archive: Path) -> list[dict]:
+    archive_hash = sha256(source_archive)
+    if archive_hash != ESTIMATION_SOURCE_SHA256:
+        raise ValueError(
+            f"Estimation archive SHA-256 mismatch: expected {ESTIMATION_SOURCE_SHA256}, "
+            f"found {archive_hash}"
+        )
+
+    with zipfile.ZipFile(source_archive) as archive:
+        try:
+            source_bytes = archive.read(ESTIMATION_INNER_FILE)
+        except KeyError as exception:
+            raise ValueError(
+                f"Estimation archive does not contain {ESTIMATION_INNER_FILE!r}"
+            ) from exception
+    source_hash = bytes_sha256(source_bytes)
+    if source_hash != ESTIMATION_INNER_SHA256:
+        raise ValueError(
+            f"Estimation source SHA-256 mismatch: expected {ESTIMATION_INNER_SHA256}, "
+            f"found {source_hash}"
+        )
+
+    payload = json.loads(source_bytes.decode("utf-8"))
+    records = payload.get("data")
+    if not isinstance(records, list) or payload.get("total") != len(records):
+        raise ValueError("Estimation source has an invalid {total, data} envelope")
+    return records
+
+
+def select_estimation_records(records: list[dict], mounted_coordinates: set[str]) -> dict[str, list[dict]]:
+    climbed_ids = {int(source_id) for source_id in ROUTE_SOURCE_IDS}
+    selected = {}
+    for grade in ESTIMATION_GRADES:
+        eligible = [
+            record
+            for record in records
+            if record.get("grade") == grade
+            and record.get("dateDeleted") is None
+            and record.get("dateInserted", "") > "2021-01-01"
+            and record.get("holdsetup", {}).get("description") == "MoonBoard 2016"
+            and int(record.get("apiId", -1)) not in climbed_ids
+            and record.get("name") not in ESTIMATION_NAME_EXCLUSIONS
+            and record.get("userGrade") == grade
+            and not record.get("downgraded", False)
+            and not record.get("upgraded", False)
+            and int(record.get("repeats", 0)) >= 100
+            and record.get("moves")
+            and all(
+                move.get("description", "").upper() in mounted_coordinates
+                for move in record["moves"]
+            )
+        ]
+        eligible.sort(key=lambda record: (-int(record["repeats"]), int(record["apiId"])))
+        expected_pool_size = ESTIMATION_EXPECTED_POOL_SIZES[grade]
+        if len(eligible) != expected_pool_size:
+            raise ValueError(
+                f"Expected {expected_pool_size} eligible {grade} estimation problems, "
+                f"found {len(eligible)}"
+            )
+        selected[grade] = eligible[:3]
+        selected_ids = tuple(int(record["apiId"]) for record in selected[grade])
+        if selected_ids != ESTIMATION_EXPECTED_IDS[grade]:
+            raise ValueError(
+                f"Estimation selection drift for {grade}: expected "
+                f"{ESTIMATION_EXPECTED_IDS[grade]}, found {selected_ids}"
+            )
+    return selected
+
+
+def archive_estimation_problem(source_problem: dict) -> dict:
+    api_id = int(source_problem["apiId"])
+    moves = []
+    for index, move in enumerate(source_problem["moves"]):
+        moves.append(
+            {
+                "sequence": index,
+                "coordinate": move["description"].upper(),
+                "role": "start" if move["isStart"] else "finish" if move["isEnd"] else "move",
+                "sourceMoveId": str(move.get("problemId", api_id)),
+            }
+        )
+    return {
+        "id": f"MB2016-{api_id}",
+        "apiId": api_id,
+        "name": source_problem["name"],
+        "grade": source_problem["grade"],
+        "vGrade": ESTIMATION_V_GRADES[source_problem["grade"]],
+        "userGrade": source_problem["userGrade"],
+        "isBenchmark": bool(source_problem["isBenchmark"]),
+        "upgraded": bool(source_problem["upgraded"]),
+        "downgraded": bool(source_problem["downgraded"]),
+        "method": source_problem["method"],
+        "repeatsAtArchive": int(source_problem["repeats"]),
+        "setter": source_problem["setby"],
+        "dateInserted": source_problem["dateInserted"],
+        "purpose": "estimation-only",
+        "sourceRecordSha256": record_sha256(source_problem),
+        "moves": moves,
+    }
+
+
+def select_practice_problem(
+    source_root: Path,
+    mounted_coordinates: set[str],
+    excluded_ids: set[int],
+) -> dict:
+    problems_path = source_root / "problems/fetch/moonboard_problems_setup_2016.json"
+    source_problems = json.loads(problems_path.read_text(encoding="utf-8"))
+    eligible = []
+    for source_id, problem in source_problems.items():
+        if not source_id.isdigit() or int(source_id) in excluded_ids:
+            continue
+        if problem.get("Grade") != "6B+" or problem.get("Holdsetup", {}).get("Description") != "MoonBoard 2016":
+            continue
+        moves = problem.get("Moves") or []
+        if not moves or not all(
+            move.get("Description", "").upper() in mounted_coordinates for move in moves
+        ):
+            continue
+        eligible.append((int(source_id), problem))
+    eligible.sort(key=lambda pair: (-int(pair[1]["Repeats"]), pair[0]))
+    if not eligible or eligible[0][0] != PRACTICE_EXPECTED_ID:
+        found = eligible[0][0] if eligible else None
+        raise ValueError(
+            f"Practice selection drift: expected {PRACTICE_EXPECTED_ID}, found {found}"
+        )
+
+    api_id, source_problem = eligible[0]
+    moves = []
+    for index, move in enumerate(source_problem["Moves"]):
+        moves.append(
+            {
+                "sequence": index,
+                "coordinate": move["Description"].upper(),
+                "role": "start" if move["IsStart"] else "finish" if move["IsEnd"] else "move",
+                "sourceMoveId": str(move["Id"]),
+            }
+        )
+    return {
+        "id": f"MB2016-{api_id}",
+        "apiId": api_id,
+        "name": source_problem["Name"],
+        "grade": source_problem["Grade"],
+        "vGrade": ESTIMATION_V_GRADES[source_problem["Grade"]],
+        "userGrade": source_problem["Grade"],
+        "isBenchmark": bool(source_problem["IsBenchmark"]),
+        "upgraded": False,
+        "downgraded": False,
+        "method": source_problem["Method"],
+        "repeatsAtArchive": int(source_problem["Repeats"]),
+        "setter": source_problem["Setter"]["Nickname"],
+        "dateInserted": source_problem["DateInserted"],
+        "purpose": "practice-only",
+        "sourceRecordSha256": record_sha256(source_problem),
+        "moves": moves,
+    }
+
+
+def build_estimation_catalog(
+    source_archive: Path,
+    source_root: Path,
+    main_catalog: dict,
+) -> dict:
+    mounted_coordinates = {hold["coordinate"] for hold in main_catalog["holds"]}
+    selected_by_grade = select_estimation_records(
+        load_estimation_records(source_archive), mounted_coordinates
+    )
+    problems = [
+        archive_estimation_problem(problem)
+        for grade in ESTIMATION_GRADES
+        for problem in selected_by_grade[grade]
+    ]
+    selected_ids = {problem["apiId"] for problem in problems}
+    climbed_ids = {int(source_id) for source_id in ROUTE_SOURCE_IDS}
+    practice_problem = select_practice_problem(
+        source_root,
+        mounted_coordinates,
+        climbed_ids | selected_ids,
+    )
+
+    estimation_sets = []
+    for rank, route in enumerate(main_catalog["routes"]):
+        estimation_sets.append(
+            {
+                "setIndex": rank + 1,
+                "climbRouteId": route["id"],
+                "problemIds": [
+                    int(selected_by_grade[grade][rank]["apiId"])
+                    for grade in ESTIMATION_GRADES
+                ],
+            }
+        )
+
+    practice_source_path = source_root / "problems/fetch/moonboard_problems_setup_2016.json"
+    return {
+        "schemaVersion": 1,
+        "setupId": "moonboard-2016",
+        "setupName": "MoonBoard 2016",
+        "overhangAngleDegrees": 40,
+        "archiveDate": "2026-07-21",
+        "provenance": {
+            "sourceArchive": ESTIMATION_SOURCE_ARCHIVE,
+            "sourceArchiveUrl": ESTIMATION_SOURCE_URL,
+            "sourceArchiveSha256": ESTIMATION_SOURCE_SHA256,
+            "sourceFile": ESTIMATION_INNER_FILE,
+            "sourceFileSha256": ESTIMATION_INNER_SHA256,
+            "practiceSourceRepository": SOURCE_REPOSITORY,
+            "practiceSourceRevision": SOURCE_REVISION,
+            "practiceProblemsSha256": text_sha256(practice_source_path),
+        },
+        "problems": problems,
+        "estimationSets": estimation_sets,
+        "practiceProblem": practice_problem,
+    }
+
+
+def catalog_bytes(catalog: dict) -> bytes:
+    return (json.dumps(catalog, indent=2) + "\n").encode("utf-8")
+
+
+def write_catalog(path: Path, catalog: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(catalog_bytes(catalog))
 
 
 def main() -> None:
@@ -515,12 +795,33 @@ def main() -> None:
         type=Path,
         default=Path("Assets/StreamingAssets/moonboard_2016_40.json"),
     )
+    parser.add_argument(
+        "--estimation-source",
+        type=Path,
+        help="Pinned problems_2023_01_30.zip used only for estimation content.",
+    )
+    parser.add_argument(
+        "--estimation-output",
+        type=Path,
+        help="Also write the estimation/practice catalog to this path.",
+    )
     args = parser.parse_args()
 
-    catalog = build_catalog(args.source_root.resolve(), args.project_root.resolve())
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("w", encoding="utf-8", newline="\n") as output:
-        output.write(json.dumps(catalog, indent=2) + "\n")
+    source_root = args.source_root.resolve()
+    catalog = build_catalog(source_root, args.project_root.resolve())
+    estimation_catalog = None
+    if args.estimation_output is not None:
+        if args.estimation_source is None:
+            parser.error("--estimation-source is required with --estimation-output")
+        estimation_catalog = build_estimation_catalog(
+            args.estimation_source.resolve(),
+            source_root,
+            catalog,
+        )
+
+    write_catalog(args.output, catalog)
+    if args.estimation_output is not None and estimation_catalog is not None:
+        write_catalog(args.estimation_output, estimation_catalog)
 
 
 if __name__ == "__main__":

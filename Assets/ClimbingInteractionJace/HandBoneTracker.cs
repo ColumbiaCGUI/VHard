@@ -37,7 +37,7 @@ public class HandBoneTracker : MonoBehaviour
 
     void Update()
     {
-        if (sceneConfiguror == null || meshRenderer == null || !feedbackVisible || trackedHand == null ||
+        if (sceneConfiguror == null || meshRenderer == null || material == null || !feedbackVisible || trackedHand == null ||
             !trackedHand.IsTracked || !trackedHand.IsDataHighConfidence)
         {
             if (meshRenderer != null)
@@ -48,41 +48,32 @@ public class HandBoneTracker : MonoBehaviour
         }
         meshRenderer.enabled = true;
 
-        if (hand == Hand.Left)
+        var bonePositions = hand == Hand.Left
+            ? sceneConfiguror.leftHandBonePositions
+            : sceneConfiguror.rightHandBonePositions;
+        if (trackedBoneIndex < 0 || bonePositions == null || bonePositions.Count <= trackedBoneIndex)
         {
-            if (sceneConfiguror.leftHandBonePositions == null || sceneConfiguror.leftHandBonePositions.Count <= trackedBoneIndex)
-            {
-                return;
-            }
-        }
-        else if (hand == Hand.Right)
-        {
-            if (sceneConfiguror.rightHandBonePositions == null || sceneConfiguror.rightHandBonePositions.Count <= trackedBoneIndex)
-            {
-                return;
-            }
+            meshRenderer.enabled = false;
+            return;
         }
 
-
-        if (hand == Hand.Left)
-        {
-            transform.position = sceneConfiguror.leftHandBonePositions[trackedBoneIndex] + transformOffsetFromTrackedBone;
-        }
-        else if (hand == Hand.Right)
-        {
-            transform.position = sceneConfiguror.rightHandBonePositions[trackedBoneIndex] + transformOffsetFromTrackedBone;
-        }
-
+        transform.position = bonePositions[trackedBoneIndex] + transformOffsetFromTrackedBone;
 
         if (handBoneTrackerType == HandBoneTrackerType.ContactRangeVisual)
         {
-            meshRenderer.enabled = true;
+            float[] distances = hand == Hand.Left
+                ? sceneConfiguror.leftHandBoneToHoldMinDistances
+                : sceneConfiguror.rightHandBoneToHoldMinDistances;
+            if (distances == null || distances.Length <= trackedBoneIndex)
+            {
+                meshRenderer.enabled = false;
+                return;
+            }
             transform.localScale = new Vector3(
                 sceneConfiguror.gripFingertipRange,
                 sceneConfiguror.gripFingertipRange,
                 sceneConfiguror.gripFingertipRange);
-            float handBoneDistanceToHold = hand == Hand.Left ?
-                sceneConfiguror.leftHandBoneToHoldMinDistances[trackedBoneIndex] : sceneConfiguror.rightHandBoneToHoldMinDistances[trackedBoneIndex];
+            float handBoneDistanceToHold = distances[trackedBoneIndex];
             bool handBoneIsContactingHold = handBoneDistanceToHold <= sceneConfiguror.gripFingertipRange;
             if (handBoneIsContactingHold)
             {

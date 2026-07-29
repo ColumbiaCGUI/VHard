@@ -22,10 +22,13 @@ public sealed class GripContactPipeline : IDisposable
     private readonly Queue<OutputSet> pendingEpochs = new();
     private readonly Vector3[] leftBones = new Vector3[BoneCount];
     private readonly Vector3[] rightBones = new Vector3[BoneCount];
+    private readonly float[] leftCurls = new float[FingerCurlEstimator.FingerCount];
+    private readonly float[] rightCurls = new float[FingerCurlEstimator.FingerCount];
     private readonly bool supported;
     private readonly GripReadbackHealth readbackHealth;
     private bool disposed;
     private bool dispatchPaused;
+    private bool feedbackVisible = true;
     private GripReadbackAction pendingAction;
     private long nextEpoch;
     private int failedEpochCount;
@@ -33,6 +36,10 @@ public sealed class GripContactPipeline : IDisposable
     private bool debugForceFailures;
     private float lastLeftScoreTime;
     private float lastRightScoreTime;
+    private GameObject lastLeftTarget;
+    private GameObject lastRightTarget;
+    private int leftTargetGeneration;
+    private int rightTargetGeneration;
 
     public GripContactPipeline(
         SceneConfiguror sceneConfiguror,
@@ -63,6 +70,8 @@ public sealed class GripContactPipeline : IDisposable
             return;
         }
 
+        sceneConfiguror.InvalidateGripAcquisitionSample(Hand.Left);
+        sceneConfiguror.InvalidateGripAcquisitionSample(Hand.Right);
         ProcessCompletedEpochs(now);
         if (pendingAction == GripReadbackAction.None)
         {
@@ -87,11 +96,44 @@ public sealed class GripContactPipeline : IDisposable
         }
     }
 
+    public void SetFeedbackVisible(bool visible)
+    {
+        feedbackVisible = visible;
+        if (!visible)
+        {
+            ClearFeedback();
+        }
+    }
+
+    public void NotifyTargetDiscontinuity(Hand hand)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        EnsureDistanceArrays();
+        if (hand == Hand.Left)
+        {
+            InvalidateHoldContact(lastLeftTarget);
+            leftTargetGeneration++;
+            ClearHandFeedback(LeftHandMask);
+        }
+        else
+        {
+            InvalidateHoldContact(lastRightTarget);
+            rightTargetGeneration++;
+            ClearHandFeedback(RightHandMask);
+        }
+    }
+
     public void Process(
         GameObject leftHold,
         GameObject rightHold,
         List<Vector3> leftHandBonePositions,
         List<Vector3> rightHandBonePositions,
+        IReadOnlyList<float> leftFingerCurls,
+        IReadOnlyList<float> rightFingerCurls,
         bool leftHandValid = true,
         bool rightHandValid = true)
     {
@@ -100,47 +142,42 @@ public sealed class GripContactPipeline : IDisposable
             return;
         }
         EnsureDistanceArrays();
-        if (!supported)
-        {
-            ClearFeedback();
-            return;
-        }
-        if (dispatchPaused)
-        {
-            return;
-        }
-
-        bool leftReady = supported && leftHandValid && leftHandBonePositions.Count >= BoneCount;
-        bool rightReady = supported && rightHandValid && rightHandBonePositions.Count >= BoneCount;
-
-        if (leftReady)
-        {
-            for (int i = 0; i < BoneCount; i++)
-            {
-                leftBones[i] = leftHandBonePositions[i];
-            }
-        }
-        else
+        bool leftReady = supported && leftHandValid && leftHandBonePositions.Count >= BoneCount &&
+                         leftFingerCurls != null && leftFingerCurls.Count >= FingerCurlEstimator.FingerCount;
+        bool rightReady = supported && rightHandValid && rightHandBonePositions.Count >= BoneCount &&
+                          rightFingerCurls != null && rightFingerCurls.Count >= FingerCurlEstimator.FingerCount;
+        if (!leftReady)
         {
             leftHold = null;
-            ClearHandFeedback(LeftHandMask);
         }
-        if (rightReady)
-        {
-            for (int i = 0; i < BoneCount; i++)
-            {
-                rightBones[i] = rightHandBonePositions[i];
-            }
-        }
-        else
+        if (!rightReady)
         {
             rightHold = null;
+        }
+
+        if (UpdateTarget(ref lastLeftTarget, leftHold, ref leftTargetGeneration))
+        {
+            ClearHandFeedback(LeftHandMask);
+        }
+        if (UpdateTarget(ref lastRightTarget, rightHold, ref rightTargetGeneration))
+        {
             ClearHandFeedback(RightHandMask);
         }
 
         foreach (HoldContactState state in holdStates.Values)
         {
             state.SetOverlayVisible(false);
+        }
+
+        if (!supported)
+        {
+            ClearFeedback();
+            return;
+        }
+        if (!feedbackVisible)
+        {
+            ClearHandFeedback(LeftHandMask | RightHandMask);
+            return;
         }
 
         if (leftHold == null)
@@ -150,6 +187,33 @@ public sealed class GripContactPipeline : IDisposable
         if (rightHold == null)
         {
             ClearHandFeedback(RightHandMask);
+        }
+        if (dispatchPaused)
+        {
+            return;
+        }
+
+        if (leftReady)
+        {
+            for (int i = 0; i < BoneCount; i++)
+            {
+                leftBones[i] = leftHandBonePositions[i];
+            }
+            for (int i = 0; i < FingerCurlEstimator.FingerCount; i++)
+            {
+                leftCurls[i] = leftFingerCurls[i];
+            }
+        }
+        if (rightReady)
+        {
+            for (int i = 0; i < BoneCount; i++)
+            {
+                rightBones[i] = rightHandBonePositions[i];
+            }
+            for (int i = 0; i < FingerCurlEstimator.FingerCount; i++)
+            {
+                rightCurls[i] = rightFingerCurls[i];
+            }
         }
 
         if (leftHold != null && rightHold == leftHold)
@@ -191,8 +255,14 @@ public sealed class GripContactPipeline : IDisposable
         EnsureDistanceArrays();
         Array.Fill(sceneConfiguror.leftHandBoneToHoldMinDistances, float.PositiveInfinity);
         Array.Fill(sceneConfiguror.rightHandBoneToHoldMinDistances, float.PositiveInfinity);
+        sceneConfiguror.InvalidateGripAcquisitionSample(Hand.Left);
+        sceneConfiguror.InvalidateGripAcquisitionSample(Hand.Right);
         lastLeftScoreTime = 0f;
         lastRightScoreTime = 0f;
+        lastLeftTarget = null;
+        lastRightTarget = null;
+        leftTargetGeneration++;
+        rightTargetGeneration++;
     }
 
     public void Prepare(IReadOnlyList<GameObject> holds)
@@ -274,6 +344,7 @@ public sealed class GripContactPipeline : IDisposable
             sceneConfiguror.leftFingerContactMask = 0;
             sceneConfiguror.leftHandGripScore = 0f;
             Array.Fill(sceneConfiguror.leftHandBoneToHoldMinDistances, float.PositiveInfinity);
+            sceneConfiguror.InvalidateGripAcquisitionSample(Hand.Left);
             lastLeftScoreTime = 0f;
         }
         if ((handMask & RightHandMask) != 0)
@@ -281,6 +352,7 @@ public sealed class GripContactPipeline : IDisposable
             sceneConfiguror.rightFingerContactMask = 0;
             sceneConfiguror.rightHandGripScore = 0f;
             Array.Fill(sceneConfiguror.rightHandBoneToHoldMinDistances, float.PositiveInfinity);
+            sceneConfiguror.InvalidateGripAcquisitionSample(Hand.Right);
             lastRightScoreTime = 0f;
         }
         sceneConfiguror.perFingerContactMask = sceneConfiguror.leftFingerContactMask |
@@ -304,6 +376,7 @@ public sealed class GripContactPipeline : IDisposable
             state = holdStates[id];
         }
 
+        state.SetOverlayVisible(true);
         OutputSet output = state.GetAvailableOutput();
         if (output == null)
         {
@@ -317,7 +390,15 @@ public sealed class GripContactPipeline : IDisposable
         {
             debugFailuresRemaining--;
         }
-        output.Reset(handMask, ++nextEpoch, forceFailure);
+        output.Reset(
+            handMask,
+            ++nextEpoch,
+            Time.unscaledTime,
+            forceFailure,
+            leftTargetGeneration,
+            rightTargetGeneration,
+            leftCurls,
+            rightCurls);
 
         computeShader.SetFloat("_ContactThreshold", config.contactThreshold);
         computeShader.SetFloat("_FixedPointScale", config.fixedPointScale);
@@ -336,8 +417,7 @@ public sealed class GripContactPipeline : IDisposable
         computeShader.SetBuffer(kernel, "tipContactStats", output.tipContactStats);
         computeShader.SetBuffer(kernel, "handBoneToHoldMinDistances", output.boneDistances);
         computeShader.Dispatch(kernel, (state.vertexCount + ThreadGroupSize - 1) / ThreadGroupSize, 1, 1);
-        state.SetContactBuffer(output.vertexContactData);
-        state.SetOverlayVisible(true);
+        state.SetContactBuffer(output.vertexContactData, output.epoch);
         output.RequestReadback();
         pendingEpochs.Enqueue(output);
     }
@@ -356,8 +436,9 @@ public sealed class GripContactPipeline : IDisposable
                 }
             }
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            Debug.LogException(exception);
             succeeded = false;
         }
         output.RecordStatsResult(succeeded);
@@ -377,8 +458,9 @@ public sealed class GripContactPipeline : IDisposable
                 }
             }
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            Debug.LogException(exception);
             succeeded = false;
         }
         output.RecordBonesResult(succeeded);
@@ -402,6 +484,8 @@ public sealed class GripContactPipeline : IDisposable
             }
             else
             {
+                output.state.InvalidateContactData(output.epoch);
+                InvalidateFailedEpoch(output);
                 failedEpochCount++;
                 if (failedEpochCount == 1 || failedEpochCount % 30 == 0)
                 {
@@ -425,9 +509,12 @@ public sealed class GripContactPipeline : IDisposable
         }
 
         float holdScore = 0f;
+        bool applied = false;
         if ((output.handMask & LeftHandMask) != 0 &&
+            output.leftTargetGeneration == leftTargetGeneration &&
             sceneConfiguror.leftHandInteractingClimbingHold == state.hold)
         {
+            applied = true;
             GripScoreResult result = GripScoreCalculator.Calculate(output.accumulators, 0, config);
             sceneConfiguror.leftFingerContactMask = result.contactMask;
             sceneConfiguror.leftHandGripScore = SmoothScore(
@@ -439,11 +526,19 @@ public sealed class GripContactPipeline : IDisposable
                 sceneConfiguror.leftHandBoneToHoldMinDistances[index] =
                     UIntFloat.ToFloat(output.boneDistanceValues[index]);
             }
+            sceneConfiguror.PublishGripAcquisitionSample(
+                Hand.Left,
+                state.hold.GetInstanceID(),
+                output.leftFingerCurls,
+                sceneConfiguror.leftHandBoneToHoldMinDistances,
+                output.sampledAt);
             holdScore = Mathf.Max(holdScore, sceneConfiguror.leftHandGripScore);
         }
         if ((output.handMask & RightHandMask) != 0 &&
+            output.rightTargetGeneration == rightTargetGeneration &&
             sceneConfiguror.rightHandInteractingClimbingHold == state.hold)
         {
+            applied = true;
             GripScoreResult result = GripScoreCalculator.Calculate(output.accumulators, 5, config);
             sceneConfiguror.rightFingerContactMask = result.contactMask;
             sceneConfiguror.rightHandGripScore = SmoothScore(
@@ -455,7 +550,18 @@ public sealed class GripContactPipeline : IDisposable
                 sceneConfiguror.rightHandBoneToHoldMinDistances[index] =
                     UIntFloat.ToFloat(output.boneDistanceValues[BoneCount + index]);
             }
+            sceneConfiguror.PublishGripAcquisitionSample(
+                Hand.Right,
+                state.hold.GetInstanceID(),
+                output.rightFingerCurls,
+                sceneConfiguror.rightHandBoneToHoldMinDistances,
+                output.sampledAt);
             holdScore = Mathf.Max(holdScore, sceneConfiguror.rightHandGripScore);
+        }
+
+        if (!applied)
+        {
+            return;
         }
 
         sceneConfiguror.perFingerContactMask = sceneConfiguror.leftFingerContactMask |
@@ -464,6 +570,45 @@ public sealed class GripContactPipeline : IDisposable
             sceneConfiguror.leftHandGripScore,
             sceneConfiguror.rightHandGripScore);
         state.SetGripScore(holdScore);
+    }
+
+    private void InvalidateFailedEpoch(OutputSet output)
+    {
+        HoldContactState state = output.state;
+        if ((output.handMask & LeftHandMask) != 0 &&
+            output.leftTargetGeneration == leftTargetGeneration &&
+            sceneConfiguror.leftHandInteractingClimbingHold == state.hold)
+        {
+            ClearHandFeedback(LeftHandMask);
+        }
+        if ((output.handMask & RightHandMask) != 0 &&
+            output.rightTargetGeneration == rightTargetGeneration &&
+            sceneConfiguror.rightHandInteractingClimbingHold == state.hold)
+        {
+            ClearHandFeedback(RightHandMask);
+        }
+    }
+
+    private bool UpdateTarget(ref GameObject previous, GameObject current, ref int generation)
+    {
+        if (previous == current)
+        {
+            return false;
+        }
+
+        InvalidateHoldContact(previous);
+        InvalidateHoldContact(current);
+        previous = current;
+        generation++;
+        return true;
+    }
+
+    private void InvalidateHoldContact(GameObject hold)
+    {
+        if (hold != null && holdStates.TryGetValue(hold.GetInstanceID(), out HoldContactState state))
+        {
+            state.InvalidateContactData();
+        }
     }
 
     private void BeginHealthAction(GripReadbackAction action)
@@ -528,6 +673,7 @@ public sealed class GripContactPipeline : IDisposable
         private bool rimGlowActive;
         private bool contactBufferReady;
         private bool overlayRequested;
+        private long boundEpoch;
         public readonly GameObject hold;
         public readonly Mesh mesh;
         public readonly int vertexCount;
@@ -605,7 +751,7 @@ public sealed class GripContactPipeline : IDisposable
             }
         }
 
-        public void SetContactBuffer(ComputeBuffer contactBuffer)
+        public void SetContactBuffer(ComputeBuffer contactBuffer, long epoch)
         {
             if (overlayRenderer == null)
             {
@@ -615,14 +761,20 @@ public sealed class GripContactPipeline : IDisposable
             overlayRenderer.GetPropertyBlock(overlayProperties);
             overlayProperties.SetBuffer("_ContactData", contactBuffer);
             overlayRenderer.SetPropertyBlock(overlayProperties);
+            boundEpoch = epoch;
             contactBufferReady = true;
             overlayRenderer.enabled = overlayRequested;
         }
 
-        public void InvalidateContactData()
+        public void InvalidateContactData(long epoch = -1)
         {
+            if (epoch >= 0 && boundEpoch != epoch)
+            {
+                return;
+            }
             contactBufferReady = false;
             overlayRequested = false;
+            boundEpoch = 0;
             if (overlayRenderer != null)
             {
                 overlayRenderer.enabled = false;
@@ -730,9 +882,14 @@ public sealed class GripContactPipeline : IDisposable
         public readonly ComputeBuffer boneDistances;
         public readonly GripContactAccumulator[] accumulators = new GripContactAccumulator[TipCount];
         public readonly uint[] boneDistanceValues = new uint[BoneCount * 2];
+        public readonly float[] leftFingerCurls = new float[FingerCurlEstimator.FingerCount];
+        public readonly float[] rightFingerCurls = new float[FingerCurlEstimator.FingerCount];
         public int handMask;
         public long epoch;
+        public float sampledAt;
         public bool forceFailure;
+        public int leftTargetGeneration;
+        public int rightTargetGeneration;
         public AsyncGPUReadbackRequest statsRequest;
         public AsyncGPUReadbackRequest bonesRequest;
 
@@ -752,11 +909,36 @@ public sealed class GripContactPipeline : IDisposable
             boneDistances = new ComputeBuffer(BoneCount * 2, sizeof(uint));
         }
 
-        public void Reset(int requestedHandMask, long epochId, bool injectFailure)
+        public void Reset(
+            int requestedHandMask,
+            long epochId,
+            float requestedSampledAt,
+            bool injectFailure,
+            int requestedLeftTargetGeneration,
+            int requestedRightTargetGeneration,
+            IReadOnlyList<float> requestedLeftFingerCurls,
+            IReadOnlyList<float> requestedRightFingerCurls)
         {
             handMask = requestedHandMask;
             epoch = epochId;
+            sampledAt = requestedSampledAt;
             forceFailure = injectFailure;
+            leftTargetGeneration = requestedLeftTargetGeneration;
+            rightTargetGeneration = requestedRightTargetGeneration;
+            if ((requestedHandMask & LeftHandMask) != 0)
+            {
+                for (int index = 0; index < leftFingerCurls.Length; index++)
+                {
+                    leftFingerCurls[index] = requestedLeftFingerCurls[index];
+                }
+            }
+            if ((requestedHandMask & RightHandMask) != 0)
+            {
+                for (int index = 0; index < rightFingerCurls.Length; index++)
+                {
+                    rightFingerCurls[index] = requestedRightFingerCurls[index];
+                }
+            }
             tipContactStats.SetData(EmptyStats);
             boneDistances.SetData(InfinityDistances);
             Array.Copy(InfinityDistances, boneDistanceValues, InfinityDistances.Length);

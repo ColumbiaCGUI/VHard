@@ -5,13 +5,18 @@ the artifact cannot always be regenerated end to end. These tests assert that
 Assets/StreamingAssets/moonboard_2016_40.json is exactly what build_catalog() would
 emit from HOLD_SCALE_CALIBRATION, so the table and the artifact cannot drift apart.
 """
+import hashlib
 import json
 import pathlib
+import re
 import unittest
 
 import generate_moonboard_catalog as gen
 
-CATALOG = pathlib.Path(__file__).resolve().parents[1] / "Assets/StreamingAssets/moonboard_2016_40.json"
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
+CATALOG = PROJECT_ROOT / "Assets/StreamingAssets/moonboard_2016_40.json"
+CATALOG_CLASS = PROJECT_ROOT / "Assets/Scripts/StudyCore/MoonBoardStudyCatalog.cs"
+SESSION_CHECKER = PROJECT_ROOT / "tools/check_session.py"
 
 
 def load():
@@ -39,6 +44,27 @@ class HoldScaleCalibrationTests(unittest.TestCase):
                 places=12,
                 msg=scan_id,
             )
+
+    def test_mesh_frame_corrections_match_the_generator_table(self):
+        actual = {}
+        for hold in load()["holds"]:
+            if hold.get("hasMeshFrameCorrection", False):
+                actual[hold["scanId"]] = hold["meshFrameCorrection"]
+        self.assertEqual(actual, gen.MESH_FRAME_CORRECTIONS)
+        self.assertNotIn("Y30", actual)
+        self.assertNotIn("Y33", actual)
+
+    def test_catalog_hash_pins_match_the_shipped_bytes(self):
+        digest = hashlib.sha256(CATALOG.read_bytes()).hexdigest()
+        pins = (
+            (CATALOG_CLASS, r'ApprovedCatalogSha256 = "([0-9a-f]{64})";'),
+            (SESSION_CHECKER, r'APPROVED_CATALOG_SHA256 = "([0-9a-f]{64})"'),
+        )
+        for path, pattern in pins:
+            match = re.search(pattern, path.read_text(encoding="utf-8"))
+            if match is None:
+                self.fail(f"Catalog SHA-256 pin is missing from {path}")
+            self.assertEqual(digest, match.group(1), path)
 
     def test_calibration_sources_are_declared_and_counted(self):
         catalog = load()
