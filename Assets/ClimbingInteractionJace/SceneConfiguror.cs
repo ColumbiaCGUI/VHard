@@ -55,8 +55,6 @@ public class SceneConfiguror : MonoBehaviour
     public ActionRecorder actionRecorder;
     [Header("HighlightCircle")]
     public GameObject highlightCirclePrefab;
-    private List<GameObject> activeHighlightCircles = new();
-    private Material highlightCircleMaterial;
 
     [Header("Route Cues")]
     [SerializeField] private RouteCuePresentation baselineRouteCuePresentation =
@@ -66,7 +64,6 @@ public class SceneConfiguror : MonoBehaviour
     public Camera mainCamera;     // assign your main/world camera here
     //public Camera minimapCamera;  // assign your minimap camera here [Update 7/7/2026: we don't need a minimap anymore. CAROLINE]
     public string indicatorLayerName = "HighlightCircle"; // assign your highlight circle layer here
-    private int indicatorLayer;
 
     [Header("Scene References")]
     public GameObject environment;
@@ -77,16 +74,6 @@ public class SceneConfiguror : MonoBehaviour
     private Light examinationHeadlamp;
     private int studyHoldsLayer = -1;
     private int studyGhostHoldsLayer = -1;
-    private static readonly string[] SupplementalSceneryNameMarkers =
-    {
-        "water", "ocean", "terrain", "scenery", "landscape", "skybox",
-    };
-    private readonly Dictionary<GameObject, bool> supplementalSceneryActiveStates = new();
-    private bool studyEnvironmentHidden;
-    // The inspector mainCamera reference is a disabled legacy camera; the participant renders
-    // through the OVR rig eye anchors, so background suppression must cover every live camera.
-    private readonly Dictionary<Camera, (CameraClearFlags flags, Color background)>
-        studyEnvironmentCameraStates = new();
 
     [Header("Hands References")]
     public GameObject centerEyeAnchor;
@@ -112,22 +99,12 @@ public class SceneConfiguror : MonoBehaviour
     public string currentRouteName = string.Empty;
     public GhostHoldController ghostHoldController;
 
-    // Ad-hoc routes loaded from StreamingAssets/routes.json (e.g. MoonBoard benchmarks
-    // converted via tools/moonboard_to_routes.py). Built-in study routes always win;
-    // RouteLibrary rejects any file that tries to shadow them.
-    private static readonly string[] BuiltInRouteNames =
-    {
-        "DEATH STAR", "TO JUG, OR NOT TO JUG...",
-    };
-    private readonly Dictionary<string, RouteDefinition> jsonRoutes = new(StringComparer.OrdinalIgnoreCase);
-    private readonly List<string> jsonRouteNames = new();
-    public RouteDefinition ActiveRouteDefinition { get; private set; }
-    public RoutesLoadState RoutesJsonLoadState { get; private set; } = RoutesLoadState.Loading;
-    public string RoutesLoadFailureReason { get; private set; } = string.Empty;
-    public string RoutesJsonSha256 { get; private set; }
-    public HoldAffordancesLoadState HoldAffordancesState { get; private set; } =
-        HoldAffordancesLoadState.Loading;
-    public string HoldAffordancesFailureReason { get; private set; } = string.Empty;
+    public RouteDefinition ActiveRouteDefinition { get; internal set; }
+    public RoutesLoadState RoutesJsonLoadState => routes.RoutesJsonLoadState;
+    public string RoutesLoadFailureReason => routes.RoutesLoadFailureReason;
+    public string RoutesJsonSha256 => routes.RoutesJsonSha256;
+    public HoldAffordancesLoadState HoldAffordancesState => HoldAffordances.State;
+    public string HoldAffordancesFailureReason => HoldAffordances.FailureReason;
 
     [Header("Interaction Settings")]
     public float interactionColorMaxDistanceOverride;
@@ -184,10 +161,6 @@ public class SceneConfiguror : MonoBehaviour
     public List<Vector3> rightHandGripStartPose;
     public List<Vector3> rightHandGripCurrentPose;
     private GripContactPipeline gripContactPipeline;
-    private Vector3 initialMoonBoardLocalPosition;
-    private Quaternion initialMoonBoardLocalRotation;
-    private Vector3 initialMoonBoardLocalScale;
-    private bool hasInitialMoonBoardTransform;
     private OVRHand leftTrackedHand;
     private OVRHand rightTrackedHand;
     private bool leftTrackingValid;
@@ -195,13 +168,10 @@ public class SceneConfiguror : MonoBehaviour
     private Hand? gripLocomotionHand;
     private bool gripRecoveryAttempted;
     private bool debugForceGripReadbackFailures;
-    private bool studyFeedbackVisible = true;
     public bool IsGripFeedbackDegraded { get; private set; }
     public string GripFeedbackDegradedUtc { get; private set; }
     public bool IsDegradedGripAcquisitionActive { get; private set; }
     public string DegradedGripAcquisitionFailureReason { get; private set; } = string.Empty;
-    private MoonBoardStudyCatalog routeCatalog;
-    private HoldAffordanceCatalog holdAffordanceCatalog;
     private GripLatchStateMachine leftGripLatch;
     private GripLatchStateMachine rightGripLatch;
     private GripLocomotionFilter leftLocomotionFilter;
@@ -214,8 +184,6 @@ public class SceneConfiguror : MonoBehaviour
     private readonly GripAcquisitionSample rightGripAcquisitionSample = new();
     private readonly bool[] leftFingerConfidence = new bool[FingerCurlEstimator.FingerCount];
     private readonly bool[] rightFingerConfidence = new bool[FingerCurlEstimator.FingerCount];
-    private readonly OverlapContactResolver<GameObject> leftHoverContacts = new();
-    private readonly OverlapContactResolver<GameObject> rightHoverContacts = new();
     private readonly Dictionary<Mesh, DegradedGripContactGeometry> degradedGripGeometry = new();
     private readonly HashSet<int> reportedDegradedGripGeometryFailures = new();
     private readonly float[] leftDegradedGripDistances =
@@ -225,8 +193,22 @@ public class SceneConfiguror : MonoBehaviour
     private bool leftLegacyFiveTipContact;
     private bool rightLegacyFiveTipContact;
     private string holdsDictionaryError = string.Empty;
-    private MaterialPropertyBlock holdProperties;
-    private MaterialPropertyBlock HoldProperties => holdProperties ??= new MaterialPropertyBlock();
+
+    // Collaborators are created on first use rather than in Awake so the route, affordance and
+    // feedback properties below stay answerable no matter which component queries them first.
+    private readonly RouteCatalogService routes = new();
+    private HoldAffordanceLoader holdAffordances;
+    private StudyEnvironmentPresenter studyEnvironment;
+    private HoldVisualsController holdVisuals;
+    private HoverContactTracker hoverContacts;
+    private HoldAffordanceLoader HoldAffordances =>
+        holdAffordances ??= new HoldAffordanceLoader(routes);
+    private StudyEnvironmentPresenter StudyEnvironment =>
+        studyEnvironment ??= new StudyEnvironmentPresenter(this);
+    private HoldVisualsController HoldVisuals =>
+        holdVisuals ??= new HoldVisualsController(this);
+    private HoverContactTracker HoverContacts =>
+        hoverContacts ??= new HoverContactTracker(this, HoldVisuals);
 
     private void Awake()
     {
@@ -238,7 +220,8 @@ public class SceneConfiguror : MonoBehaviour
     void Start()
     {
             // 1) layer lookup
-        indicatorLayer = LayerMask.NameToLayer(indicatorLayerName);
+        int indicatorLayer = LayerMask.NameToLayer(indicatorLayerName);
+        HoldVisuals.IndicatorLayer = indicatorLayer;
         Debug.Log($"[SC] indicatorLayerName='{indicatorLayerName}' → layerIndex={indicatorLayer}");
         if (indicatorLayer < 0)
         {
@@ -255,14 +238,14 @@ public class SceneConfiguror : MonoBehaviour
         }
 
         UnityEngine.Debug.Log("SceneConfiguror initializing.");
-        CacheMoonBoardTransform();
+        StudyEnvironment.CacheMoonBoardTransform();
 
         // Add all the children of the holds parent to the holds dictionary, to be accessed using the string [A-K][1-18]
         // Jace: Note that the holds are currently named [A-K][1-18].[001/002/003]
         EnsureHoldsDictionary();
         EnsureGripPipeline();
-        StartCoroutine(LoadRoutesJson());
-        StartCoroutine(LoadHoldAffordances());
+        StartCoroutine(routes.LoadRoutesJson());
+        StartCoroutine(HoldAffordances.LoadHoldAffordances());
 
         EnsureRuntimeControllers();
         ghostHoldController.Initialize(this);
@@ -289,16 +272,16 @@ public class SceneConfiguror : MonoBehaviour
         // Override interaction color max distance, update interaction status
         if (leftHandInteractingClimbingHold != null)
         {
-            SetInteractionVisual(
+            HoldVisuals.SetInteractionVisual(
                 leftHandInteractingClimbingHold,
-                gripContactPipeline == null && !IsGripFeedbackDegraded,
+                IsLegacyInteractionShaderActive,
                 interactionColorMaxDistanceOverride);
         }
         if (rightHandInteractingClimbingHold != null)
         {
-            SetInteractionVisual(
+            HoldVisuals.SetInteractionVisual(
                 rightHandInteractingClimbingHold,
-                gripContactPipeline == null && !IsGripFeedbackDegraded,
+                IsLegacyInteractionShaderActive,
                 interactionColorMaxDistanceOverride);
         }
 
@@ -376,6 +359,16 @@ public class SceneConfiguror : MonoBehaviour
 
     }
 
+    /// <summary>True while the legacy per-hold interaction shader owns the hold tint, i.e. the GPU
+    /// grip pipeline is absent and feedback has not degraded.</summary>
+    internal bool IsLegacyInteractionShaderActive =>
+        gripContactPipeline == null && !IsGripFeedbackDegraded;
+
+    internal void NotifyGripTargetDiscontinuity(Hand hand)
+    {
+        gripContactPipeline?.NotifyTargetDiscontinuity(hand);
+    }
+
     private static void CopyHandBones(
         OVRSkeleton skeleton,
         List<Vector3> positions,
@@ -415,7 +408,7 @@ public class SceneConfiguror : MonoBehaviour
         }
     }
 
-    private void ResetHandDistances(int hand)
+    internal void ResetHandDistances(int hand)
     {
         float[] distances = hand == 0
             ? leftHandBoneToHoldMinDistances
@@ -858,141 +851,19 @@ public class SceneConfiguror : MonoBehaviour
     }
     public void HandHoverEnter(int hand, GameObject hoveredGameObject)
     {
-        GameObject hold = ResolveEligibleHoverHold(hoveredGameObject);
-        if (hold == null)
-        {
-            return;
-        }
-
-        GetHoverResolver(hand)?.Enter(hold);
-        RefreshHandHoverTarget(hand);
+        HoverContacts.HandHoverEnter(hand, hoveredGameObject);
     }
 
     public void HandHoverExit(int hand, GameObject hoveredGameObject)
     {
-        GameObject hold = ResolveCanonicalHoverHold(hoveredGameObject);
-        if (hold == null)
-        {
-            return;
-        }
-
-        GetHoverResolver(hand)?.Exit(hold);
-        RefreshHandHoverTarget(hand);
-    }
-
-    private OverlapContactResolver<GameObject> GetHoverResolver(int hand)
-    {
-        if (hand == 0)
-        {
-            return leftHoverContacts;
-        }
-        if (hand == 1)
-        {
-            return rightHoverContacts;
-        }
-        Debug.LogError("Hand index " + hand + " not found.");
-        return null;
-    }
-
-    private GameObject ResolveEligibleHoverHold(GameObject candidate)
-    {
-        GameObject hold = ResolveCanonicalHoverHold(candidate);
-        if (hold == null || gameMode == GameMode.Basic)
-        {
-            return null;
-        }
-        bool isGhost = IsGhostHold(hold);
-        if ((gameMode == GameMode.Ghost && !isGhost) || (gameMode == GameMode.Grip && isGhost))
-        {
-            return null;
-        }
-        return isGhost || IsActiveRouteHold(hold) ? hold : null;
-    }
-
-    private GameObject ResolveCanonicalHoverHold(GameObject candidate)
-    {
-        if (candidate == null)
-        {
-            return null;
-        }
-        if (IsGhostHold(candidate))
-        {
-            return ghostHoldController.CurrentGhost;
-        }
-
-        GameObject activeHold = GetActiveRouteHold(candidate);
-        if (activeHold != null)
-        {
-            return activeHold;
-        }
-        for (Transform current = candidate.transform; current != null; current = current.parent)
-        {
-            if (holdsParentGameObject != null && current.parent == holdsParentGameObject.transform)
-            {
-                return current.gameObject;
-            }
-        }
-        return null;
-    }
-
-    private void RefreshHandHoverTarget(int hand, string exitDetails = "")
-    {
-        OverlapContactResolver<GameObject> resolver = GetHoverResolver(hand);
-        if (resolver == null)
-        {
-            return;
-        }
-        GameObject previous = hand == 0
-            ? leftHandInteractingClimbingHold
-            : rightHandInteractingClimbingHold;
-        GameObject current = resolver.Current;
-        if (previous == current)
-        {
-            return;
-        }
-
-        Hand handSide = hand == 0 ? Hand.Left : Hand.Right;
-        InvalidateGripAcquisitionSample(handSide);
-        gripContactPipeline?.NotifyTargetDiscontinuity(handSide);
-
-        GameObject otherHandTarget = hand == 0
-            ? rightHandInteractingClimbingHold
-            : leftHandInteractingClimbingHold;
-        if (previous != null)
-        {
-            actionRecorder?.Record(
-                "HoverExit",
-                hand == 0 ? "Left" : "Right",
-                previous,
-                exitDetails);
-            if (otherHandTarget != previous)
-            {
-                SetInteractionVisual(previous, false);
-            }
-        }
-
-        if (hand == 0)
-        {
-            leftHandInteractingClimbingHold = current;
-        }
-        else
-        {
-            rightHandInteractingClimbingHold = current;
-        }
-        ResetHandDistances(hand);
-
-        if (current != null)
-        {
-            actionRecorder?.Record("HoverEnter", hand == 0 ? "Left" : "Right", current);
-            SetInteractionVisual(current, gripContactPipeline == null && !IsGripFeedbackDegraded);
-        }
+        HoverContacts.HandHoverExit(hand, hoveredGameObject);
     }
 
     public void SetUpRouteByName(string routeName)
     {
         EnsureHoldsDictionary();
         UnityEngine.Debug.Log("Requested route by name: " + routeName);
-        if (!TryGetRouteDefinition(routeName, out RouteDefinition route))
+        if (!routes.TryGetRouteDefinition(routeName, out RouteDefinition route))
         {
             UnityEngine.Debug.LogError("Route name " + routeName + " not found!");
             return;
@@ -1006,12 +877,12 @@ public class SceneConfiguror : MonoBehaviour
         if (routeName != "[PREVIEW ALL (SHADER OFF)]")
         {
             UnityEngine.Debug.Log("Setting up route " + routeName + " with holds " + string.Join(", ", activeRouteHoldsNamesList));
-            SetUpRouteByHoldList(route);
+            HoldVisuals.SetUpRouteByHoldList(route);
         }
         else
         {
             UnityEngine.Debug.Log("Setting up route " + routeName + " with all holds");
-            PreviewAllHolds();
+            HoldVisuals.PreviewAllHolds();
         }
         ApplyModeToRouteHolds();
         if (gameMode == GameMode.Grip)
@@ -1031,13 +902,13 @@ public class SceneConfiguror : MonoBehaviour
         {
             return false;
         }
-        if (holdAffordanceCatalog != null &&
-            !TryValidateHoldAffordances(catalog, holdAffordanceCatalog, out error))
+        if (HoldAffordances.Catalog != null &&
+            !HoldAffordanceLoader.TryValidateHoldAffordances(catalog, HoldAffordances.Catalog, out error))
         {
             return false;
         }
 
-        routeCatalog = catalog;
+        routes.SetCatalog(catalog);
         holdsDictionary = null;
         EnsureHoldsDictionary();
         if (!string.IsNullOrEmpty(holdsDictionaryError))
@@ -1077,8 +948,7 @@ public class SceneConfiguror : MonoBehaviour
 
     public bool TryGetRouteDefinition(string routeId, out MoonBoardRouteDefinition route)
     {
-        route = null;
-        return routeCatalog != null && routeCatalog.TryGetRoute(routeId, out route);
+        return routes.TryGetRouteDefinition(routeId, out route);
     }
 
     public string GetRouteDisplayName(string routeId)
@@ -1094,11 +964,11 @@ public class SceneConfiguror : MonoBehaviour
             error = holdsDictionaryError;
             return false;
         }
-        if (!TryEnsureRouteSourceReady(routeName, out error))
+        if (!routes.TryEnsureRouteSourceReady(routeName, out error))
         {
             return false;
         }
-        if (!TryGetRouteDefinition(routeName, out RouteDefinition route))
+        if (!routes.TryGetRouteDefinition(routeName, out RouteDefinition route))
         {
             error = "Unknown route: " + routeName + ".";
             return false;
@@ -1122,7 +992,7 @@ public class SceneConfiguror : MonoBehaviour
         {
             return false;
         }
-        if (!TryGetRouteDefinition(routeName, out RouteDefinition route))
+        if (!routes.TryGetRouteDefinition(routeName, out RouteDefinition route))
         {
             error = "Unknown route: " + routeName + ".";
             return false;
@@ -1135,298 +1005,20 @@ public class SceneConfiguror : MonoBehaviour
         return true;
     }
 
-    /// <summary>Resolves a role-aware route definition: the authoritative catalog first
-    /// (start/finish mapped from move roles), then built-ins, then routes.json entries.</summary>
-    private bool TryGetRouteDefinition(string routeName, out RouteDefinition route)
-    {
-        if (routeCatalog != null && routeCatalog.TryGetRoute(routeName, out MoonBoardRouteDefinition catalogRoute))
-        {
-            MoonBoardRouteMove[] ordered = catalogRoute.moves.OrderBy(move => move.sequence).ToArray();
-            route = new RouteDefinition
-            {
-                name = catalogRoute.name,
-                grade = catalogRoute.grade,
-                holds = ordered.Select(move => move.coordinate).ToArray(),
-                start = ordered.Where(move => move.role == "start").Select(move => move.coordinate).ToArray(),
-                finish = ordered.Where(move => move.role == "finish").Select(move => move.coordinate).ToArray(),
-            };
-            return true;
-        }
-        if (TryGetBuiltInRouteDefinition(routeName, out route))
-        {
-            return true;
-        }
-        if (routeName != null && jsonRoutes.TryGetValue(routeName, out RouteDefinition jsonRoute))
-        {
-            route = jsonRoute;
-            return true;
-        }
-        route = null;
-        return false;
-    }
-
     public bool IsBuiltInRoute(string routeName)
     {
-        return TryGetBuiltInRouteDefinition(routeName, out _);
+        return routes.IsBuiltInRoute(routeName);
     }
 
     public string GetRoutesLoadStatusLine()
     {
-        return RoutesJsonLoadState switch
-        {
-            RoutesLoadState.Ready => "READY (" + jsonRouteNames.Count + " imported)",
-            RoutesLoadState.Failed => "FAILED: " + RoutesLoadFailureReason,
-            _ => "LOADING",
-        };
-    }
-
-    private bool TryEnsureRouteSourceReady(string routeName, out string error)
-    {
-        if (IsBuiltInRoute(routeName) ||
-            (routeCatalog != null && routeCatalog.TryGetRoute(routeName, out _)) ||
-            RoutesJsonLoadState == RoutesLoadState.Ready)
-        {
-            error = string.Empty;
-            return true;
-        }
-
-        error = RoutesJsonLoadState == RoutesLoadState.Loading
-            ? "routes.json is still loading; imported route '" + routeName + "' cannot start yet."
-            : "routes.json failed to load; imported route '" + routeName + "' is unavailable: " +
-              RoutesLoadFailureReason;
-        return false;
+        return routes.GetRoutesLoadStatusLine();
     }
 
     /// <summary>Catalog routes first, then built-in study routes, then routes.json entries.</summary>
     public List<string> GetAvailableRouteNames()
     {
-        List<string> names = new();
-        if (routeCatalog != null)
-        {
-            names.AddRange(routeCatalog.routes.Select(catalogRoute => catalogRoute.id));
-        }
-        names.AddRange(BuiltInRouteNames);
-        names.AddRange(jsonRouteNames);
-        return names;
-    }
-
-    private IEnumerator LoadRoutesJson()
-    {
-        RoutesJsonLoadState = RoutesLoadState.Loading;
-        RoutesLoadFailureReason = string.Empty;
-        RoutesJsonSha256 = null;
-        string path = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/routes.json";
-        string json = null;
-        byte[] jsonBytes = null;
-        if (path.Contains("://") || path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase))
-        {
-            using UnityWebRequest request = UnityWebRequest.Get(path);
-            yield return request.SendWebRequest();
-            if (request.result == UnityWebRequest.Result.Success)
-            {
-                json = request.downloadHandler.text;
-                jsonBytes = request.downloadHandler.data;
-            }
-            else if (request.responseCode != 404)
-            {
-                SetRoutesLoadFailed("request failed: " + request.error);
-                yield break;
-            }
-        }
-        else if (File.Exists(path))
-        {
-            json = File.ReadAllText(path);
-            jsonBytes = File.ReadAllBytes(path);
-        }
-
-        if (json == null)
-        {
-            SetRoutesLoadFailed("file not found in StreamingAssets.");
-            yield break;
-        }
-
-        if (!RouteLibrary.TryParseJson(json, BuiltInRouteNames, out List<RouteDefinition> parsed, out string error))
-        {
-            SetRoutesLoadFailed(error);
-            yield break;
-        }
-
-        jsonRoutes.Clear();
-        jsonRouteNames.Clear();
-        foreach (RouteDefinition route in parsed)
-        {
-            jsonRoutes[route.name] = route;
-            jsonRouteNames.Add(route.name);
-        }
-        RoutesJsonSha256 = ComputeSha256(jsonBytes);
-        RoutesJsonLoadState = RoutesLoadState.Ready;
-        Debug.Log("[SceneConfiguror] Loaded " + jsonRouteNames.Count + " route(s) from routes.json: " +
-                  string.Join(", ", jsonRouteNames));
-    }
-
-    private void SetRoutesLoadFailed(string reason)
-    {
-        jsonRoutes.Clear();
-        jsonRouteNames.Clear();
-        RoutesJsonSha256 = null;
-        RoutesLoadFailureReason = reason;
-        RoutesJsonLoadState = RoutesLoadState.Failed;
-        Debug.LogError("[SceneConfiguror] routes.json failed: " + reason);
-    }
-
-    private IEnumerator LoadHoldAffordances()
-    {
-        HoldAffordancesState = HoldAffordancesLoadState.Loading;
-        HoldAffordancesFailureReason = string.Empty;
-        holdAffordanceCatalog = null;
-        string path = Application.streamingAssetsPath.TrimEnd('/', '\\') + "/hold_affordances.json";
-        string json = null;
-        if (path.Contains("://") || path.StartsWith("jar:", StringComparison.OrdinalIgnoreCase))
-        {
-            using UnityWebRequest request = UnityWebRequest.Get(path);
-            yield return request.SendWebRequest();
-            if (request.result == UnityWebRequest.Result.Success)
-            {
-                json = request.downloadHandler.text;
-            }
-            else
-            {
-                SetHoldAffordancesFailed("request failed: " + request.error);
-                yield break;
-            }
-        }
-        else
-        {
-            Exception readException = null;
-            try
-            {
-                if (File.Exists(path))
-                {
-                    json = File.ReadAllText(path);
-                }
-            }
-            catch (Exception exception)
-            {
-                readException = exception;
-                Debug.LogException(exception);
-            }
-            if (readException != null)
-            {
-                SetHoldAffordancesFailed("read failed: " + readException.Message);
-                yield break;
-            }
-        }
-
-        if (json == null)
-        {
-            SetHoldAffordancesFailed("file not found in StreamingAssets.");
-            yield break;
-        }
-        if (!HoldAffordanceCatalog.TryParse(json, out holdAffordanceCatalog, out string error))
-        {
-            SetHoldAffordancesFailed(error);
-            yield break;
-        }
-        if (routeCatalog != null &&
-            !TryValidateHoldAffordances(routeCatalog, holdAffordanceCatalog, out error))
-        {
-            SetHoldAffordancesFailed(error);
-            yield break;
-        }
-
-        HoldAffordancesState = HoldAffordancesLoadState.Ready;
-        Debug.Log("[SceneConfiguror] Loaded " + holdAffordanceCatalog.Count +
-                  " pocket affordance override(s).");
-    }
-
-    private void SetHoldAffordancesFailed(string reason)
-    {
-        holdAffordanceCatalog = null;
-        HoldAffordancesState = HoldAffordancesLoadState.Failed;
-        HoldAffordancesFailureReason = reason;
-        Debug.LogError("[SceneConfiguror] hold_affordances.json failed: " + reason);
-    }
-
-    private static bool TryValidateHoldAffordances(
-        MoonBoardStudyCatalog catalog,
-        HoldAffordanceCatalog affordances,
-        out string error)
-    {
-        HashSet<string> knownScans = new(catalog.holds.Select(hold => hold.scanId),
-            StringComparer.OrdinalIgnoreCase);
-        foreach (string scanId in affordances.ScanIds)
-        {
-            if (!knownScans.Contains(scanId))
-            {
-                error = "Hold affordance references unknown scan ID " + scanId + ".";
-                return false;
-            }
-        }
-        error = string.Empty;
-        return true;
-    }
-
-    private static string ComputeSha256(byte[] value)
-    {
-        using SHA256 sha256 = SHA256.Create();
-        byte[] hash = sha256.ComputeHash(value);
-        return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
-    }
-
-    private static bool TryGetBuiltInRouteDefinition(string routeName, out RouteDefinition route)
-    {
-        switch (routeName)
-        {
-            case "DEATH STAR":
-                // start/finish derived, confirm vs official app
-                route = new RouteDefinition
-                {
-                    name = "DEATH STAR",
-                    holds = new[] { "D15", "D18", "G13", "H11", "I4", "J6", "K9" },
-                    start = new[] { "I4", "J6" },
-                    finish = new[] { "D18" },
-                };
-                return true;
-            case "TO JUG, OR NOT TO JUG...":
-                // start/finish derived, confirm vs official app
-                route = new RouteDefinition
-                {
-                    name = "TO JUG, OR NOT TO JUG...",
-                    holds = new[] { "D9", "D15", "F5", "F12", "G13", "H10", "H18" },
-                    start = new[] { "F5" },
-                    finish = new[] { "H18" },
-                };
-                return true;
-            case "[PREVIEW ALL (SHADER OFF)]":
-                route = new RouteDefinition
-                {
-                    name = "[PREVIEW ALL (SHADER OFF)]",
-                    holds = new[] { // this was the fastest way to get this working, sue me
-                    "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1", "I1", "J1", "K1",
-                    "A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "I2", "J2", "K2",
-                    "A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3", "I3", "J3", "K3",
-                    "A4", "B4", "C4", "D4", "E4", "F4", "G4", "H4", "I4", "J4", "K4",
-                    "A5", "B5", "C5", "D5", "E5", "F5", "G5", "H5", "I5", "J5", "K5",
-                    "A6", "B6", "C6", "D6", "E6", "F6", "G6", "H6", "I6", "J6", "K6",
-                    "A7", "B7", "C7", "D7", "E7", "F7", "G7", "H7", "I7", "J7", "K7",
-                    "A8", "B8", "C8", "D8", "E8", "F8", "G8", "H8", "I8", "J8", "K8",
-                    "A9", "B9", "C9", "D9", "E9", "F9", "G9", "H9", "I9", "J9", "K9",
-                    "A10", "B10", "C10", "D10", "E10", "F10", "G10", "H10", "I10", "J10", "K10",
-                    "A11", "B11", "C11", "D11", "E11", "F11", "G11", "H11", "I11", "J11", "K11",
-                    "A12", "B12", "C12", "D12", "E12", "F12", "G12", "H12", "I12", "J12", "K12",
-                    "A13", "B13", "C13", "D13", "E13", "F13", "G13", "H13", "I13", "J13", "K13",
-                    "A14", "B14", "C14", "D14", "E14", "F14", "G14", "H14", "I14", "J14", "K14",
-                    "A15", "B15", "C15", "D15", "E15", "F15", "G15", "H15", "I15", "J15", "K15",
-                    "A16", "B16", "C16", "D16", "E16", "F16", "G16", "H16", "I16", "J16", "K16",
-                    "A17", "B17", "C17", "D17", "E17", "F17", "G17", "H17", "I17", "J17", "K17",
-                    "A18", "B18", "C18", "D18", "E18", "F18", "G18", "H18", "I18", "J18", "K18"
-                    },
-                };
-                return true;
-            default:
-                route = null;
-                return false;
-        }
+        return routes.GetAvailableRouteNames();
     }
 
     private bool TryGetRouteHolds(string routeName, out List<string> routeHolds)
@@ -1437,7 +1029,7 @@ public class SceneConfiguror : MonoBehaviour
             routeHolds = holdsDictionary.Keys.OrderBy(coordinate => coordinate).ToList();
             return true;
         }
-        if (routeCatalog != null && routeCatalog.TryGetRoute(routeName, out MoonBoardRouteDefinition route))
+        if (routes.Catalog != null && routes.Catalog.TryGetRoute(routeName, out MoonBoardRouteDefinition route))
         {
             routeHolds = route.moves.OrderBy(move => move.sequence).Select(move => move.coordinate).ToList();
             return true;
@@ -1530,13 +1122,7 @@ public class SceneConfiguror : MonoBehaviour
     {
         CurrentRouteCuePresentation = presentation;
         bool showVirtualHalos = presentation == RouteCuePresentation.VirtualHalos;
-        foreach (GameObject circle in activeHighlightCircles)
-        {
-            if (circle != null)
-            {
-                circle.SetActive(showVirtualHalos);
-            }
-        }
+        HoldVisuals.SetHalosVisible(showVirtualHalos);
     }
 
     public void PrepareGripHold(GameObject hold)
@@ -1546,157 +1132,12 @@ public class SceneConfiguror : MonoBehaviour
 
     public void ResetMoonBoardTransform()
     {
-        CacheMoonBoardTransform();
-        if (!hasInitialMoonBoardTransform)
-        {
-            return;
-        }
-
-        moonBoardEnv.transform.SetLocalPositionAndRotation(
-            initialMoonBoardLocalPosition,
-            initialMoonBoardLocalRotation);
-        moonBoardEnv.transform.localScale = initialMoonBoardLocalScale;
+        StudyEnvironment.ResetMoonBoardTransform();
     }
 
     public void SetStudyEnvironmentVisible(bool visible)
     {
-        Transform alignmentRoot = moonBoardEnv != null ? moonBoardEnv.transform.parent : null;
-        if (!visible)
-        {
-            if (!studyEnvironmentHidden)
-            {
-                CaptureAndHideSupplementalScenery();
-                CaptureAndHideStudyCameraBackground();
-                studyEnvironmentHidden = true;
-            }
-            if (environment != null)
-            {
-                // Keep the environment root and the alignment root active so spatial-anchor
-                // registration survives Condition A; everything else hides.
-                environment.SetActive(true);
-                foreach (Transform child in environment.transform)
-                {
-                    child.gameObject.SetActive(child == alignmentRoot);
-                }
-            }
-            if (moonBoardEnv != null)
-            {
-                moonBoardEnv.SetActive(false);
-            }
-            return;
-        }
-
-        if (environment != null)
-        {
-            environment.SetActive(true);
-            foreach (Transform child in environment.transform)
-            {
-                child.gameObject.SetActive(true);
-            }
-        }
-        if (moonBoardEnv != null)
-        {
-            moonBoardEnv.SetActive(true);
-        }
-        if (studyEnvironmentHidden)
-        {
-            RestoreSupplementalScenery();
-            RestoreStudyCameraBackground();
-            studyEnvironmentHidden = false;
-        }
-    }
-
-    private void CaptureAndHideSupplementalScenery()
-    {
-        supplementalSceneryActiveStates.Clear();
-        int waterLayer = LayerMask.NameToLayer("Water");
-        foreach (Transform candidate in FindObjectsByType<Transform>(
-                     FindObjectsInactive.Include,
-                     FindObjectsSortMode.None))
-        {
-            if (candidate == null || candidate.gameObject.scene != gameObject.scene ||
-                (environment != null &&
-                 (candidate == environment.transform || candidate.IsChildOf(environment.transform))))
-            {
-                continue;
-            }
-
-            GameObject sceneryRoot = FindSupplementalSceneryRoot(candidate, waterLayer);
-            if (sceneryRoot != null && !supplementalSceneryActiveStates.ContainsKey(sceneryRoot))
-            {
-                supplementalSceneryActiveStates.Add(sceneryRoot, sceneryRoot.activeSelf);
-            }
-        }
-
-        foreach (GameObject scenery in supplementalSceneryActiveStates.Keys)
-        {
-            if (scenery != null)
-            {
-                scenery.SetActive(false);
-            }
-        }
-    }
-
-    private GameObject FindSupplementalSceneryRoot(Transform candidate, int waterLayer)
-    {
-        Transform match = null;
-        for (Transform current = candidate; current != null; current = current.parent)
-        {
-            if (environment != null && current == environment.transform)
-            {
-                return null;
-            }
-            if ((waterLayer >= 0 && current.gameObject.layer == waterLayer) ||
-                SupplementalSceneryNameMarkers.Any(marker =>
-                    current.name.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0))
-            {
-                match = current;
-            }
-        }
-        return match != null ? match.gameObject : null;
-    }
-
-    private void RestoreSupplementalScenery()
-    {
-        foreach (KeyValuePair<GameObject, bool> entry in supplementalSceneryActiveStates)
-        {
-            if (entry.Key != null)
-            {
-                entry.Key.SetActive(entry.Value);
-            }
-        }
-        supplementalSceneryActiveStates.Clear();
-    }
-
-    private void CaptureAndHideStudyCameraBackground()
-    {
-        studyEnvironmentCameraStates.Clear();
-        foreach (Camera camera in FindObjectsByType<Camera>(FindObjectsSortMode.None))
-        {
-            if (camera == null || !camera.isActiveAndEnabled ||
-                camera.targetTexture != null)
-            {
-                continue;
-            }
-            studyEnvironmentCameraStates[camera] = (camera.clearFlags, camera.backgroundColor);
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = Color.black;
-        }
-    }
-
-    private void RestoreStudyCameraBackground()
-    {
-        foreach (KeyValuePair<Camera, (CameraClearFlags flags, Color background)> entry
-                 in studyEnvironmentCameraStates)
-        {
-            if (entry.Key == null)
-            {
-                continue;
-            }
-            entry.Key.clearFlags = entry.Value.flags;
-            entry.Key.backgroundColor = entry.Value.background;
-        }
-        studyEnvironmentCameraStates.Clear();
+        StudyEnvironment.SetStudyEnvironmentVisible(visible);
     }
 
     public bool IsGripFeedbackReady => !IsGripFeedbackDegraded &&
@@ -1706,13 +1147,7 @@ public class SceneConfiguror : MonoBehaviour
     public void SetStudyFeedbackVisible(bool visible)
     {
         bool effectiveVisibility = visible && !IsGripFeedbackDegraded;
-        studyFeedbackVisible = effectiveVisibility;
-        foreach (HandBoneTracker tracker in FindObjectsByType<HandBoneTracker>(
-                     FindObjectsInactive.Include,
-                     FindObjectsSortMode.None))
-        {
-            tracker.SetFeedbackVisible(effectiveVisibility);
-        }
+        StudyEnvironment.SetFeedbackVisible(effectiveVisibility);
         gripContactPipeline?.SetFeedbackVisible(effectiveVisibility);
     }
 
@@ -1800,10 +1235,9 @@ public class SceneConfiguror : MonoBehaviour
             return;
         }
 
-        leftHoverContacts.Remove(ghost);
-        rightHoverContacts.Remove(ghost);
-        RefreshHandHoverTarget(0);
-        RefreshHandHoverTarget(1);
+        HoverContacts.Remove(ghost);
+        HoverContacts.RefreshHandHoverTarget(0);
+        HoverContacts.RefreshHandHoverTarget(1);
         int ghostId = ghost.GetInstanceID();
         if (leftGripLatch != null && leftGripLatch.HoldId == ghostId)
         {
@@ -1852,15 +1286,14 @@ public class SceneConfiguror : MonoBehaviour
     private void ResetInteractionState()
     {
         StopGripLocomotion();
-        SetInteractionVisual(leftHandInteractingClimbingHold, false);
+        HoldVisuals.SetInteractionVisual(leftHandInteractingClimbingHold, false);
         if (rightHandInteractingClimbingHold != leftHandInteractingClimbingHold)
         {
-            SetInteractionVisual(rightHandInteractingClimbingHold, false);
+            HoldVisuals.SetInteractionVisual(rightHandInteractingClimbingHold, false);
         }
         leftHandInteractingClimbingHold = null;
         rightHandInteractingClimbingHold = null;
-        leftHoverContacts.Clear();
-        rightHoverContacts.Clear();
+        HoverContacts.Clear();
         HoverContactEpoch++;
         gripContactPipeline?.ClearFeedback();
         leftGripLatch?.Reset();
@@ -1905,353 +1338,14 @@ public class SceneConfiguror : MonoBehaviour
         gripLocomotionHand = null;
     }
 
-    private void SetInteractionVisual(GameObject hold, bool active, float maxDistance = -1f)
-    {
-        if (hold != null && hold.TryGetComponent(out MeshRenderer meshRenderer))
-        {
-            meshRenderer.GetPropertyBlock(HoldProperties);
-            HoldProperties.SetInt("_IsBeingInteracted", active ? 1 : 0);
-            if (maxDistance >= 0f)
-            {
-                HoldProperties.SetFloat("_InteractionColorMaxDistance", maxDistance);
-            }
-            meshRenderer.SetPropertyBlock(HoldProperties);
-        }
-    }
-
-    private void SetHoldAlpha(Renderer renderer, float alpha)
-    {
-        renderer.GetPropertyBlock(HoldProperties);
-        HoldProperties.SetFloat("_HoldAlpha", alpha);
-        renderer.SetPropertyBlock(HoldProperties);
-    }
-
-    void SetUpRouteByHoldList(RouteDefinition route)
-    {
-        ActiveRouteDefinition = route;
-        List<string> holdsList = new(route.holds);
-        ClearHighlightCircles();
-        // Disable all holds
-        activeHoldsList = new List<GameObject>();
-        foreach (var hold in holdsDictionary.Values)
-        {
-            if (disableInactiveHolds)
-            {
-                hold.SetActive(false);
-            }
-            else
-            {
-                Renderer renderer = hold.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    SetHoldAlpha(renderer, inactiveHoldAlpha);
-                }
-                EnsureHoldInteractionComponents(hold).enabled = false;
-            }
-
-            CoACD coACD = hold.GetComponent<CoACD>();
-            if (coACD != null)
-            {
-                hold.GetComponent<CoACD>().enabled = false;
-                MeshCollider[] meshColliders = hold.GetComponent<CoACD>().GetComponents<MeshCollider>();
-                foreach (var collider in meshColliders)
-                {
-                    collider.enabled = false;
-                }
-            }
-            SphereCollider sphere = hold.GetComponent<SphereCollider>();
-            if (sphere != null)
-            {
-                hold.GetComponent<SphereCollider>().enabled = false;
-            }
-        }
-
-        // Enable holds in the list
-        foreach (var holdName in holdsList)
-        {
-            if (!holdsDictionary.ContainsKey(holdName))
-            {
-                UnityEngine.Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
-                continue;
-            }
-
-            holdsDictionary[holdName].SetActive(true);
-            if (!disableInactiveHolds)
-            {
-                EnsureHoldInteractionComponents(holdsDictionary[holdName]).enabled = true;
-                Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
-                SetHoldAlpha(renderer, activeHoldAlpha);
-            }
-
-            CoACD coACD = holdsDictionary[holdName].GetComponent<CoACD>();
-            if (coACD != null)
-            {
-                holdsDictionary[holdName].GetComponent<CoACD>().enabled = true;
-                MeshCollider[] meshColliders = holdsDictionary[holdName].GetComponent<CoACD>().GetComponents<MeshCollider>();
-                foreach (var collider in meshColliders)
-                {
-                    collider.enabled = true;
-                }
-            }
-            SphereCollider sphere = holdsDictionary[holdName].GetComponent<SphereCollider>();
-            if (sphere != null)
-            {
-                holdsDictionary[holdName].GetComponent<SphereCollider>().enabled = true;
-            }
-
-            activeHoldsList.Add(holdsDictionary[holdName]);
-        }
-        SpawnRouteHalos(route);
-    }
-
-    private void SpawnRouteHalos(RouteDefinition route)
-    {
-        if (highlightCirclePrefab == null || holdsParentGameObject == null || route?.holds == null)
-        {
-            return;
-        }
-
-        Transform board = holdsParentGameObject.transform;
-        Transform boardSurface = board.parent?.Find("Main Surface") ?? board.parent?.Find("Plane");
-        if (boardSurface == null)
-        {
-            Debug.LogError("MoonBoard main surface is unavailable; route halos cannot be projected.");
-            return;
-        }
-
-        Vector3 boardNormal = boardSurface.up.normalized;
-        Vector3 boardHorizontal = boardSurface.right.normalized;
-        Vector3 boardVertical = RouteCuePolicy.GetBoardVertical(boardNormal);
-        Vector3 boardPlanePoint = boardSurface.position;
-        Transform viewer = centerEyeAnchor != null ? centerEyeAnchor.transform : mainCamera?.transform;
-        if (viewer != null && Vector3.Dot(boardNormal, viewer.position - boardPlanePoint) < 0f)
-        {
-            boardNormal = -boardNormal;
-        }
-
-        bool hasRoles = route.start != null && route.start.Length > 0 &&
-                        route.finish != null && route.finish.Length > 0;
-        HashSet<string> starts = hasRoles
-            ? new HashSet<string>(route.start, StringComparer.OrdinalIgnoreCase)
-            : null;
-        HashSet<string> finishes = hasRoles
-            ? new HashSet<string>(route.finish, StringComparer.OrdinalIgnoreCase)
-            : null;
-
-        foreach (string holdName in route.holds)
-        {
-            if (!holdsDictionary.TryGetValue(holdName, out GameObject hold) ||
-                !TryGetCombinedRendererBounds(hold, out Bounds bounds))
-            {
-                continue;
-            }
-
-            float width = ProjectedBoundsDiameter(bounds, boardHorizontal);
-            float height = ProjectedBoundsDiameter(bounds, boardVertical);
-            float outerDiameter = Mathf.Clamp(Mathf.Max(width, height) * 1.35f, 0.14f, 0.30f);
-            // Renderer bounds are scan-frame data and can be off-center. The hold transform is
-            // the calibrated MoonBoard grid anchor, so it is the only valid point to project.
-            Vector3 position = RouteCuePolicy.ProjectGridAnchorOntoBoard(
-                hold.transform.position,
-                boardPlanePoint,
-                boardNormal,
-                0.015f);
-            Quaternion rotation = Quaternion.LookRotation(boardNormal, boardVertical);
-
-            bool isStart = hasRoles && starts.Contains(holdName);
-            bool isFinish = hasRoles && finishes.Contains(holdName);
-            RouteCueRole role = isStart
-                ? RouteCueRole.Start
-                : isFinish
-                    ? RouteCueRole.Finish
-                    : RouteCueRole.Intermediate;
-            RouteCueStyle style = RouteCuePolicy.GetStyle(role);
-            CreateHaloRing(holdName, position, rotation, outerDiameter, style.Color, 0);
-            if (style.RingCount == 2)
-            {
-                CreateHaloRing(holdName, position, rotation, outerDiameter * 0.65f, style.Color, 1);
-            }
-        }
-        SetRouteCuePresentation(CurrentRouteCuePresentation);
-    }
-
-    private void CreateHaloRing(
-        string holdName,
-        Vector3 position,
-        Quaternion rotation,
-        float diameter,
-        Color color,
-        int ringIndex)
-    {
-        GameObject circle = Instantiate(highlightCirclePrefab);
-        circle.name = holdName + (ringIndex == 0 ? " Route Halo" : " Route Halo Inner");
-        circle.transform.SetPositionAndRotation(position, rotation);
-        if (circle.TryGetComponent(out SpriteRenderer spriteRenderer))
-        {
-            spriteRenderer.color = color;
-            spriteRenderer.sharedMaterial = GetHighlightCircleMaterial();
-            spriteRenderer.sortingLayerName = "Default";
-            spriteRenderer.sortingOrder = -100 + ringIndex;
-            if (spriteRenderer.sprite != null)
-            {
-                Vector3 spriteSize = spriteRenderer.sprite.bounds.size;
-                float sourceDiameter = Mathf.Max(spriteSize.x, spriteSize.y);
-                circle.transform.localScale = Vector3.one * (diameter / sourceDiameter);
-            }
-        }
-        if (indicatorLayer >= 0)
-        {
-            SetLayerRecursively(circle, indicatorLayer);
-        }
-        circle.transform.SetParent(holdsParentGameObject.transform, true);
-        activeHighlightCircles.Add(circle);
-    }
-
-    private Material GetHighlightCircleMaterial()
-    {
-        if (highlightCircleMaterial == null)
-        {
-            UnityEngine.Shader shader = UnityEngine.Shader.Find("Sprites/Default");
-            if (shader != null)
-            {
-                highlightCircleMaterial = new Material(shader) { name = "Route Halo Material" };
-            }
-        }
-        return highlightCircleMaterial;
-    }
-
-    private static float ProjectedBoundsDiameter(Bounds bounds, Vector3 axis)
-    {
-        Vector3 extents = bounds.extents;
-        return 2f * (Mathf.Abs(axis.x) * extents.x +
-                     Mathf.Abs(axis.y) * extents.y +
-                     Mathf.Abs(axis.z) * extents.z);
-    }
-
-    private static bool TryGetCombinedRendererBounds(GameObject target, out Bounds bounds)
-    {
-        Renderer[] renderers = target.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
-        {
-            bounds = default;
-            return false;
-        }
-
-        bounds = renderers[0].bounds;
-        for (int index = 1; index < renderers.Length; index++)
-        {
-            bounds.Encapsulate(renderers[index].bounds);
-        }
-        return true;
-    }
     /// <summary>
     /// Recursively sets go and all its children to the given layer.
     /// </summary>
-    void SetLayerRecursively(GameObject go, int layer)
+    internal static void SetLayerRecursively(GameObject go, int layer)
     {
         go.layer = layer;
         foreach (Transform child in go.transform)
             SetLayerRecursively(child.gameObject, layer);
-    }
-
-    void PreviewAllHolds()
-    {
-        // Disable all holds
-        activeHoldsList = new List<GameObject>();
-        foreach (var hold in holdsDictionary.Values)
-        {
-            if (disableInactiveHolds)
-            {
-                hold.SetActive(false);
-            }
-            else
-            {
-                Renderer renderer = hold.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    SetHoldAlpha(renderer, inactiveHoldAlpha);
-                }
-                EnsureHoldInteractionComponents(hold).enabled = false;
-            }
-
-            CoACD coACD = hold.GetComponent<CoACD>();
-            if (coACD != null)
-            {
-                hold.GetComponent<CoACD>().enabled = false;
-                MeshCollider[] meshColliders = hold.GetComponent<CoACD>().GetComponents<MeshCollider>();
-                foreach (var collider in meshColliders)
-                {
-                    collider.enabled = false;
-                }
-            }
-            SphereCollider sphere = hold.GetComponent<SphereCollider>();
-            if (sphere != null)
-            {
-                hold.GetComponent<SphereCollider>().enabled = false;
-            }
-        }
-
-        // Enable holds in the list
-        foreach (var holdName in activeRouteHoldsNamesList)
-        {
-            if (!holdsDictionary.ContainsKey(holdName))
-            {
-                UnityEngine.Debug.LogError("Hold " + holdName + " not found in holds dictionary!");
-                continue;
-            }
-
-            holdsDictionary[holdName].SetActive(true);
-            if (!disableInactiveHolds)
-            {
-                EnsureHoldInteractionComponents(holdsDictionary[holdName]).enabled = true;
-                Renderer renderer = holdsDictionary[holdName].GetComponent<Renderer>();
-                SetHoldAlpha(renderer, activeHoldAlpha);
-            }
-
-            activeHoldsList.Add(holdsDictionary[holdName]);
-        }
-    }
-    private void ClearHighlightCircles()
-    {
-        foreach (var circle in activeHighlightCircles)
-        {
-            if (circle != null)
-            {
-                circle.SetActive(false);
-                Destroy(circle);
-            }
-        }
-        activeHighlightCircles.Clear();
-    }
-
-    private static XRGrabInteractable EnsureHoldInteractionComponents(GameObject hold)
-    {
-        SphereCollider sphere = hold.GetComponent<SphereCollider>();
-        if (sphere == null)
-        {
-            sphere = hold.AddComponent<SphereCollider>();
-        }
-        MeshRenderer renderer = hold.GetComponent<MeshRenderer>();
-        if (renderer != null)
-        {
-            sphere.center = renderer.localBounds.center;
-            sphere.radius = renderer.localBounds.extents.magnitude;
-        }
-        sphere.isTrigger = true;
-
-        XRGrabInteractable grab = hold.GetComponent<XRGrabInteractable>();
-        if (grab == null)
-        {
-            grab = hold.AddComponent<XRGrabInteractable>();
-            grab.movementType = XRBaseInteractable.MovementType.Instantaneous;
-            grab.trackPosition = true;
-            grab.trackRotation = true;
-        }
-        if (!grab.colliders.Contains(sphere))
-        {
-            grab.colliders.Add(sphere);
-        }
-        return grab;
     }
 
     private void EnsureHoldsDictionary()
@@ -2363,19 +1457,6 @@ public class SceneConfiguror : MonoBehaviour
         sphere.isTrigger = true;
     }
 
-    private void CacheMoonBoardTransform()
-    {
-        if (hasInitialMoonBoardTransform || moonBoardEnv == null)
-        {
-            return;
-        }
-
-        initialMoonBoardLocalPosition = moonBoardEnv.transform.localPosition;
-        initialMoonBoardLocalRotation = moonBoardEnv.transform.localRotation;
-        initialMoonBoardLocalScale = moonBoardEnv.transform.localScale;
-        hasInitialMoonBoardTransform = true;
-    }
-
     private void InitializeGripFacades()
     {
         if (leftGripLatch != null)
@@ -2414,7 +1495,7 @@ public class SceneConfiguror : MonoBehaviour
 
     private int ResolveMinFingers(GameObject hold)
     {
-        if (holdAffordanceCatalog == null || hold == null)
+        if (HoldAffordances.Catalog == null || hold == null)
         {
             return defaultMinFingers;
         }
@@ -2429,9 +1510,9 @@ public class SceneConfiguror : MonoBehaviour
             coordinate = coordinate.Substring(0, ghostMarker);
         }
         coordinate = coordinate.ToUpperInvariant();
-        return routeCatalog != null &&
-               routeCatalog.TryGetHold(coordinate, out MoonBoardHoldDefinition definition)
-            ? holdAffordanceCatalog.ResolveMinFingers(definition.scanId, defaultMinFingers)
+        return routes.Catalog != null &&
+               routes.Catalog.TryGetHold(coordinate, out MoonBoardHoldDefinition definition)
+            ? HoldAffordances.Catalog.ResolveMinFingers(definition.scanId, defaultMinFingers)
             : defaultMinFingers;
     }
 
@@ -2563,7 +1644,8 @@ public class SceneConfiguror : MonoBehaviour
             distanceToClosestBoneComputeShader,
             gripScoreConfig,
             gripRecoveryAttempted);
-        gripContactPipeline.SetFeedbackVisible(studyFeedbackVisible && !IsGripFeedbackDegraded);
+        gripContactPipeline.SetFeedbackVisible(
+            StudyEnvironment.IsStudyFeedbackVisible && !IsGripFeedbackDegraded);
         gripContactPipeline.DebugSetReadbackFailures(debugForceGripReadbackFailures);
     }
 
@@ -2638,10 +1720,7 @@ public class SceneConfiguror : MonoBehaviour
     private void OnDestroy()
     {
         gripContactPipeline?.Dispose();
-        if (highlightCircleMaterial != null)
-        {
-            Destroy(highlightCircleMaterial);
-        }
+        holdVisuals?.Dispose();
     }
 
 }
