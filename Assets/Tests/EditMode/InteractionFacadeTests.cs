@@ -247,16 +247,22 @@ public sealed class InteractionFacadeTests
             hold.AddComponent<MeshFilter>().sharedMesh = mesh;
             hold.transform.localScale = new Vector3(2f, 0.5f, 1f);
 
-            FieldInfo cacheField = configurorType.GetField(
+            PropertyInfo gripProperty = configurorType.GetProperty(
+                "Grip",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(gripProperty, Is.Not.Null);
+            object gripCoordinator = gripProperty.GetValue(configuror);
+            Type coordinatorType = gripCoordinator.GetType();
+            FieldInfo cacheField = coordinatorType.GetField(
                 "degradedGripGeometry",
                 BindingFlags.Instance | BindingFlags.NonPublic);
-            FieldInfo failuresField = configurorType.GetField(
+            FieldInfo failuresField = coordinatorType.GetField(
                 "reportedDegradedGripGeometryFailures",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             FieldInfo positionsField = configurorType.GetField(
                 "leftHandBonePositions",
                 BindingFlags.Instance | BindingFlags.Public);
-            MethodInfo buildMask = configurorType.GetMethod(
+            MethodInfo buildMask = coordinatorType.GetMethod(
                 "TryBuildDegradedGripContactMask",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(cacheField, Is.Not.Null);
@@ -264,8 +270,8 @@ public sealed class InteractionFacadeTests
             Assert.That(positionsField, Is.Not.Null);
             Assert.That(buildMask, Is.Not.Null);
 
-            IDictionary cache = (IDictionary)cacheField.GetValue(configuror);
-            object reportedFailures = failuresField.GetValue(configuror);
+            IDictionary cache = (IDictionary)cacheField.GetValue(gripCoordinator);
+            object reportedFailures = failuresField.GetValue(gripCoordinator);
             MethodInfo removeFailure = reportedFailures.GetType().GetMethod("Remove");
             List<Vector3> originalPositions = (List<Vector3>)positionsField.GetValue(configuror);
             positionsField.SetValue(
@@ -283,12 +289,12 @@ public sealed class InteractionFacadeTests
                     LogType.Error,
                     new Regex("DEGRADED CPU grip acquisition rejected"));
                 object[] firstArguments = { leftHand, hold, new float[5], 0 };
-                Assert.That((bool)buildMask.Invoke(configuror, firstArguments), Is.False);
+                Assert.That((bool)buildMask.Invoke(gripCoordinator, firstArguments), Is.False);
                 Assert.That(cache.Contains(mesh), Is.True);
                 object cached = cache[mesh];
 
                 object[] secondArguments = { leftHand, hold, new float[5], 0 };
-                Assert.That((bool)buildMask.Invoke(configuror, secondArguments), Is.False);
+                Assert.That((bool)buildMask.Invoke(gripCoordinator, secondArguments), Is.False);
                 Assert.That(cache.Contains(mesh), Is.True);
                 Assert.That(cache[mesh], Is.SameAs(cached));
             }
