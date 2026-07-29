@@ -205,6 +205,8 @@ public sealed class StudyCoreTests
         HashSet<string> expectedCorrectedMeshes = new()
         {
             "W98", "B127", "B109", "B115", "B141", "Y28", "Y6", "B138",
+            "Y12", "B123", "B135", "W97", "B126", "B110", "W66", "W74", "W53", "W65",
+            "B105", "B149", "W83", "Y36", "B124", "B108", "B132", "B130", "Y2",
         };
         int correctedMeshes = 0;
         foreach (MoonBoardHoldDefinition hold in catalog.holds)
@@ -218,7 +220,7 @@ public sealed class StudyCoreTests
                 Assert.That(expectedCorrectedMeshes.Remove(hold.scanId), Is.True, hold.coordinate);
             }
         }
-        Assert.That(correctedMeshes, Is.EqualTo(8));
+        Assert.That(correctedMeshes, Is.EqualTo(27));
         Assert.That(expectedCorrectedMeshes, Is.Empty);
 
         Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
@@ -244,6 +246,25 @@ public sealed class StudyCoreTests
             { "H18", ("Y28", 0, 20f) },
             { "F6", ("Y6", 90, 70f) },
             { "C13", ("B138", 315, -120f) },
+            { "I4", ("W83", 45, 40f) },
+            { "D5", ("W97", 315, -50f) },
+            { "J5", ("B130", 315, -35f) },
+            { "E7", ("W74", 180, -180f) },
+            { "F7", ("W53", 315, -50f) },
+            { "C8", ("B135", 315, -40f) },
+            { "F10", ("W65", 45, 45f) },
+            { "A11", ("Y12", 135, 125f) },
+            { "E12", ("B110", 45, 40f) },
+            { "I12", ("Y36", 225, -145f) },
+            { "F13", ("B105", 315, -75f) },
+            { "H13", ("B149", 225, -140f) },
+            { "A14", ("B123", 315, -35f) },
+            { "I14", ("B124", 315, -40f) },
+            { "J14", ("Y2", 315, -55f) },
+            { "D15", ("B126", 315, -30f) },
+            { "E15", ("W66", 315, -55f) },
+            { "I15", ("B108", 315, -45f) },
+            { "I18", ("B132", 45, -145f) },
         };
         Quaternion boardMount = Quaternion.Euler(catalog.SurfaceTiltDegrees, 0f, 180f);
         Vector3 climbingSideNormal = boardMount * Vector3.up;

@@ -366,6 +366,28 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     "Y28": 20.0,  # H18; observed board residual -20 deg
     "Y6": 70.0,  # F6; observed board residual -70 deg
     "B138": -120.0,  # C13; observed board residual +120 deg
+    # 2026-07-28 full-board isolated-silhouette audit: landed only where the official
+    # setup image and the rectified Movement Harlem photo select the same branch within
+    # 12 degrees at IoU >= 0.70 on both (docs/route-selection/board-audit).
+    "Y12": 125.0,  # A11; observed board residual -125 deg
+    "B123": -35.0,  # A14; observed board residual +35 deg
+    "B135": -40.0,  # C8; observed board residual +40 deg
+    "W97": -50.0,  # D5; observed board residual +50 deg
+    "B126": -30.0,  # D15; observed board residual +30 deg
+    "B110": 40.0,  # E12; observed board residual -40 deg
+    "W66": -55.0,  # E15; observed board residual +55 deg
+    "W74": -180.0,  # E7; observed board residual +180 deg (mounted inverted)
+    "W53": -50.0,  # F7; observed board residual +50 deg
+    "W65": 45.0,  # F10; observed board residual -45 deg
+    "B105": -75.0,  # F13; observed board residual +75 deg
+    "B149": -140.0,  # H13; observed board residual +140 deg
+    "W83": 40.0,  # I4; observed board residual -40 deg
+    "Y36": -145.0,  # I12; observed board residual +145 deg
+    "B124": -40.0,  # I14; observed board residual +40 deg
+    "B108": -45.0,  # I15; observed board residual +45 deg
+    "B132": -145.0,  # I18; observed board residual +145 deg
+    "B130": -35.0,  # J5; observed board residual +35 deg
+    "Y2": -55.0,  # J14; observed board residual +55 deg
 }
 MESH_FRAME_CORRECTIONS = {
     # Approved by-eye W98 orientation from 1b9df47, expressed after the FBX -90-degree X basis.

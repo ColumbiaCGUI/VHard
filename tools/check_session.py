@@ -12,7 +12,7 @@ from read_capture import validate_capture_rows
 
 DIRECTORY_PATTERN = re.compile(r"block[1-3]_[ABC]_[A-Z0-9_]+(?:_retry[0-9]+)?$")
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "Assets/StreamingAssets/moonboard_2016_40.json"
-APPROVED_CATALOG_SHA256 = "e80eadcf5f053c24c199d52ad210164c02c31eab1696658132761f7cb553cfaa"
+APPROVED_CATALOG_SHA256 = "85dd5a2b67e784d08ba37511aa0dc982e613cd6b43c9a21cf26cc2fc32168c00"
 MAX_ALIGNMENT_DRIFT_METERS = 0.02
 MAX_ALIGNMENT_DRIFT_DEGREES = 2.0
 
