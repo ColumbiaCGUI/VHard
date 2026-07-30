@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
+using UnityEngine;
 
 public sealed class StudyRehearsalTimingTests
 {
@@ -56,6 +59,214 @@ public sealed class StudyRehearsalTimingTests
             StudyRehearsalTiming.TryGetFirstInteraction("A", true, true, out string interaction),
             Is.False);
         Assert.That(interaction, Is.Empty);
+    }
+
+    [Test]
+    public void PanelPinchMustBeReleasedAfterTrackingBecomesConfident()
+    {
+        bool wasPinching = false;
+        bool pinchArmed = false;
+
+        Assert.That(
+            StudyRehearsalTiming.TryConsumeArmedPinch(
+                true, true, ref wasPinching, ref pinchArmed),
+            Is.False);
+        Assert.That(
+            StudyRehearsalTiming.TryConsumeArmedPinch(
+                true, false, ref wasPinching, ref pinchArmed),
+            Is.False);
+        Assert.That(pinchArmed, Is.True);
+        Assert.That(
+            StudyRehearsalTiming.TryConsumeArmedPinch(
+                true, true, ref wasPinching, ref pinchArmed),
+            Is.True);
+        Assert.That(
+            StudyRehearsalTiming.TryConsumeArmedPinch(
+                true, true, ref wasPinching, ref pinchArmed),
+            Is.False);
+
+        Assert.That(
+            StudyRehearsalTiming.TryConsumeArmedPinch(
+                false, false, ref wasPinching, ref pinchArmed),
+            Is.False);
+        Assert.That(pinchArmed, Is.False);
+    }
+
+    [Test]
+    public void ElapsedDisplayContinuesPastFormerBlockLimit()
+    {
+        Assert.That(StudyRehearsalTiming.FormatElapsedSeconds(0f), Is.EqualTo("00:00"));
+        Assert.That(StudyRehearsalTiming.FormatElapsedSeconds(1200f), Is.EqualTo("20:00"));
+        Assert.That(StudyRehearsalTiming.FormatElapsedSeconds(3661.9f), Is.EqualTo("61:01"));
+    }
+
+    [Test]
+    public void PanelConfirmationRequiresASecondFrameWithinTheWindow()
+    {
+        string pendingAction = string.Empty;
+        float deadline = -1f;
+        int armedFrame = -1;
+
+        Assert.That(
+            StudyRehearsalTiming.TryConfirmPanelAction(
+                "complete-block", 10f, 100, 4f,
+                ref pendingAction, ref deadline, ref armedFrame),
+            Is.False);
+        Assert.That(
+            StudyRehearsalTiming.TryConfirmPanelAction(
+                "complete-block", 10f, 100, 4f,
+                ref pendingAction, ref deadline, ref armedFrame),
+            Is.False,
+            "Two hands must not satisfy confirmation in one frame.");
+        Assert.That(
+            StudyRehearsalTiming.TryConfirmPanelAction(
+                "complete-block", 10.1f, 101, 4f,
+                ref pendingAction, ref deadline, ref armedFrame),
+            Is.True);
+        Assert.That(pendingAction, Is.Empty);
+    }
+
+    [Test]
+    public void ExpiredPanelConfirmationRearmsInsteadOfExecuting()
+    {
+        string pendingAction = string.Empty;
+        float deadline = -1f;
+        int armedFrame = -1;
+
+        StudyRehearsalTiming.TryConfirmPanelAction(
+            "end-practice", 2f, 10, 4f,
+            ref pendingAction, ref deadline, ref armedFrame);
+
+        Assert.That(
+            StudyRehearsalTiming.TryConfirmPanelAction(
+                "end-practice", 7f, 11, 4f,
+                ref pendingAction, ref deadline, ref armedFrame),
+            Is.False);
+        Assert.That(pendingAction, Is.EqualTo("end-practice"));
+        Assert.That(deadline, Is.EqualTo(11f));
+    }
+
+    [Test]
+    public void PracticeAndEstimationUseTheGuardedSummonGesture()
+    {
+        Assert.That(StudyRehearsalTiming.RequiresPanelSummonDwell(false, false), Is.False);
+        Assert.That(StudyRehearsalTiming.RequiresPanelSummonDwell(true, false), Is.True);
+        Assert.That(StudyRehearsalTiming.RequiresPanelSummonDwell(false, true), Is.True);
+    }
+
+    [Test]
+    public void PanelDragPreservesGrabOffsetAlongNormalizedPointerRay()
+    {
+        Vector3 position = StudyRehearsalTiming.ResolvePanelDragPosition(
+            new Vector3(1f, 2f, 3f),
+            new Vector3(0f, 0f, 2f),
+            0.75f,
+            new Vector3(0.1f, -0.2f, 0f));
+
+        Assert.That(position, Is.EqualTo(new Vector3(1.1f, 1.8f, 3.75f)));
+    }
+
+    [Test]
+    public void PanelDragRejectsInvalidPointerPose()
+    {
+        Assert.That(
+            () => StudyRehearsalTiming.ResolvePanelDragPosition(
+                Vector3.zero,
+                Vector3.zero,
+                0.75f,
+                Vector3.zero),
+            Throws.ArgumentException);
+        Assert.That(
+            () => StudyRehearsalTiming.ResolvePanelDragPosition(
+                Vector3.zero,
+                Vector3.forward,
+                float.NaN,
+                Vector3.zero),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
+
+    [Test]
+    public void PanelViewportClampKeepsPanelExtentsAndDepthVisible()
+    {
+        Vector3 position = StudyRehearsalTiming.ClampPanelViewportPosition(
+            new Vector3(1.2f, -0.3f, -1f),
+            new Vector2(0.2f, 0.3f),
+            0.05f,
+            0.55f,
+            1.5f);
+
+        Assert.That(position.x, Is.EqualTo(0.75f).Within(0.0001f));
+        Assert.That(position.y, Is.EqualTo(0.35f).Within(0.0001f));
+        Assert.That(position.z, Is.EqualTo(0.55f).Within(0.0001f));
+    }
+
+    [Test]
+    public void PanelViewportClampCentersAnExtentTooLargeForTheView()
+    {
+        Vector3 position = StudyRehearsalTiming.ClampPanelViewportPosition(
+            new Vector3(0.9f, 0.1f, 2f),
+            new Vector2(0.6f, 0.7f),
+            0.05f,
+            0.55f,
+            1.5f);
+
+        Assert.That(position.x, Is.EqualTo(0.5f).Within(0.0001f));
+        Assert.That(position.y, Is.EqualTo(0.5f).Within(0.0001f));
+        Assert.That(position.z, Is.EqualTo(1.5f).Within(0.0001f));
+    }
+
+    [Test]
+    public void PanelViewportClampContainsFinalFacingPanelAndTimerBounds()
+    {
+        GameObject cameraObject = new("Panel Clamp Test Camera");
+        Camera camera = cameraObject.AddComponent<Camera>();
+        camera.fieldOfView = 80f;
+        camera.aspect = 16f / 9f;
+        camera.nearClipPlane = 0.01f;
+        try
+        {
+            Type panelType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("StudyControlPanel"))
+                .Single(type => type != null);
+            Type stateType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("StudySessionState"))
+                .Single(type => type != null);
+            ConstructorInfo constructor = panelType.GetConstructors()
+                .Single(candidateConstructor => candidateConstructor.GetParameters().Length == 6);
+            object panel = constructor.Invoke(new object[]
+            {
+                null,
+                camera,
+                null,
+                null,
+                Activator.CreateInstance(stateType),
+                new Func<float>(() => 0f),
+            });
+            MethodInfo clampMethod = panelType.GetMethod(
+                "ClampPanelPositionToViewport",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(clampMethod, Is.Not.Null);
+            Vector3 candidate = camera.ViewportToWorldPoint(new Vector3(1.8f, -0.8f, 0.7f));
+            Vector3 clamped = (Vector3)clampMethod.Invoke(panel, new object[] { candidate });
+            Quaternion rotation = Quaternion.LookRotation(clamped - camera.transform.position, camera.transform.up);
+            Vector3[] localCorners =
+            {
+                new(-0.41f, -0.51f, 0f),
+                new(0.41f, -0.51f, 0f),
+                new(-0.41f, 0.62f, 0f),
+                new(0.41f, 0.62f, 0f),
+            };
+            foreach (Vector3 localCorner in localCorners)
+            {
+                Vector3 viewportCorner = camera.WorldToViewportPoint(clamped + rotation * localCorner);
+                Assert.That(viewportCorner.x, Is.InRange(0.039f, 0.961f));
+                Assert.That(viewportCorner.y, Is.InRange(0.039f, 0.961f));
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(cameraObject);
+        }
     }
 
     [Test]
@@ -133,7 +344,7 @@ public sealed class StudyRehearsalTimingTests
             0,
             false,
             "2026-07-28T10:15:30.0000000Z",
-            "timer_expired");
+            "completed_manual");
 
         bool recovered = StudyRehearsalTiming.TryRecoverCompletedBlock(
             recoveryStudyRoot,

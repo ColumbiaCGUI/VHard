@@ -16,9 +16,20 @@ from read_capture import EXPECTED_COLUMNS
 class SessionValidationTests(unittest.TestCase):
     def test_accepts_complete_thirty_hertz_block(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            block = self._write_block(Path(temporary_directory), "completed_early")
+            block = self._write_block(Path(temporary_directory), "completed_manual")
 
             self.assertEqual(validate_session(block), 60)
+
+    def test_rejects_manual_completion_marked_early(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_manual")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["endedEarly"] = True
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "incorrectly marked endedEarly"):
+                validate_session(block)
 
     def test_rejects_app_closed_block(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -119,7 +130,7 @@ class SessionValidationTests(unittest.TestCase):
             "gitRevision": "abc123-dirty.123456789abc",
             "startUtc": start.isoformat(),
             "endUtc": end.isoformat(),
-            "endedEarly": True,
+            "endedEarly": end_reason == "completed_early",
             "endReason": end_reason,
             "routesJsonSha256": None,
             "gripFeedback": "ok",

@@ -44,6 +44,9 @@ public sealed class GripInteractionCoordinator
         new float[GripEngagementGate.RequiredBoneDistanceCount];
     private bool leftLegacyFiveTipContact;
     private bool rightLegacyFiveTipContact;
+    private bool inputSuppressed;
+    private bool leftAcquisitionArmed = true;
+    private bool rightAcquisitionArmed = true;
 
     public GripInteractionCoordinator(SceneConfiguror owner)
     {
@@ -166,6 +169,21 @@ public sealed class GripInteractionCoordinator
         if (owner.moonBoardEnv != null)
         {
             owner.moonBoardEnv.transform.position += movement;
+        }
+    }
+
+    public void SetInputSuppressed(bool suppressed)
+    {
+        if (inputSuppressed == suppressed)
+        {
+            return;
+        }
+
+        inputSuppressed = suppressed;
+        if (suppressed)
+        {
+            leftAcquisitionArmed = false;
+            rightAcquisitionArmed = false;
         }
     }
 
@@ -307,6 +325,29 @@ public sealed class GripInteractionCoordinator
             ? leftGripAcquisitionSample
             : rightGripAcquisitionSample;
         GripLatchStateMachine latch = hand == Hand.Left ? leftGripLatch : rightGripLatch;
+        int lowFlexedMask = GripEngagementGate.BuildFlexedMask(curls, owner.gripFlexionReleaseThreshold);
+
+        if (inputSuppressed)
+        {
+            return;
+        }
+
+        bool acquisitionArmed = hand == Hand.Left ? leftAcquisitionArmed : rightAcquisitionArmed;
+        if (!acquisitionArmed)
+        {
+            if (trackingValid && GripEngagementGate.CountNonThumbFingers(lowFlexedMask) == 0)
+            {
+                if (hand == Hand.Left)
+                {
+                    leftAcquisitionArmed = true;
+                }
+                else
+                {
+                    rightAcquisitionArmed = true;
+                }
+            }
+            return;
+        }
 
         int minFingers = owner.GetMinFingersForHold(candidate);
         int candidateHoldId = candidate != null ? candidate.GetInstanceID() : 0;
@@ -337,7 +378,6 @@ public sealed class GripInteractionCoordinator
                 owner.gripFingertipRange,
                 now);
         }
-        int lowFlexedMask = GripEngagementGate.BuildFlexedMask(curls, owner.gripFlexionReleaseThreshold);
         GripLatchTransition transition = latch.Update(
             now,
             trackingValid,

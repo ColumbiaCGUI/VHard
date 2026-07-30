@@ -6,6 +6,9 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 
+// Meta updates OVRHand at -90 and OVRSkeleton at -80; panel input reads the refreshed poses next.
+// Guarded summons suppress gameplay during their pre-pinch dwell, before XRI sees the final pinch.
+[DefaultExecutionOrder(-70)]
 public sealed class StudyManager : MonoBehaviour
 {
     [Header("Study References")]
@@ -17,8 +20,6 @@ public sealed class StudyManager : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool useMockSchedule;
-    [SerializeField] private float debugBlockMinutes = 2f;
-    [SerializeField] private float debugPracticePhaseSeconds = 10f;
 
     [Header("Panel Interaction")]
     [SerializeField] private float summonDwellSeconds = 1f;
@@ -128,6 +129,11 @@ public sealed class StudyManager : MonoBehaviour
         blockRun.EndBlockEarly();
     }
 
+    public void CompleteBlock()
+    {
+        blockRun.CompleteBlock();
+    }
+
     public void EndBlock(bool endedEarly, string reason)
     {
         blockRun.EndBlock(endedEarly, reason);
@@ -136,6 +142,16 @@ public sealed class StudyManager : MonoBehaviour
     public bool StartPractice()
     {
         return practice.StartPractice();
+    }
+
+    public bool SetPracticePhase(string phase)
+    {
+        return practice.SetPracticePhase(phase);
+    }
+
+    public void EndPractice()
+    {
+        practice.EndPractice();
     }
 
     public bool StartEstimation()
@@ -206,8 +222,7 @@ public sealed class StudyManager : MonoBehaviour
             controlPanel,
             estimation,
             EnsureScheduleLoadedForRuntime,
-            EnsureEstimationCatalogLoadedForRuntime,
-            () => debugPracticePhaseSeconds);
+            EnsureEstimationCatalogLoadedForRuntime);
         blockRun = new BlockRunController(
             state,
             sceneConfiguror,
@@ -216,8 +231,7 @@ public sealed class StudyManager : MonoBehaviour
             controlPanel,
             headsetPresence,
             estimation,
-            EnsureScheduleLoadedForRuntime,
-            () => debugBlockMinutes);
+            EnsureScheduleLoadedForRuntime);
         controlPanel.AttachControllers(blockRun, practice, estimation);
     }
 
@@ -278,11 +292,6 @@ public sealed class StudyManager : MonoBehaviour
         {
             practice.UpdatePractice();
         }
-        if (state.blockRunning && !blockRun.UpdateRunningBlock())
-        {
-            return;
-        }
-
         controlPanel.HandlePanelInput(leftHand, leftSkeleton, rightHand, rightSkeleton);
         controlPanel.UpdateIdlePanelPosition();
 #if UNITY_EDITOR
@@ -292,6 +301,14 @@ public sealed class StudyManager : MonoBehaviour
             ShowPanel();
         }
 #endif
+    }
+
+    private void LateUpdate()
+    {
+        if (state.blockRunning)
+        {
+            blockRun.UpdateRunningBlock();
+        }
     }
 
     private string BuildMockSchedule()

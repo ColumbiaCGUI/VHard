@@ -15,6 +15,7 @@ CATALOG_PATH = Path(__file__).resolve().parents[1] / "Assets/StreamingAssets/moo
 APPROVED_CATALOG_SHA256 = "85dd5a2b67e784d08ba37511aa0dc982e613cd6b43c9a21cf26cc2fc32168c00"
 MAX_ALIGNMENT_DRIFT_METERS = 0.02
 MAX_ALIGNMENT_DRIFT_DEGREES = 2.0
+COMPLETE_END_REASONS = {"completed_manual", "completed_early", "timer_expired"}
 
 
 def _vector_distance(left: dict, right: dict) -> float:
@@ -46,8 +47,10 @@ def validate_session(directory: Path) -> int:
     missing = required - set(manifest)
     if missing:
         raise SystemExit(f"Manifest missing fields: {sorted(missing)}")
-    if not manifest["endUtc"] or manifest["endReason"] not in {"timer_expired", "completed_early"}:
+    if not manifest["endUtc"] or manifest["endReason"] not in COMPLETE_END_REASONS:
         raise SystemExit("Manifest describes an incomplete or crashed block")
+    if manifest["endReason"] == "completed_manual" and manifest["endedEarly"]:
+        raise SystemExit("Manually completed block is incorrectly marked endedEarly")
     if not manifest["appVersion"] or not manifest["gitRevision"]:
         raise SystemExit("Manifest is missing build provenance")
     if manifest["gitRevision"] == "development":

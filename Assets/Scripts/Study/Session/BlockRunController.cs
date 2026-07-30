@@ -8,11 +8,10 @@ using UnityEngine;
 
 /// <summary>
 /// Owns the block lifecycle: validating a schedule row, creating the block directory and
-/// manifest, running the rehearsal clock, and finalizing the manifest when the block ends.
+/// manifest, tracking rehearsal elapsed time, and finalizing the manifest on an explicit end.
 /// </summary>
 public sealed class BlockRunController
 {
-    private const float ReleaseBlockMinutes = 20f;
     private const string NullRoutesHashSentinel = "__NULL_ROUTES_JSON_SHA256__";
 
     private readonly StudySessionState state;
@@ -23,15 +22,17 @@ public sealed class BlockRunController
     private readonly HeadsetPresenceTracker headsetPresence;
     private readonly EstimationController estimation;
     private readonly Action ensureScheduleLoadedForRuntime;
-    private readonly Func<float> debugBlockMinutes;
 
     private StudySessionManifest activeManifest;
     private string manifestPath;
     private MoonBoardRouteDefinition activeRouteDefinition;
     private float blockStartRealtime;
-    private float blockDurationSeconds;
     private string retryConfirmationKey;
     private float retryConfirmationDeadline;
+
+    public float ElapsedSeconds => state.blockTimerStarted
+        ? Mathf.Max(0f, Time.realtimeSinceStartup - blockStartRealtime)
+        : 0f;
 
     public BlockRunController(
         StudySessionState state,
@@ -41,8 +42,7 @@ public sealed class BlockRunController
         StudyControlPanel panel,
         HeadsetPresenceTracker headsetPresence,
         EstimationController estimation,
-        Action ensureScheduleLoadedForRuntime,
-        Func<float> debugBlockMinutes)
+        Action ensureScheduleLoadedForRuntime)
     {
         this.state = state;
         this.sceneConfiguror = sceneConfiguror;
@@ -52,7 +52,6 @@ public sealed class BlockRunController
         this.headsetPresence = headsetPresence;
         this.estimation = estimation;
         this.ensureScheduleLoadedForRuntime = ensureScheduleLoadedForRuntime;
-        this.debugBlockMinutes = debugBlockMinutes;
     }
 
     public bool StartSelectedBlock()
@@ -277,8 +276,8 @@ public sealed class BlockRunController
         sceneConfiguror.SetStudyFeedbackVisible(row.condition != "A");
         GC.Collect();
 
-        blockDurationSeconds = GetBlockMinutes() * 60f;
         state.blockTimerStarted = false;
+        panel.ResetBlockTimerDisplay();
         state.panelPinned = true;
         state.blockRunning = true;
         headsetPresence.InitializeBlockHeadsetWear();
@@ -306,6 +305,11 @@ public sealed class BlockRunController
     public void EndBlockEarly()
     {
         EndBlock(true, "completed_early");
+    }
+
+    public void CompleteBlock()
+    {
+        EndBlock(false, "completed_manual");
     }
 
     public void EndBlock(bool endedEarly, string reason)
@@ -358,10 +362,10 @@ public sealed class BlockRunController
     }
 
     /// <summary>
-    /// Advances the running block one frame. Returns false when the block ended on the
-    /// duration cap, which stops the rest of that frame's study update.
+    /// Advances the running block one frame. Elapsed time is informational only; this method
+    /// never changes or ends the active condition.
     /// </summary>
-    public bool UpdateRunningBlock()
+    public void UpdateRunningBlock()
     {
         HandleGripFeedbackDegradation();
         if (!state.blockTimerStarted)
@@ -389,16 +393,9 @@ public sealed class BlockRunController
         }
         if (state.blockTimerStarted)
         {
-            float remaining = blockDurationSeconds - (Time.realtimeSinceStartup - blockStartRealtime);
-            if (remaining <= 0f)
-            {
-                EndBlock(false, "timer_expired");
-                return false;
-            }
-            panel.UpdateTimerText(remaining);
+            panel.UpdateBlockElapsedText(ElapsedSeconds);
             panel.PositionTimerChip();
         }
-        return true;
     }
 
     private void StartRehearsalClock(string trigger, bool recordFirstInteraction)
@@ -428,7 +425,7 @@ public sealed class BlockRunController
             null,
             "block=" + state.activeRow.block.ToString(CultureInfo.InvariantCulture) + ";trigger=" + trigger);
         state.statusMessage = $"Running {state.activeRow.participant} block {state.activeRow.block}.";
-        panel.UpdateTimerText(blockDurationSeconds);
+        panel.UpdateBlockElapsedText(0f);
         panel.RefreshPanelText();
     }
 
@@ -453,13 +450,6 @@ public sealed class BlockRunController
         state.statusMessage = "Grip feedback degraded; block continues.";
         WriteManifest();
         panel.RefreshPanelText();
-    }
-
-    private float GetBlockMinutes()
-    {
-        return (Debug.isDebugBuild || Application.isEditor)
-            ? Mathf.Clamp(debugBlockMinutes(), 0.1f, ReleaseBlockMinutes)
-            : ReleaseBlockMinutes;
     }
 
     private void WriteManifest()

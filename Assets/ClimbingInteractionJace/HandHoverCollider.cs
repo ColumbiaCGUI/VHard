@@ -47,7 +47,8 @@ public class HandHoverCollider : MonoBehaviour
     {
         SynchronizeContactEpoch();
         if (other != null && other.gameObject.CompareTag("ClimbingHold") &&
-            overlappingColliders.Add(other) && sceneConfiguror != null)
+            sceneConfiguror != null && !sceneConfiguror.IsPanelInputSuppressed &&
+            overlappingColliders.Add(other))
         {
             sceneConfiguror.HandHoverEnter(handIndex, other.gameObject);
         }

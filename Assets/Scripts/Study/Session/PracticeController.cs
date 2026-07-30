@@ -3,13 +3,11 @@ using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// Runs the once-per-participant familiarization sequence (spec 06): a timed B phase
-/// followed by a timed C phase on the catalog's practice problem, before any block starts.
+/// Runs the once-per-participant familiarization sequence on the catalog's practice problem.
+/// The experimenter explicitly selects B or C and explicitly ends the sequence.
 /// </summary>
 public sealed class PracticeController
 {
-    private const float ReleasePracticePhaseSeconds = 60f;
-
     private readonly StudySessionState state;
     private readonly SceneConfiguror sceneConfiguror;
     private readonly ActionRecorder actionRecorder;
@@ -18,9 +16,12 @@ public sealed class PracticeController
     private readonly EstimationController estimation;
     private readonly Action ensureScheduleLoadedForRuntime;
     private readonly Action ensureEstimationCatalogLoadedForRuntime;
-    private readonly Func<float> debugPracticePhaseSeconds;
 
     private float practicePhaseStartRealtime;
+
+    public float PhaseElapsedSeconds => state.practiceActive
+        ? Mathf.Max(0f, Time.realtimeSinceStartup - practicePhaseStartRealtime)
+        : 0f;
 
     public PracticeController(
         StudySessionState state,
@@ -30,8 +31,7 @@ public sealed class PracticeController
         StudyControlPanel panel,
         EstimationController estimation,
         Action ensureScheduleLoadedForRuntime,
-        Action ensureEstimationCatalogLoadedForRuntime,
-        Func<float> debugPracticePhaseSeconds)
+        Action ensureEstimationCatalogLoadedForRuntime)
     {
         this.state = state;
         this.sceneConfiguror = sceneConfiguror;
@@ -41,7 +41,6 @@ public sealed class PracticeController
         this.estimation = estimation;
         this.ensureScheduleLoadedForRuntime = ensureScheduleLoadedForRuntime;
         this.ensureEstimationCatalogLoadedForRuntime = ensureEstimationCatalogLoadedForRuntime;
-        this.debugPracticePhaseSeconds = debugPracticePhaseSeconds;
     }
 
     public bool StartPractice()
@@ -107,6 +106,30 @@ public sealed class PracticeController
         return true;
     }
 
+    public bool SetPracticePhase(string phase)
+    {
+        if (phase != "B" && phase != "C")
+        {
+            throw new ArgumentException("Practice phase must be B or C.", nameof(phase));
+        }
+        if (!state.practiceActive)
+        {
+            state.statusMessage = "Start practice B before selecting another practice mode.";
+            panel.RefreshPanelText();
+            return false;
+        }
+        if (state.practicePhase == phase)
+        {
+            state.statusMessage = "Practice phase " + phase + " remains active.";
+            panel.RefreshPanelText();
+            return true;
+        }
+
+        BeginPracticePhase(phase);
+        panel.SetPanelVisible(false);
+        return true;
+    }
+
     private void BeginPracticePhase(string phase)
     {
         state.practicePhase = phase;
@@ -118,29 +141,16 @@ public sealed class PracticeController
         sceneConfiguror.SetGameMode(phase == "B" ? GameMode.Grip : GameMode.Ghost);
         sceneConfiguror.SetStudyFeedbackVisible(true);
         practicePhaseStartRealtime = Time.realtimeSinceStartup;
-        state.statusMessage = "Practice phase " + phase + " running.";
-        panel.UpdatePracticeTimerText(GetPracticePhaseSeconds());
+        state.statusMessage = "Practice phase " + phase + " running until manually changed or ended.";
         panel.RefreshPanelText();
     }
 
     public void UpdatePractice()
     {
-        float remaining = GetPracticePhaseSeconds() -
-                          (Time.realtimeSinceStartup - practicePhaseStartRealtime);
-        if (remaining > 0f)
-        {
-            panel.UpdatePracticeTimerText(remaining);
-            return;
-        }
-        if (state.practicePhase == "B")
-        {
-            BeginPracticePhase("C");
-            return;
-        }
-        EndPractice();
+        panel.UpdatePracticeElapsedText(PhaseElapsedSeconds);
     }
 
-    private void EndPractice()
+    public void EndPractice()
     {
         if (!state.practiceActive)
         {
@@ -151,7 +161,7 @@ public sealed class PracticeController
         state.practiceActive = false;
         state.practicePhase = string.Empty;
         estimation.RestoreScheduledDisplay(null);
-        state.statusMessage = "Practice completed.";
+        state.statusMessage = "Practice completed manually.";
         panel.SetTimerChipVisible(false);
         panel.ShowPanel();
         panel.RefreshPanelText();
@@ -184,10 +194,4 @@ public sealed class PracticeController
             state.participantsWithBlockRuns);
     }
 
-    private float GetPracticePhaseSeconds()
-    {
-        return (Debug.isDebugBuild || Application.isEditor)
-            ? Mathf.Clamp(debugPracticePhaseSeconds(), 1f, ReleasePracticePhaseSeconds)
-            : ReleasePracticePhaseSeconds;
-    }
 }

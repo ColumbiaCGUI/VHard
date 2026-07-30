@@ -46,7 +46,7 @@ public sealed class SummonGestureDetector
 
         bool trackingConfident = hand != null && hand.IsTracked && hand.IsDataHighConfidence;
         bool palmUp = trackingConfident && IsPalmUp(skeleton);
-        if (!state.blockRunning)
+        if (!StudyRehearsalTiming.RequiresPanelSummonDwell(state.blockRunning, state.IsAuxiliaryActive))
         {
             ResetSummonDwell();
             if (palmUp && pinchStarted)
@@ -71,6 +71,7 @@ public sealed class SummonGestureDetector
                 return false;
             }
             summonDwellStart = now;
+            panel.SetGameplayInputSuppressed(true);
         }
 
         if (!summonReadyForPinch &&
@@ -82,8 +83,8 @@ public sealed class SummonGestureDetector
         if (summonReadyForPinch && pinchStarted)
         {
             summonCooldownUntil = now + Mathf.Max(0f, summonCooldownSeconds());
-            ResetSummonDwell();
             panel.ShowPanel();
+            ResetSummonDwell();
             return true;
         }
 
@@ -98,6 +99,10 @@ public sealed class SummonGestureDetector
     {
         summonDwellStart = -1f;
         summonReadyForPinch = false;
+        if (panel.IsPanelHidden)
+        {
+            panel.SetGameplayInputSuppressed(false);
+        }
     }
 
     private static bool IsPalmUp(OVRSkeleton skeleton)

@@ -21,8 +21,11 @@ public sealed class GhostHoldController : MonoBehaviour
     private OVRSkeleton leftSkeleton;
     private OVRSkeleton rightSkeleton;
     private bool modeActive;
+    private bool panelInputSuppressed;
     private bool leftWasPinching;
     private bool rightWasPinching;
+    private bool leftPinchArmed;
+    private bool rightPinchArmed;
     private Hand? manipulatingHand;
     private Vector3 grabPositionOffset;
     private Quaternion grabRotationOffset;
@@ -63,14 +66,32 @@ public sealed class GhostHoldController : MonoBehaviour
         manipulatingHand = null;
         leftWasPinching = false;
         rightWasPinching = false;
+        leftPinchArmed = false;
+        rightPinchArmed = false;
 
         if (!active)
         {
             DismissGhost();
         }
 
-        SetRayVisible(leftRay, active && IsPointerTracked(leftHand));
-        SetRayVisible(rightRay, active && IsPointerTracked(rightHand));
+        SetCurrentGhostGrabEnabled(active && !panelInputSuppressed);
+        SetRayVisible(leftRay, active && !panelInputSuppressed && IsPointerTracked(leftHand));
+        SetRayVisible(rightRay, active && !panelInputSuppressed && IsPointerTracked(rightHand));
+    }
+
+    public void SetPanelInputSuppressed(bool suppressed)
+    {
+        panelInputSuppressed = suppressed;
+        if (suppressed)
+        {
+            manipulatingHand = null;
+            leftPinchArmed = false;
+            rightPinchArmed = false;
+        }
+
+        SetCurrentGhostGrabEnabled(modeActive && !suppressed);
+        SetRayVisible(leftRay, modeActive && !suppressed && IsPointerTracked(leftHand));
+        SetRayVisible(rightRay, modeActive && !suppressed && IsPointerTracked(rightHand));
     }
 
     public bool IsGhostHold(GameObject candidate)
@@ -116,7 +137,7 @@ public sealed class GhostHoldController : MonoBehaviour
         XRGrabInteractable grabInteractable = currentGhost.GetComponent<XRGrabInteractable>();
         if (grabInteractable != null)
         {
-            grabInteractable.enabled = true;
+            grabInteractable.enabled = !panelInputSuppressed;
             grabInteractable.movementType = XRBaseInteractable.MovementType.Instantaneous;
             grabInteractable.trackPosition = true;
             grabInteractable.trackRotation = true;
@@ -136,6 +157,14 @@ public sealed class GhostHoldController : MonoBehaviour
         sceneConfiguror.RegisterGhostHold(currentGhost);
         sceneConfiguror.PrepareGripHold(currentGhost);
         sceneConfiguror.actionRecorder?.Record("GhostSpawn", "", currentGhost, sourceHold.name);
+    }
+
+    private void SetCurrentGhostGrabEnabled(bool enabled)
+    {
+        if (currentGhost != null && currentGhost.TryGetComponent(out XRGrabInteractable grabInteractable))
+        {
+            grabInteractable.enabled = enabled;
+        }
     }
 
     private static void FitSphereColliderToMesh(GameObject hold)
@@ -197,8 +226,34 @@ public sealed class GhostHoldController : MonoBehaviour
             return;
         }
 
-        HandleHand(Hand.Left, leftHand, leftSkeleton, ref leftWasPinching, leftRay);
-        HandleHand(Hand.Right, rightHand, rightSkeleton, ref rightWasPinching, rightRay);
+        if (panelInputSuppressed)
+        {
+            manipulatingHand = null;
+            leftWasPinching = IsIndexPinching(leftHand);
+            rightWasPinching = IsIndexPinching(rightHand);
+            leftPinchArmed = false;
+            rightPinchArmed = false;
+            SetRayVisible(leftRay, false);
+            SetRayVisible(rightRay, false);
+            UpdateWallMarker();
+            UpdateDismissAffordance();
+            return;
+        }
+
+        HandleHand(
+            Hand.Left,
+            leftHand,
+            leftSkeleton,
+            ref leftWasPinching,
+            ref leftPinchArmed,
+            leftRay);
+        HandleHand(
+            Hand.Right,
+            rightHand,
+            rightSkeleton,
+            ref rightWasPinching,
+            ref rightPinchArmed,
+            rightRay);
         UpdateManipulation();
         UpdateWallMarker();
         UpdateDismissAffordance();
@@ -214,12 +269,17 @@ public sealed class GhostHoldController : MonoBehaviour
         OVRHand hand,
         OVRSkeleton skeleton,
         ref bool wasPinching,
+        ref bool pinchArmed,
         LineRenderer rayVisual)
     {
+        bool trackingConfident = hand != null && hand.IsTracked && hand.IsDataHighConfidence;
         bool isPinching = IsIndexPinching(hand);
-        bool pinchStarted = isPinching && !wasPinching;
         bool pinchEnded = !isPinching && wasPinching;
-        wasPinching = isPinching;
+        bool pinchStarted = StudyRehearsalTiming.TryConsumeArmedPinch(
+            trackingConfident,
+            isPinching,
+            ref wasPinching,
+            ref pinchArmed);
 
         bool hasRay = TryGetPointerRay(hand, out Ray ray);
         GameObject target = null;

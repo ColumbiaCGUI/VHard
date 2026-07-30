@@ -66,6 +66,7 @@ public class SceneConfiguror : MonoBehaviour
     private Light examinationHeadlamp;
     private int studyHoldsLayer = -1;
     private int studyGhostHoldsLayer = -1;
+    private bool panelInputSuppressed;
 
     [Header("Hands References")]
     public GameObject centerEyeAnchor;
@@ -108,6 +109,7 @@ public class SceneConfiguror : MonoBehaviour
     public GameObject leftHandInteractingClimbingHold;
     public GameObject rightHandInteractingClimbingHold;
     public int HoverContactEpoch { get; private set; }
+    public bool IsPanelInputSuppressed => panelInputSuppressed;
 
     [Header("Interaction Compute Shader Settings")]
     public ComputeShader distanceToClosestBoneComputeShader;
@@ -258,14 +260,17 @@ public class SceneConfiguror : MonoBehaviour
             Grip.RightTrackingValid);
 
         // Grip state is shared by in-context and detached examination. Only Grip mode may move the board.
-        if (gameMode == GameMode.Grip)
+        if (!panelInputSuppressed)
         {
-            UpdateGripMode();
-        }
-        else if (gameMode == GameMode.Ghost && ghostHoldController != null &&
-                 ghostHoldController.CurrentGhost != null)
-        {
-            UpdateGripMode(false);
+            if (gameMode == GameMode.Grip)
+            {
+                UpdateGripMode();
+            }
+            else if (gameMode == GameMode.Ghost && ghostHoldController != null &&
+                     ghostHoldController.CurrentGhost != null)
+            {
+                UpdateGripMode(false);
+            }
         }
 
         if (!Grip.LeftTrackingValid && !Grip.RightTrackingValid)
@@ -646,6 +651,19 @@ public class SceneConfiguror : MonoBehaviour
         actionRecorder?.Record("ModeChanged", "", null, newMode.ToString());
     }
 
+    public void SetPanelInputSuppressed(bool suppressed)
+    {
+        bool suppressionStarted = suppressed && !panelInputSuppressed;
+        panelInputSuppressed = suppressed;
+        Grip.SetInputSuppressed(suppressed);
+        if (suppressionStarted)
+        {
+            ResetInteractionState();
+        }
+        ApplyModeToRouteHolds();
+        ghostHoldController?.SetPanelInputSuppressed(suppressed);
+    }
+
     public RouteCuePresentation BaselineRouteCuePresentation => baselineRouteCuePresentation;
     public RouteCuePresentation CurrentRouteCuePresentation { get; private set; } =
         RouteCuePresentation.Hidden;
@@ -794,7 +812,7 @@ public class SceneConfiguror : MonoBehaviour
         XRGrabInteractable grab = ghost.GetComponent<XRGrabInteractable>();
         if (grab != null)
         {
-            grab.enabled = true;
+            grab.enabled = gameMode == GameMode.Ghost && !panelInputSuppressed;
         }
     }
 
@@ -819,7 +837,7 @@ public class SceneConfiguror : MonoBehaviour
         }
 
         bool enableWallColliders = gameMode != GameMode.Basic;
-        bool enableWallGrab = gameMode == GameMode.Grip;
+        bool enableWallGrab = gameMode == GameMode.Grip && !panelInputSuppressed;
         foreach (GameObject hold in activeHoldsList)
         {
             if (hold == null)

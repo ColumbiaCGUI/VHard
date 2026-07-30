@@ -47,6 +47,162 @@ public static class StudyRehearsalTiming
         return false;
     }
 
+    public static bool TryConsumeArmedPinch(
+        bool trackingConfident,
+        bool pinching,
+        ref bool wasPinching,
+        ref bool pinchArmed)
+    {
+        if (!trackingConfident)
+        {
+            wasPinching = false;
+            pinchArmed = false;
+            return false;
+        }
+
+        if (!pinching)
+        {
+            wasPinching = false;
+            pinchArmed = true;
+            return false;
+        }
+
+        bool pinchStarted = !wasPinching;
+        wasPinching = true;
+        if (!pinchStarted || !pinchArmed)
+        {
+            return false;
+        }
+
+        pinchArmed = false;
+        return true;
+    }
+
+    public static string FormatElapsedSeconds(float elapsedSeconds)
+    {
+        if (float.IsNaN(elapsedSeconds) || float.IsInfinity(elapsedSeconds) || elapsedSeconds < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(elapsedSeconds));
+        }
+
+        int totalSeconds = Mathf.FloorToInt(elapsedSeconds);
+        return (totalSeconds / 60).ToString("00", CultureInfo.InvariantCulture) + ":" +
+               (totalSeconds % 60).ToString("00", CultureInfo.InvariantCulture);
+    }
+
+    public static bool TryConfirmPanelAction(
+        string actionKey,
+        float now,
+        int frame,
+        float confirmationWindowSeconds,
+        ref string pendingActionKey,
+        ref float confirmationDeadline,
+        ref int confirmationArmedFrame)
+    {
+        if (string.IsNullOrWhiteSpace(actionKey))
+        {
+            throw new ArgumentException("Confirmation action key is required.", nameof(actionKey));
+        }
+        if (float.IsNaN(now) || float.IsInfinity(now) || now < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(now));
+        }
+        if (frame < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(frame));
+        }
+        if (float.IsNaN(confirmationWindowSeconds) || float.IsInfinity(confirmationWindowSeconds) ||
+            confirmationWindowSeconds <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(confirmationWindowSeconds));
+        }
+
+        if (string.Equals(pendingActionKey, actionKey, StringComparison.Ordinal))
+        {
+            if (frame <= confirmationArmedFrame)
+            {
+                return false;
+            }
+            if (now <= confirmationDeadline)
+            {
+                pendingActionKey = string.Empty;
+                confirmationDeadline = -1f;
+                confirmationArmedFrame = -1;
+                return true;
+            }
+        }
+
+        pendingActionKey = actionKey;
+        confirmationDeadline = now + confirmationWindowSeconds;
+        confirmationArmedFrame = frame;
+        return false;
+    }
+
+    public static bool RequiresPanelSummonDwell(bool blockRunning, bool auxiliarySequenceActive)
+    {
+        return blockRunning || auxiliarySequenceActive;
+    }
+
+    public static Vector3 ResolvePanelDragPosition(
+        Vector3 pointerOrigin,
+        Vector3 pointerDirection,
+        float rayDistance,
+        Vector3 worldOffset)
+    {
+        if (!IsFinite(pointerOrigin) || !IsFinite(pointerDirection) || !IsFinite(worldOffset))
+        {
+            throw new ArgumentException("Panel drag vectors must be finite.");
+        }
+        if (pointerDirection.sqrMagnitude < 0.000001f)
+        {
+            throw new ArgumentException("Panel drag direction must be non-zero.", nameof(pointerDirection));
+        }
+        if (float.IsNaN(rayDistance) || float.IsInfinity(rayDistance) || rayDistance <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(rayDistance));
+        }
+
+        return pointerOrigin + pointerDirection.normalized * rayDistance + worldOffset;
+    }
+
+    public static Vector3 ClampPanelViewportPosition(
+        Vector3 viewportPosition,
+        Vector2 halfExtents,
+        float margin,
+        float minimumDepth,
+        float maximumDepth)
+    {
+        if (!IsFinite(viewportPosition) || !IsFinite(halfExtents))
+        {
+            throw new ArgumentException("Panel viewport values must be finite.");
+        }
+        if (halfExtents.x < 0f || halfExtents.y < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(halfExtents));
+        }
+        if (float.IsNaN(margin) || float.IsInfinity(margin) || margin < 0f || margin >= 0.5f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(margin));
+        }
+        if (float.IsNaN(minimumDepth) || float.IsInfinity(minimumDepth) || minimumDepth <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(minimumDepth));
+        }
+        if (float.IsNaN(maximumDepth) || float.IsInfinity(maximumDepth) || maximumDepth < minimumDepth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumDepth));
+        }
+
+        float minimumX = margin + halfExtents.x;
+        float maximumX = 1f - margin - halfExtents.x;
+        float minimumY = margin + halfExtents.y;
+        float maximumY = 1f - margin - halfExtents.y;
+        return new Vector3(
+            minimumX <= maximumX ? Mathf.Clamp(viewportPosition.x, minimumX, maximumX) : 0.5f,
+            minimumY <= maximumY ? Mathf.Clamp(viewportPosition.y, minimumY, maximumY) : 0.5f,
+            Mathf.Clamp(viewportPosition.z, minimumDepth, maximumDepth));
+    }
+
     public static bool CanStartPractice(
         string participant,
         ISet<string> participantsWithPracticeRuns,
@@ -395,5 +551,18 @@ public static class StudyRehearsalTiming
             return blockStartRealtime;
         }
         return headsetPresentSinceRealtime;
+    }
+
+    private static bool IsFinite(Vector3 value)
+    {
+        return !float.IsNaN(value.x) && !float.IsInfinity(value.x) &&
+               !float.IsNaN(value.y) && !float.IsInfinity(value.y) &&
+               !float.IsNaN(value.z) && !float.IsInfinity(value.z);
+    }
+
+    private static bool IsFinite(Vector2 value)
+    {
+        return !float.IsNaN(value.x) && !float.IsInfinity(value.x) &&
+               !float.IsNaN(value.y) && !float.IsInfinity(value.y);
     }
 }
