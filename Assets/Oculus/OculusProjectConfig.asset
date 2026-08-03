@@ -16,7 +16,6 @@ MonoBehaviour:
   allowOptional3DofHeadTracking: 0
   handTrackingSupport: 2
   handTrackingFrequency: 1
-  handTrackingVersion: 2
   anchorSupport: 1
   sharedAnchorSupport: 0
   renderModelSupport: 0
@@ -24,19 +23,19 @@ MonoBehaviour:
   bodyTrackingSupport: 0
   faceTrackingSupport: 0
   eyeTrackingSupport: 0
-  virtualKeyboardSupport: 0
   colocationSessionSupport: 0
   sceneSupport: 0
   boundaryVisibilitySupport: 0
   disableBackups: 1
   enableNSCConfig: 0
   securityXmlPath: 
-  horizonOsSdkEnabled: 0
+  horizonOsSdkDisabled: 0
   minHorizonOsSdkVersion: 60
   targetHorizonOsSdkVersion: 81
   skipUnneededShaders: 0
   enableIL2CPPLTO: 0
   removeGradleManifest: 1
+  metaXrFeaturePromptDeclined: 0
   focusAware: 1
   requiresSystemKeyboard: 0
   experimentalFeaturesEnabled: 0
