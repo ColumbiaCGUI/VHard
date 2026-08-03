@@ -12,7 +12,7 @@ using UnityEngine.SceneManagement;
 
 public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
 {
-    private const string ScenePath = "Assets/Scenes/SampleScene.unity";
+    private const string ScenePath = "Assets/Scenes/VHardStudy.unity";
     private const string CatalogPath = "Assets/StreamingAssets/moonboard_2016_40.json";
     private const string EstimationCatalogPath =
         "Assets/StreamingAssets/moonboard_2016_40_estimation.json";
@@ -75,7 +75,7 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
         EditorBuildSettingsScene[] enabledScenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).ToArray();
         if (enabledScenes.Length != 1 || enabledScenes[0].path != ScenePath)
         {
-            throw new BuildFailedException("SampleScene must be the only enabled study build scene.");
+            throw new BuildFailedException("VHardStudy must be the only enabled study build scene.");
         }
 
         Scene scene = SceneManager.GetSceneByPath(ScenePath);

@@ -11,7 +11,7 @@ using UnityEngine.SceneManagement;
 
 public sealed class MovementHarlemEnvironmentTests
 {
-    private const string ScenePath = "Assets/Scenes/SampleScene.unity";
+    private const string ScenePath = "Assets/Scenes/VHardStudy.unity";
     private const string ReconstructionName = "Movement Harlem Reconstruction";
     private const string MaterialFolder = "Assets/Materials/MovementHarlemEnvironment/";
 

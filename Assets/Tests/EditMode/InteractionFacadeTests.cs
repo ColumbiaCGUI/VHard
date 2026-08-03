@@ -224,7 +224,7 @@ public sealed class InteractionFacadeTests
     [Test]
     public void PersistentUnsafeTransformReusesCachedCpuGripIndex()
     {
-        const string scenePath = "Assets/Scenes/SampleScene.unity";
+        const string scenePath = "Assets/Scenes/VHardStudy.unity";
         Scene scene = SceneManager.GetSceneByPath(scenePath);
         bool openedForTest = !scene.isLoaded;
         if (openedForTest)
@@ -399,7 +399,7 @@ public sealed class InteractionFacadeTests
     [Test]
     public void ShippedMoonBoardHoldsAllProvideReadableCpuFallbackGeometry()
     {
-        const string scenePath = "Assets/Scenes/SampleScene.unity";
+        const string scenePath = "Assets/Scenes/VHardStudy.unity";
         Scene scene = SceneManager.GetSceneByPath(scenePath);
         bool openedForTest = !scene.isLoaded;
         if (openedForTest)

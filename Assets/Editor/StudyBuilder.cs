@@ -14,7 +14,7 @@ using UnityEngine;
 /// modal dialog (e.g. "Android SDK is missing required platform API"), which is exactly what
 /// wedged a 3-hour attempt on 2026-07-17. Batchmode surfaces the same conditions as a non-zero
 /// exit with a logged reason instead of a silent hang. Only the enabled build scenes are built,
-/// so this always matches EditorBuildSettings (SampleScene) rather than an ad-hoc scene list.
+/// so this always matches EditorBuildSettings (VHardStudy) rather than an ad-hoc scene list.
 /// </summary>
 public static class StudyBuilder
 {

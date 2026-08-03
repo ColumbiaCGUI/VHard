@@ -11,7 +11,7 @@ using UnityEngine.SceneManagement;
 
 public static class MovementHarlemEnvironmentBuilder
 {
-    private const string ScenePath = "Assets/Scenes/SampleScene.unity";
+    private const string ScenePath = "Assets/Scenes/VHardStudy.unity";
     private const string EnvironmentName = "Environment";
     private const string BoardName = "BoardAlignmentRoot";
     private const string ReconstructionName = "Movement Harlem Reconstruction";
@@ -75,27 +75,27 @@ public static class MovementHarlemEnvironmentBuilder
                 EditorSceneManager.CloseScene(scene, true);
             }
             throw new InvalidOperationException(
-                "SampleScene has unsaved changes. Save or discard them before rebuilding the gym environment.");
+                "VHardStudy has unsaved changes. Save or discard them before rebuilding the gym environment.");
         }
 
         try
         {
             if (SceneManager.GetActiveScene() != scene && !SceneManager.SetActiveScene(scene))
             {
-                throw new InvalidOperationException("Unity failed to activate SampleScene for reconstruction.");
+                throw new InvalidOperationException("Unity failed to activate VHardStudy for reconstruction.");
             }
 
             GameObject environment = scene.GetRootGameObjects()
                 .SingleOrDefault(root => root.name == EnvironmentName);
             if (environment == null)
             {
-                throw new InvalidOperationException("SampleScene is missing its Environment root.");
+                throw new InvalidOperationException("VHardStudy is missing its Environment root.");
             }
 
             Transform board = environment.transform.Find(BoardName);
             if (board == null || board.Find("Moonboard") == null)
             {
-                throw new InvalidOperationException("SampleScene is missing BoardAlignmentRoot/Moonboard.");
+                throw new InvalidOperationException("VHardStudy is missing BoardAlignmentRoot/Moonboard.");
             }
 
             TransformState[] boardState = board.GetComponentsInChildren<Transform>(true)
@@ -292,7 +292,7 @@ public static class MovementHarlemEnvironmentBuilder
             Transform mainSurface = board.Find("Moonboard/Main Surface");
             if (mainSurface == null)
             {
-                throw new InvalidOperationException("SampleScene is missing the MoonBoard main surface.");
+                throw new InvalidOperationException("VHardStudy is missing the MoonBoard main surface.");
             }
             Vector3 boardTopCenter = mainSurface.TransformPoint(new Vector3(0f, 0f, -5f));
             const float upperBoardThickness = 0.08f;
@@ -389,12 +389,12 @@ public static class MovementHarlemEnvironmentBuilder
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene))
             {
-                throw new InvalidOperationException("Unity failed to save SampleScene after reconstruction.");
+                throw new InvalidOperationException("Unity failed to save VHardStudy after reconstruction.");
             }
 
             AssetDatabase.SaveAssets();
             Debug.Log(
-                "[MovementHarlemEnvironmentBuilder] Reconciled 27 collider-free renderers in SampleScene.");
+                "[MovementHarlemEnvironmentBuilder] Reconciled 27 collider-free renderers in VHardStudy.");
         }
         finally
         {
