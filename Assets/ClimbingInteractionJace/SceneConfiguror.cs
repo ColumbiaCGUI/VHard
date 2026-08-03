@@ -74,8 +74,6 @@ public class SceneConfiguror : MonoBehaviour
     public OVRSkeleton rightHandOVRSkeleton;
 
     [Header("Other Player's Avatar")]
-    public bool shouldOtherPlayerHandsBeActive;
-    public NetworkedHands networkedHands;
     public AvatarHand otherPlayerLeftHand;
     public AvatarHand otherPlayerRightHand;
 
@@ -278,37 +276,10 @@ public class SceneConfiguror : MonoBehaviour
             return;
         }
 
-        // Update networked hands
-        if (!shouldOtherPlayerHandsBeActive)
-        {
-            otherPlayerLeftHand.gameObject.SetActive(false);
-            otherPlayerRightHand.gameObject.SetActive(false);
-        }
-        else if (networkedHands == null)
-        {
-            otherPlayerLeftHand.gameObject.SetActive(false);
-            otherPlayerRightHand.gameObject.SetActive(false);
-        }
-        else if (networkedHands.leftHandJointPositionsNetworked.Count != numBonesPerHand
-             || networkedHands.rightHandJointPositionsNetworked.Count != numBonesPerHand
-             || networkedHands.leftHandJointQuaternionNetworked.Count != numBonesPerHand
-             || networkedHands.rightHandJointQuaternionNetworked.Count != numBonesPerHand)
-        {
-            otherPlayerLeftHand.gameObject.SetActive(false);
-            otherPlayerRightHand.gameObject.SetActive(false);
-        }
-        else
-        {
-            otherPlayerLeftHand.gameObject.SetActive(true);
-            otherPlayerRightHand.gameObject.SetActive(true);
-            for (int i = 0; i < numBonesPerHand; i++)
-            {
-                otherPlayerLeftHand.joints[i].transform.position = networkedHands.leftHandJointPositionsNetworked[i] + environment.transform.position;
-                otherPlayerRightHand.joints[i].transform.position = networkedHands.rightHandJointPositionsNetworked[i] + environment.transform.position;
-                otherPlayerLeftHand.joints[i].transform.rotation = networkedHands.leftHandJointQuaternionNetworked[i];
-                otherPlayerRightHand.joints[i].transform.rotation = networkedHands.rightHandJointQuaternionNetworked[i];
-            }
-        }
+        // The SIGGRAPH two-player networked-hands path is gone with Photon; the
+        // other-player avatar hands stay inactive.
+        otherPlayerLeftHand.gameObject.SetActive(false);
+        otherPlayerRightHand.gameObject.SetActive(false);
 
     }
 
