@@ -113,8 +113,9 @@ public sealed class SummonGestureDetector
             return false;
         }
 
+        // OpenXR hand joints (XRHand skeletons) put +Y out the back of the hand, so the
+        // palmar direction is -up after OVRSkeleton's FromFlippedZQuatf conversion.
         Transform palm = skeleton.Bones[0].Transform;
-        return Vector3.Dot(palm.up, Vector3.up) > 0.55f ||
-               Vector3.Dot(-palm.forward, Vector3.up) > 0.55f;
+        return Vector3.Dot(-palm.up, Vector3.up) > 0.55f;
     }
 }
