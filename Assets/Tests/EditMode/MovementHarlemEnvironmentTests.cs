@@ -12,11 +12,12 @@ using UnityEngine.SceneManagement;
 public sealed class MovementHarlemEnvironmentTests
 {
     private const string ScenePath = "Assets/Scenes/VHardStudy.unity";
+    private const string SceneryRootName = "GripLocomotionSceneryRoot";
     private const string ReconstructionName = "Movement Harlem Reconstruction";
     private const string MaterialFolder = "Assets/Materials/MovementHarlemEnvironment/";
 
     [Test]
-    public void ReconstructionIsStableAndDoesNotEnterTheBoardHierarchy()
+    public void ReconstructionIsStableAndSharesTheBoardAlignmentFrame()
     {
         Scene scene = SceneManager.GetSceneByPath(ScenePath);
         bool openedForTest = !scene.isLoaded;
@@ -30,16 +31,23 @@ public sealed class MovementHarlemEnvironmentTests
             GameObject environment = scene.GetRootGameObjects().Single(root => root.name == "Environment");
             Transform board = environment.transform.Find("BoardAlignmentRoot");
             Transform moonboard = board?.Find("Moonboard");
-            Transform reconstruction = environment.transform.Find(ReconstructionName);
+            Transform sceneryRoot = board?.Find(SceneryRootName);
+            Transform reconstruction = sceneryRoot?.Find(ReconstructionName);
 
             Assert.That(board, Is.Not.Null);
             Assert.That(moonboard, Is.Not.Null);
+            Assert.That(sceneryRoot, Is.Not.Null);
             Assert.That(reconstruction, Is.Not.Null);
             Assert.That(
-                environment.transform.Cast<Transform>().Count(child => child.name == ReconstructionName),
+                sceneryRoot.Cast<Transform>().Count(child => child.name == ReconstructionName),
                 Is.EqualTo(1));
-            Assert.That(reconstruction.parent, Is.EqualTo(environment.transform));
-            Assert.That(reconstruction.IsChildOf(board), Is.False);
+            Assert.That(sceneryRoot.parent, Is.EqualTo(board));
+            Assert.That(reconstruction.parent, Is.EqualTo(sceneryRoot));
+            Assert.That(reconstruction.IsChildOf(board), Is.True);
+            Assert.That(sceneryRoot.localPosition, Is.EqualTo(new Vector3(0.29f, 0.57f, -1.86219f)));
+            Assert.That(sceneryRoot.localRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(sceneryRoot.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(sceneryRoot.position, Is.EqualTo(Vector3.zero));
             Assert.That(reconstruction.localPosition, Is.EqualTo(Vector3.zero));
             Assert.That(reconstruction.localRotation, Is.EqualTo(Quaternion.identity));
             Assert.That(reconstruction.localScale, Is.EqualTo(Vector3.one));
@@ -72,7 +80,96 @@ public sealed class MovementHarlemEnvironmentTests
     }
 
     [Test]
-    public void ReconstructionUsesOnlyStaticProjectOwnedVisuals()
+    public void GripLocomotionMovesRoomButPreservesAlignmentAndResetsToAuthoredPose()
+    {
+        GameObject environment = new("Test Environment");
+        GameObject alignmentObject = new("BoardAlignmentRoot");
+        GameObject moonboardObject = new("Moonboard");
+        GameObject sceneryObject = new(SceneryRootName);
+        GameObject xrRig = new("XR Rig");
+        GameObject centerEye = new("Center Eye");
+        GameObject configurorObject = new("Scene Configuror");
+        configurorObject.SetActive(false);
+        try
+        {
+            alignmentObject.transform.SetParent(environment.transform, false);
+            alignmentObject.transform.SetLocalPositionAndRotation(
+                new Vector3(-0.29f, -0.57f, 1.86219f),
+                Quaternion.identity);
+            moonboardObject.transform.SetParent(alignmentObject.transform, false);
+            sceneryObject.transform.SetParent(alignmentObject.transform, false);
+            sceneryObject.transform.localPosition = new Vector3(0.29f, 0.57f, -1.86219f);
+            centerEye.transform.SetParent(xrRig.transform, false);
+
+            Type configurorType = FindLoadedType("SceneConfiguror");
+            Component configuror = configurorObject.AddComponent(configurorType);
+            configurorType.GetField("moonBoardEnv")?.SetValue(configuror, moonboardObject);
+            configurorType.GetField("gripLocomotionSceneryRoot")?.SetValue(configuror, sceneryObject);
+            configurorType.GetField("centerEyeAnchor")?.SetValue(configuror, centerEye);
+            Type presenterType = FindLoadedType("StudyEnvironmentPresenter");
+            object presenter = Activator.CreateInstance(presenterType, new object[] { configuror });
+            MethodInfo cache = presenterType.GetMethod("CacheMoonBoardTransform");
+            MethodInfo move = presenterType.GetMethod("MoveStudyEnvironment");
+            MethodInfo reset = presenterType.GetMethod("ResetMoonBoardTransform");
+            Assert.That(cache, Is.Not.Null);
+            Assert.That(move, Is.Not.Null);
+            Assert.That(reset, Is.Not.Null);
+
+            Vector3 moonboardLocalPosition = moonboardObject.transform.localPosition;
+            Quaternion moonboardLocalRotation = moonboardObject.transform.localRotation;
+            Vector3 sceneryLocalPosition = sceneryObject.transform.localPosition;
+            Quaternion sceneryLocalRotation = sceneryObject.transform.localRotation;
+            cache.Invoke(presenter, null);
+
+            Vector3 roomRelativePosition = moonboardObject.transform.InverseTransformPoint(
+                sceneryObject.transform.position);
+            Quaternion roomRelativeRotation = Quaternion.Inverse(moonboardObject.transform.rotation) *
+                                              sceneryObject.transform.rotation;
+            alignmentObject.transform.SetPositionAndRotation(
+                new Vector3(1f, 2f, 3f),
+                Quaternion.Euler(0f, 35f, 0f));
+            Assert.That(
+                Vector3.Distance(
+                    moonboardObject.transform.InverseTransformPoint(sceneryObject.transform.position),
+                    roomRelativePosition),
+                Is.LessThan(0.00001f));
+            Assert.That(
+                Quaternion.Angle(
+                    Quaternion.Inverse(moonboardObject.transform.rotation) * sceneryObject.transform.rotation,
+                    roomRelativeRotation),
+                Is.LessThan(0.0001f));
+
+            Vector3 moonboardWorldPosition = moonboardObject.transform.position;
+            Vector3 sceneryWorldPosition = sceneryObject.transform.position;
+            Vector3 alignmentWorldPosition = alignmentObject.transform.position;
+            Vector3 cameraRigWorldPosition = xrRig.transform.position;
+            Vector3 movement = new(0.25f, -0.5f, 0.75f);
+
+            move.Invoke(presenter, new object[] { movement });
+
+            Assert.That(Vector3.Distance(moonboardObject.transform.position, moonboardWorldPosition + movement),
+                Is.LessThan(0.00001f));
+            Assert.That(Vector3.Distance(sceneryObject.transform.position, sceneryWorldPosition + movement),
+                Is.LessThan(0.00001f));
+            Assert.That(alignmentObject.transform.position, Is.EqualTo(alignmentWorldPosition));
+            Assert.That(xrRig.transform.position, Is.EqualTo(cameraRigWorldPosition));
+
+            reset.Invoke(presenter, null);
+            Assert.That(moonboardObject.transform.localPosition, Is.EqualTo(moonboardLocalPosition));
+            Assert.That(moonboardObject.transform.localRotation, Is.EqualTo(moonboardLocalRotation));
+            Assert.That(sceneryObject.transform.localPosition, Is.EqualTo(sceneryLocalPosition));
+            Assert.That(sceneryObject.transform.localRotation, Is.EqualTo(sceneryLocalRotation));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(configurorObject);
+            UnityEngine.Object.DestroyImmediate(environment);
+            UnityEngine.Object.DestroyImmediate(xrRig);
+        }
+    }
+
+    [Test]
+    public void ReconstructionUsesOnlyMovableProjectOwnedVisuals()
     {
         Scene scene = SceneManager.GetSceneByPath(ScenePath);
         bool openedForTest = !scene.isLoaded;
@@ -84,7 +181,8 @@ public sealed class MovementHarlemEnvironmentTests
         try
         {
             GameObject environment = scene.GetRootGameObjects().Single(root => root.name == "Environment");
-            Transform reconstruction = environment.transform.Find(ReconstructionName);
+            Transform reconstruction = environment.transform.Find(
+                "BoardAlignmentRoot/" + SceneryRootName + "/" + ReconstructionName);
             Assert.That(reconstruction, Is.Not.Null);
 
             Renderer[] renderers = reconstruction.GetComponentsInChildren<Renderer>(true);
@@ -102,7 +200,7 @@ public sealed class MovementHarlemEnvironmentTests
             Assert.That(
                 renderers.All(renderer =>
                     GameObjectUtility.GetStaticEditorFlags(renderer.gameObject) ==
-                    StaticEditorFlags.BatchingStatic),
+                    (StaticEditorFlags)0),
                 Is.True);
             Assert.That(
                 reconstruction.Cast<Transform>().All(group =>
@@ -205,11 +303,14 @@ public sealed class MovementHarlemEnvironmentTests
             Assert.That(upperBoardImporter.isReadable, Is.False);
             Assert.That(upperBoardImporter.npotScale, Is.EqualTo(TextureImporterNPOTScale.None));
 
-            Renderer floor = environment.transform.Find("Floor")?.GetComponent<Renderer>();
+            Renderer floor = environment.transform.Find(
+                "BoardAlignmentRoot/" + SceneryRootName + "/Floor")?.GetComponent<Renderer>();
             Assert.That(AssetDatabase.GetAssetPath(floor?.sharedMaterial),
                 Is.EqualTo("Assets/Materials/MovementHarlemFloor.mat"));
+            Assert.That(floor?.GetComponent<Rigidbody>()?.isKinematic, Is.True);
 
-            Light directional = environment.transform.Find("Directional Light")?.GetComponent<Light>();
+            Light directional = environment.transform.Find(
+                "BoardAlignmentRoot/" + SceneryRootName + "/Directional Light")?.GetComponent<Light>();
             Assert.That(directional, Is.Not.Null);
             Assert.That(directional.enabled, Is.True);
             Assert.That(directional.type, Is.EqualTo(LightType.Directional));
@@ -237,7 +338,8 @@ public sealed class MovementHarlemEnvironmentTests
         {
             GameObject environment = scene.GetRootGameObjects().Single(root => root.name == "Environment");
             Transform moonboard = environment.transform.Find("BoardAlignmentRoot/Moonboard");
-            Transform reconstruction = environment.transform.Find(ReconstructionName);
+            Transform reconstruction = environment.transform.Find(
+                "BoardAlignmentRoot/" + SceneryRootName + "/" + ReconstructionName);
             Assert.That(moonboard, Is.Not.Null);
             Assert.That(reconstruction, Is.Not.Null);
 
@@ -304,23 +406,25 @@ public sealed class MovementHarlemEnvironmentTests
             Transform environment = scene.GetRootGameObjects()
                 .Single(root => root.name == "Environment")
                 .transform;
-            string[] boardIds = GetGlobalIds(environment.Find("BoardAlignmentRoot"));
+            string[] boardIds = GetGlobalIds(environment.Find("BoardAlignmentRoot/Moonboard"));
             string[] nonOwnedSnapshot = GetNonOwnedSceneSnapshot(scene);
             byte[] originalSceneBytes = File.ReadAllBytes(ScenePath);
 
             InvokeRebuild();
-            Transform firstReconstruction = environment.Find(ReconstructionName);
+            Transform firstReconstruction = environment.Find(
+                "BoardAlignmentRoot/" + SceneryRootName + "/" + ReconstructionName);
             string[] firstReconstructionIds = GetGlobalIds(firstReconstruction);
             string[] firstNonOwnedSnapshot = GetNonOwnedSceneSnapshot(scene);
             byte[] firstSceneBytes = File.ReadAllBytes(ScenePath);
 
             InvokeRebuild();
-            Transform secondReconstruction = environment.Find(ReconstructionName);
+            Transform secondReconstruction = environment.Find(
+                "BoardAlignmentRoot/" + SceneryRootName + "/" + ReconstructionName);
             string[] secondReconstructionIds = GetGlobalIds(secondReconstruction);
             string[] secondNonOwnedSnapshot = GetNonOwnedSceneSnapshot(scene);
             byte[] secondSceneBytes = File.ReadAllBytes(ScenePath);
 
-            Assert.That(GetGlobalIds(environment.Find("BoardAlignmentRoot")), Is.EqualTo(boardIds));
+            Assert.That(GetGlobalIds(environment.Find("BoardAlignmentRoot/Moonboard")), Is.EqualTo(boardIds));
             Assert.That(firstNonOwnedSnapshot, Is.EqualTo(nonOwnedSnapshot));
             Assert.That(secondNonOwnedSnapshot, Is.EqualTo(nonOwnedSnapshot));
             Assert.That(secondReconstructionIds, Is.EqualTo(firstReconstructionIds));
@@ -428,7 +532,7 @@ public sealed class MovementHarlemEnvironmentTests
         Transform reconstruction = scene.GetRootGameObjects()
             .Single(root => root.name == "Environment")
             .transform
-            .Find(ReconstructionName);
+            .Find("BoardAlignmentRoot/" + SceneryRootName + "/" + ReconstructionName);
 
         return scene.GetRootGameObjects()
             .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
@@ -463,6 +567,13 @@ public sealed class MovementHarlemEnvironmentTests
             .Select(transform => GlobalObjectId.GetGlobalObjectIdSlow(transform.gameObject).ToString())
             .OrderBy(id => id, StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static Type FindLoadedType(string name)
+    {
+        return AppDomain.CurrentDomain.GetAssemblies()
+            .Select(assembly => assembly.GetType(name))
+            .Single(type => type != null);
     }
 
     private static void InvokeRebuild()

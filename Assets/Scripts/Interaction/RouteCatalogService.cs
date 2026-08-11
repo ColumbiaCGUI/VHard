@@ -115,6 +115,13 @@ public sealed class RouteCatalogService
         return names;
     }
 
+    public List<string> GetStudyRouteNames()
+    {
+        return Catalog?.routes != null
+            ? Catalog.routes.Select(route => route.id).ToList()
+            : new List<string>();
+    }
+
     public IEnumerator LoadRoutesJson()
     {
         RoutesJsonLoadState = RoutesLoadState.Loading;

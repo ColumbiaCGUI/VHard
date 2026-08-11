@@ -10,7 +10,10 @@ from pathlib import Path
 from read_capture import validate_capture_rows
 
 
-DIRECTORY_PATTERN = re.compile(r"block[1-3]_[ABC]_[A-Z0-9_]+(?:_retry[0-9]+)?$")
+SCHEDULED_DIRECTORY_PATTERN = re.compile(r"block[1-3]_[ABC]_[A-Z0-9_]+(?:_retry[0-9]+)?$")
+MANUAL_DIRECTORY_PATTERN = re.compile(
+    r"[0-9]{8}_[0-9]{6}_[0-9]{3}_[BC]_[A-Z0-9_]+(?:_retry[0-9]+)?$"
+)
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "Assets/StreamingAssets/moonboard_2016_40.json"
 APPROVED_CATALOG_SHA256 = "85dd5a2b67e784d08ba37511aa0dc982e613cd6b43c9a21cf26cc2fc32168c00"
 MAX_ALIGNMENT_DRIFT_METERS = 0.02
@@ -34,14 +37,20 @@ def _quaternion_angle_degrees(left: dict, right: dict) -> float:
 
 
 def validate_session(directory: Path) -> int:
-    if not DIRECTORY_PATTERN.match(directory.name):
+    if not (
+        SCHEDULED_DIRECTORY_PATTERN.match(directory.name)
+        or MANUAL_DIRECTORY_PATTERN.match(directory.name)
+    ):
         raise SystemExit(f"Invalid block directory name: {directory.name}")
     manifest = json.loads((directory / "session.json").read_text(encoding="utf-8"))
     required = {
         "participant", "block", "condition", "route", "routeName", "routeSourceProblemId",
         "routeCatalogSha256", "boardSetup", "boardOverhangAngleDegrees", "routeDefinition",
-        "boardAlignment", "boardAlignmentEnd", "retry", "appVersion", "gitRevision",
-        "startUtc", "endUtc", "endedEarly", "endReason", "routesJsonSha256", "gripFeedback",
+        "boardAlignment", "boardAlignmentEnd", "retry", "adhoc", "appVersion", "gitRevision",
+        "startUtc", "rehearsalStartUtc", "rehearsalDeadlineUtc", "resumeCount",
+        "pendingResumeIndex", "firstInteractionRecorded", "recordingSummaryComplete",
+        "endUtc", "endedEarly", "endReason",
+        "routesJsonSha256", "gripFeedback",
         "droppedCaptureFrames", "holdAggregates",
     }
     missing = required - set(manifest)
@@ -51,9 +60,19 @@ def validate_session(directory: Path) -> int:
         raise SystemExit("Manifest describes an incomplete or crashed block")
     if manifest["endReason"] == "completed_manual" and manifest["endedEarly"]:
         raise SystemExit("Manually completed block is incorrectly marked endedEarly")
+    if manifest["endReason"] == "completed_early" and not manifest["endedEarly"]:
+        raise SystemExit("Early completion is not marked endedEarly")
+    if not isinstance(manifest["resumeCount"], int) or manifest["resumeCount"] < 0:
+        raise SystemExit("Manifest resumeCount is not a non-negative integer")
+    if not isinstance(manifest["firstInteractionRecorded"], bool):
+        raise SystemExit("Manifest firstInteractionRecorded is not boolean")
+    if manifest["pendingResumeIndex"] != 0:
+        raise SystemExit("Completed manifest still has a pending resume transaction")
+    if not isinstance(manifest["recordingSummaryComplete"], bool):
+        raise SystemExit("Manifest recordingSummaryComplete is not boolean")
     if not manifest["appVersion"] or not manifest["gitRevision"]:
         raise SystemExit("Manifest is missing build provenance")
-    if manifest["gitRevision"] == "development":
+    if manifest["gitRevision"] == "development" and not manifest["adhoc"]:
         raise SystemExit("Manifest was produced by an unstamped development run")
     routes_hash = manifest["routesJsonSha256"]
     if routes_hash is not None and not re.fullmatch(r"[0-9a-f]{64}", routes_hash):
@@ -114,34 +133,88 @@ def validate_session(directory: Path) -> int:
         raise SystemExit("Board alignment changed during the recorded block")
     if manifest["droppedCaptureFrames"] != 0:
         raise SystemExit(f"Capture dropped {manifest['droppedCaptureFrames']} frames")
-    expected_prefix = f"block{manifest['block']}_{manifest['condition']}_"
-    if not directory.name.startswith(expected_prefix):
-        raise SystemExit("Directory name does not match the manifest block and condition")
-    if directory.parent.name != manifest["participant"]:
-        raise SystemExit("Directory participant does not match the manifest")
-    events = directory / "events.csv"
-    if not events.exists() or events.stat().st_size == 0:
-        raise SystemExit("events.csv is missing or empty")
-    try:
-        capture = validate_capture_rows(directory / "capture.csv.gz")
-    except RuntimeError as error:
-        raise SystemExit(str(error)) from error
+    if manifest["adhoc"]:
+        expected_marker = f"_{manifest['condition']}_"
+        if (
+            manifest["participant"] != "UNASSIGNED"
+            or manifest["block"] != 0
+            or directory.parent.name != "MANUAL"
+            or not MANUAL_DIRECTORY_PATTERN.match(directory.name)
+            or expected_marker not in directory.name
+        ):
+            raise SystemExit("Manual directory does not match its manifest")
+    else:
+        expected_prefix = f"block{manifest['block']}_{manifest['condition']}_"
+        if not directory.name.startswith(expected_prefix):
+            raise SystemExit("Directory name does not match the manifest block and condition")
+        if directory.parent.name != manifest["participant"]:
+            raise SystemExit("Directory participant does not match the manifest")
+
+    capture = []
+    previous_block_time = -1.0
+    for segment_index in range(manifest["resumeCount"] + 1):
+        suffix = "" if segment_index == 0 else f"_resume{segment_index}"
+        events = directory / f"events{suffix}.csv"
+        if not events.exists() or events.stat().st_size == 0:
+            raise SystemExit(f"events{suffix}.csv is missing or empty")
+        try:
+            segment_capture = validate_capture_rows(directory / f"capture{suffix}.csv.gz")
+        except RuntimeError as error:
+            raise SystemExit(str(error)) from error
+        first_block_time = float(segment_capture[0]["blockTime"])
+        if first_block_time < previous_block_time:
+            raise SystemExit(f"Capture blockTime decreases at segment {segment_index}")
+        previous_block_time = float(segment_capture[-1]["blockTime"])
+        segment_duration = (
+            previous_block_time - first_block_time + 1.0 / 30.0
+        )
+        segment_rate = len(segment_capture) / segment_duration
+        minimum_rate, maximum_rate = (29.0, 31.0) if len(segment_capture) >= 30 else (20.0, 45.0)
+        if not minimum_rate <= segment_rate <= maximum_rate:
+            raise SystemExit(
+                f"Capture segment {segment_index} sample rate is {segment_rate:.2f} Hz, "
+                "expected approximately 30 Hz"
+            )
+        capture.extend(segment_capture)
+
+    expected_recording_files = {
+        name
+        for segment_index in range(manifest["resumeCount"] + 1)
+        for name in (
+            "events.csv" if segment_index == 0 else f"events_resume{segment_index}.csv",
+            "capture.csv.gz" if segment_index == 0 else f"capture_resume{segment_index}.csv.gz",
+        )
+    }
+    actual_recording_files = {
+        path.name
+        for path in directory.iterdir()
+        if re.fullmatch(r"(?:events(?:_resume[0-9]+)?\.csv|capture(?:_resume[0-9]+)?\.csv\.gz)", path.name)
+    }
+    if actual_recording_files != expected_recording_files:
+        raise SystemExit("Recording segment files do not match manifest resumeCount")
     expected_mode = {"A": "Basic", "B": "Grip", "C": "Ghost"}[manifest["condition"]]
     if any(row["mode"] != expected_mode or row["route"] != manifest["route"] for row in capture):
         raise SystemExit("Capture mode or route does not match the manifest")
+    rehearsal_start = datetime.fromisoformat(manifest["rehearsalStartUtc"].replace("Z", "+00:00"))
+    rehearsal_deadline = datetime.fromisoformat(manifest["rehearsalDeadlineUtc"].replace("Z", "+00:00"))
+    if abs((rehearsal_deadline - rehearsal_start).total_seconds() - 300.0) > 0.001:
+        raise SystemExit("Manifest rehearsal deadline is not exactly five minutes after its start")
+    end_utc = datetime.fromisoformat(manifest["endUtc"].replace("Z", "+00:00"))
+    if (end_utc - rehearsal_deadline).total_seconds() > 1.0:
+        raise SystemExit("Run ended after the persisted rehearsal deadline")
+    if manifest["endReason"] == "timer_expired":
+        if manifest["endedEarly"]:
+            raise SystemExit("Timer expiry is incorrectly marked endedEarly")
+        if abs((end_utc - rehearsal_deadline).total_seconds()) > 1.0:
+            raise SystemExit("Timer expiry does not match the persisted rehearsal deadline")
     elapsed = (
-        datetime.fromisoformat(manifest["endUtc"].replace("Z", "+00:00"))
-        - datetime.fromisoformat(manifest["startUtc"].replace("Z", "+00:00"))
+        end_utc - rehearsal_start
     ).total_seconds()
     capture_duration = float(capture[-1]["blockTime"])
     if abs(capture_duration - elapsed) > max(1.0, elapsed * 0.02):
         raise SystemExit(
             f"Capture duration {capture_duration:.2f}s does not match manifest duration {elapsed:.2f}s"
         )
-    if capture_duration >= 1.0:
-        sample_rate = len(capture) / capture_duration
-        if not 29.0 <= sample_rate <= 31.0:
-            raise SystemExit(f"Capture sample rate is {sample_rate:.2f} Hz, expected approximately 30 Hz")
     return len(capture)
 
 

@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>Owns the study-visibility state of the board, the surrounding scenery and the
-/// camera backgrounds, plus the pristine MoonBoard transform that Condition changes restore.</summary>
+/// camera backgrounds, plus the pristine board and room transforms that Condition changes restore.</summary>
 public sealed class StudyEnvironmentPresenter
 {
     private static readonly string[] SupplementalSceneryNameMarkers =
@@ -22,6 +22,9 @@ public sealed class StudyEnvironmentPresenter
     private Vector3 initialMoonBoardLocalPosition;
     private Quaternion initialMoonBoardLocalRotation;
     private Vector3 initialMoonBoardLocalScale;
+    private Vector3 initialSceneryLocalPosition;
+    private Quaternion initialSceneryLocalRotation;
+    private Vector3 initialSceneryLocalScale;
     private bool hasInitialMoonBoardTransform;
 
     public StudyEnvironmentPresenter(SceneConfiguror configuror)
@@ -34,15 +37,38 @@ public sealed class StudyEnvironmentPresenter
     public void CacheMoonBoardTransform()
     {
         GameObject moonBoardEnv = configuror.moonBoardEnv;
-        if (hasInitialMoonBoardTransform || moonBoardEnv == null)
+        GameObject sceneryRoot = configuror.gripLocomotionSceneryRoot;
+        if (hasInitialMoonBoardTransform)
         {
             return;
+        }
+        if (moonBoardEnv == null || sceneryRoot == null)
+        {
+            throw new InvalidOperationException(
+                "Grip locomotion requires both Moonboard and GripLocomotionSceneryRoot references.");
         }
 
         initialMoonBoardLocalPosition = moonBoardEnv.transform.localPosition;
         initialMoonBoardLocalRotation = moonBoardEnv.transform.localRotation;
         initialMoonBoardLocalScale = moonBoardEnv.transform.localScale;
+        initialSceneryLocalPosition = sceneryRoot.transform.localPosition;
+        initialSceneryLocalRotation = sceneryRoot.transform.localRotation;
+        initialSceneryLocalScale = sceneryRoot.transform.localScale;
         hasInitialMoonBoardTransform = true;
+    }
+
+    public void MoveStudyEnvironment(Vector3 worldDelta)
+    {
+        if (float.IsNaN(worldDelta.x) || float.IsInfinity(worldDelta.x) ||
+            float.IsNaN(worldDelta.y) || float.IsInfinity(worldDelta.y) ||
+            float.IsNaN(worldDelta.z) || float.IsInfinity(worldDelta.z))
+        {
+            throw new ArgumentException("Study environment movement must be finite.", nameof(worldDelta));
+        }
+
+        CacheMoonBoardTransform();
+        configuror.moonBoardEnv.transform.position += worldDelta;
+        configuror.gripLocomotionSceneryRoot.transform.position += worldDelta;
     }
 
     public void ResetMoonBoardTransform()
@@ -57,12 +83,17 @@ public sealed class StudyEnvironmentPresenter
             initialMoonBoardLocalPosition,
             initialMoonBoardLocalRotation);
         configuror.moonBoardEnv.transform.localScale = initialMoonBoardLocalScale;
+        configuror.gripLocomotionSceneryRoot.transform.SetLocalPositionAndRotation(
+            initialSceneryLocalPosition,
+            initialSceneryLocalRotation);
+        configuror.gripLocomotionSceneryRoot.transform.localScale = initialSceneryLocalScale;
     }
 
     public void SetStudyEnvironmentVisible(bool visible)
     {
         GameObject environment = configuror.environment;
         GameObject moonBoardEnv = configuror.moonBoardEnv;
+        GameObject sceneryRoot = configuror.gripLocomotionSceneryRoot;
         Transform alignmentRoot = moonBoardEnv != null ? moonBoardEnv.transform.parent : null;
         if (!visible)
         {
@@ -86,6 +117,10 @@ public sealed class StudyEnvironmentPresenter
             {
                 moonBoardEnv.SetActive(false);
             }
+            if (sceneryRoot != null)
+            {
+                sceneryRoot.SetActive(false);
+            }
             return;
         }
 
@@ -100,6 +135,10 @@ public sealed class StudyEnvironmentPresenter
         if (moonBoardEnv != null)
         {
             moonBoardEnv.SetActive(true);
+        }
+        if (sceneryRoot != null)
+        {
+            sceneryRoot.SetActive(true);
         }
         if (studyEnvironmentHidden)
         {

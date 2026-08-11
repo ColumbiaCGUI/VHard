@@ -132,7 +132,6 @@ internal sealed class GripHandFeedbackState
             return;
         }
 
-        float holdScore = 0f;
         bool applied = false;
         if ((output.handMask & LeftHandMask) != 0 &&
             output.leftTargetGeneration == leftTargetGeneration &&
@@ -156,7 +155,6 @@ internal sealed class GripHandFeedbackState
                 output.leftFingerCurls,
                 sceneConfiguror.leftHandBoneToHoldMinDistances,
                 output.sampledAt);
-            holdScore = Mathf.Max(holdScore, sceneConfiguror.leftHandGripScore);
         }
         if ((output.handMask & RightHandMask) != 0 &&
             output.rightTargetGeneration == rightTargetGeneration &&
@@ -180,7 +178,6 @@ internal sealed class GripHandFeedbackState
                 output.rightFingerCurls,
                 sceneConfiguror.rightHandBoneToHoldMinDistances,
                 output.sampledAt);
-            holdScore = Mathf.Max(holdScore, sceneConfiguror.rightHandGripScore);
         }
 
         if (!applied)
@@ -189,7 +186,6 @@ internal sealed class GripHandFeedbackState
         }
 
         PublishCombinedHandState();
-        state.SetGripScore(holdScore);
     }
 
     public void InvalidateFailedEpoch(GripContactOutputSet output)

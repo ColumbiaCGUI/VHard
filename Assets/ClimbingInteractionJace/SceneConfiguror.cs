@@ -45,9 +45,6 @@ public class SceneConfiguror : MonoBehaviour
     private static readonly int[] FingertipBoneIndices = { 5, 10, 15, 20, 25 };
     [Header("Action Recorder")]
     public ActionRecorder actionRecorder;
-    [Header("HighlightCircle")]
-    public GameObject highlightCirclePrefab;
-
     [Header("Route Cues")]
     [SerializeField] private RouteCuePresentation baselineRouteCuePresentation =
         RouteCuePresentation.PhysicalBoardLeds;
@@ -55,15 +52,13 @@ public class SceneConfiguror : MonoBehaviour
     [Header("Minimap Settings")]
     public Camera mainCamera;     // assign your main/world camera here
     //public Camera minimapCamera;  // assign your minimap camera here [Update 7/7/2026: we don't need a minimap anymore. CAROLINE]
-    public string indicatorLayerName = "HighlightCircle"; // assign your highlight circle layer here
-
     [Header("Scene References")]
     public GameObject environment;
+    public GameObject gripLocomotionSceneryRoot;
     public GameObject holdsParentGameObject;
     public Dictionary<string, GameObject> holdsDictionary;
     public List<string> activeRouteHoldsNamesList;
     public List<GameObject> activeHoldsList;
-    private Light examinationHeadlamp;
     private int studyHoldsLayer = -1;
     private int studyGhostHoldsLayer = -1;
     private bool panelInputSuppressed;
@@ -183,29 +178,10 @@ public class SceneConfiguror : MonoBehaviour
     {
         Grip.Initialize();
         EnsureRuntimeControllers();
-        EnsureExaminationHeadlamp();
     }
 
     void Start()
     {
-            // 1) layer lookup
-        int indicatorLayer = LayerMask.NameToLayer(indicatorLayerName);
-        HoldVisuals.IndicatorLayer = indicatorLayer;
-        Debug.Log($"[SC] indicatorLayerName='{indicatorLayerName}' → layerIndex={indicatorLayer}");
-        if (indicatorLayer < 0)
-        {
-            Debug.LogError($"[SC] Layer '{indicatorLayerName}' not found! Check Project Settings > Tags & Layers.");
-        }
-
-        // Route halos are a world-space board cue and must be visible in the main camera.
-        if (indicatorLayer >= 0 && mainCamera != null)
-        {
-            int mask = 1 << indicatorLayer;
-            Debug.Log($"[SC] mainCamera mask before:    {mainCamera.cullingMask:X8}");
-            mainCamera.cullingMask |= mask;
-            Debug.Log($"[SC] mainCamera mask after:     {mainCamera.cullingMask:X8}");
-        }
-
         UnityEngine.Debug.Log("SceneConfiguror initializing.");
         StudyEnvironment.CacheMoonBoardTransform();
 
@@ -584,9 +560,13 @@ public class SceneConfiguror : MonoBehaviour
         return routes.GetAvailableRouteNames();
     }
 
+    public List<string> GetStudyRouteNames()
+    {
+        return routes.GetStudyRouteNames();
+    }
+
     public void SetGameMode(GameMode newMode)
     {
-        EnsureExaminationHeadlamp();
         bool leavingGhostMode = gameMode == GameMode.Ghost && newMode != GameMode.Ghost;
         if (leavingGhostMode && ghostHoldController != null)
         {
@@ -596,11 +576,7 @@ public class SceneConfiguror : MonoBehaviour
         gameMode = newMode;
         SetRouteCuePresentation(newMode == GameMode.Basic
             ? baselineRouteCuePresentation
-            : RouteCuePresentation.VirtualHalos);
-        if (examinationHeadlamp != null)
-        {
-            examinationHeadlamp.enabled = newMode == GameMode.Grip || newMode == GameMode.Ghost;
-        }
+            : RouteCuePresentation.Hidden);
         ApplyModeToRouteHolds();
         if (newMode == GameMode.Grip || newMode == GameMode.Ghost)
         {
@@ -680,8 +656,6 @@ public class SceneConfiguror : MonoBehaviour
     public void SetRouteCuePresentation(RouteCuePresentation presentation)
     {
         CurrentRouteCuePresentation = presentation;
-        bool showVirtualHalos = presentation == RouteCuePresentation.VirtualHalos;
-        HoldVisuals.SetHalosVisible(showVirtualHalos);
     }
 
     public void PrepareGripHold(GameObject hold)
@@ -692,6 +666,11 @@ public class SceneConfiguror : MonoBehaviour
     public void ResetMoonBoardTransform()
     {
         StudyEnvironment.ResetMoonBoardTransform();
+    }
+
+    public void MoveStudyEnvironment(Vector3 worldDelta)
+    {
+        StudyEnvironment.MoveStudyEnvironment(worldDelta);
     }
 
     public void SetStudyEnvironmentVisible(bool visible)
@@ -708,6 +687,11 @@ public class SceneConfiguror : MonoBehaviour
         bool effectiveVisibility = visible && !IsGripFeedbackDegraded;
         StudyEnvironment.SetFeedbackVisible(effectiveVisibility);
         gripContactPipeline?.SetFeedbackVisible(effectiveVisibility);
+    }
+
+    public void SetGripLatchFeedback(Hand hand, GameObject hold, bool latched)
+    {
+        gripContactPipeline?.SetLatchFeedback(hand, hold, latched);
     }
 
     public void DebugInjectGripReadbackFailures(int epochCount = 1)
@@ -895,43 +879,6 @@ public class SceneConfiguror : MonoBehaviour
         }
     }
 
-    private void EnsureExaminationHeadlamp()
-    {
-        if (examinationHeadlamp != null || centerEyeAnchor == null)
-        {
-            return;
-        }
-
-        ResolveStudyLayers();
-        Transform existing = centerEyeAnchor.transform.Find("Examination Headlamp");
-        GameObject headlampObject;
-        if (existing != null)
-        {
-            headlampObject = existing.gameObject;
-            examinationHeadlamp = headlampObject.GetComponent<Light>();
-        }
-        else
-        {
-            headlampObject = new GameObject("Examination Headlamp");
-            headlampObject.transform.SetParent(centerEyeAnchor.transform, false);
-        }
-
-        examinationHeadlamp ??= headlampObject.AddComponent<Light>();
-        headlampObject.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-        examinationHeadlamp.type = LightType.Spot;
-        examinationHeadlamp.color = Color.white;
-        examinationHeadlamp.intensity = 2f;
-        examinationHeadlamp.range = 3.5f;
-        examinationHeadlamp.spotAngle = 70f;
-        examinationHeadlamp.innerSpotAngle = 55f;
-        examinationHeadlamp.shadows = LightShadows.None;
-        examinationHeadlamp.renderMode = LightRenderMode.ForcePixel;
-        examinationHeadlamp.cullingMask =
-            (studyHoldsLayer >= 0 ? 1 << studyHoldsLayer : 0) |
-            (studyGhostHoldsLayer >= 0 ? 1 << studyGhostHoldsLayer : 0);
-        examinationHeadlamp.enabled = false;
-    }
-
     private void ResolveStudyLayers()
     {
         if (studyHoldsLayer < 0)
@@ -944,7 +891,7 @@ public class SceneConfiguror : MonoBehaviour
         }
         if (studyHoldsLayer < 0 || studyGhostHoldsLayer < 0)
         {
-            Debug.LogError("Study hold layers are missing; the examination headlamp cannot be isolated.");
+            Debug.LogError("Study hold layers are missing; hold and ghost interaction layers cannot be assigned.");
         }
     }
 
@@ -1043,6 +990,7 @@ public class SceneConfiguror : MonoBehaviour
             gripRecoveryAttempted = true;
             EnsureGripPipeline();
             PrepareCurrentGripTargets();
+            Grip.RestoreLatchFeedback();
         }
         else if (gripContactPipeline.IsDegradationReady)
         {
@@ -1093,7 +1041,6 @@ public class SceneConfiguror : MonoBehaviour
     private void OnDestroy()
     {
         gripContactPipeline?.Dispose();
-        holdVisuals?.Dispose();
     }
 
 }

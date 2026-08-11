@@ -38,6 +38,90 @@ class SessionValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "incomplete or crashed"):
                 validate_session(block)
 
+    def test_rejects_timer_expiry_before_persisted_deadline(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "timer_expired")
+
+            with self.assertRaisesRegex(SystemExit, "persisted rehearsal deadline"):
+                validate_session(block)
+
+    def test_rejects_early_completion_without_ended_early_flag(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_early")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["endedEarly"] = False
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "not marked endedEarly"):
+                validate_session(block)
+
+    def test_rejects_manual_completion_after_persisted_deadline(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_manual")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            start = datetime.fromisoformat(manifest["rehearsalStartUtc"])
+            manifest["endUtc"] = (start + timedelta(seconds=301.1)).isoformat()
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "after the persisted rehearsal deadline"):
+                validate_session(block)
+
+    def test_accepts_continuous_resumed_segments(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_manual")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["resumeCount"] = 1
+            manifest["recordingSummaryComplete"] = False
+            start = datetime.fromisoformat(manifest["rehearsalStartUtc"])
+            manifest["endUtc"] = (start + timedelta(seconds=12)).isoformat()
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            capture_lines = gzip.decompress((block / "capture.csv.gz").read_bytes()).decode().splitlines()
+            (block / "capture.csv.gz").write_bytes(
+                gzip.compress(("\n".join(capture_lines[:31]) + "\n").encode())
+            )
+            resumed_output = io.StringIO()
+            resumed_writer = csv.DictWriter(
+                resumed_output,
+                fieldnames=EXPECTED_COLUMNS,
+                lineterminator="\n",
+            )
+            resumed_writer.writeheader()
+            for row in csv.DictReader(io.StringIO("\n".join([capture_lines[0]] + capture_lines[31:]))):
+                row["blockTime"] = f"{float(row['blockTime']) + 10.0:.5f}"
+                resumed_writer.writerow(row)
+            (block / "capture_resume1.csv.gz").write_bytes(
+                gzip.compress(resumed_output.getvalue().encode())
+            )
+            (block / "events_resume1.csv").write_text(
+                "utcTime,sessionTime,frame,playerPosition,action,hand,hold,details\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(validate_session(block), 60)
+
+    def test_accepts_manual_directory_contract(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            scheduled = self._write_block(root, "completed_manual")
+            manual = root / "MANUAL" / "20260811_120000_000_B_MB2016_19215"
+            manual.parent.mkdir()
+            scheduled.rename(manual)
+            manifest_path = manual / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest.update({
+                "participant": "UNASSIGNED",
+                "block": 0,
+                "adhoc": True,
+                "gitRevision": "development",
+            })
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            self.assertEqual(validate_session(manual), 60)
+
     def test_rejects_board_alignment_change(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             block = self._write_block(Path(temporary_directory), "completed_early")
@@ -126,9 +210,16 @@ class SessionValidationTests(unittest.TestCase):
                 "rotation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
             },
             "retry": 0,
+            "adhoc": False,
             "appVersion": "0.1.0",
             "gitRevision": "abc123-dirty.123456789abc",
             "startUtc": start.isoformat(),
+            "rehearsalStartUtc": start.isoformat(),
+            "rehearsalDeadlineUtc": (start + timedelta(minutes=5)).isoformat(),
+            "resumeCount": 0,
+            "pendingResumeIndex": 0,
+            "firstInteractionRecorded": True,
+            "recordingSummaryComplete": True,
             "endUtc": end.isoformat(),
             "endedEarly": end_reason == "completed_early",
             "endReason": end_reason,

@@ -164,7 +164,7 @@ public sealed class EstimationController
         sceneConfiguror.SetStudyEnvironmentVisible(true);
         sceneConfiguror.SetStudyFeedbackVisible(false);
         sceneConfiguror.SetUpRouteByName(problem.id);
-        sceneConfiguror.SetRouteCuePresentation(RouteCuePresentation.VirtualHalos);
+        sceneConfiguror.SetRouteCuePresentation(RouteCuePresentation.Hidden);
         actionRecorder.Record(
             "EstimationShown",
             problem.apiId.ToString(CultureInfo.InvariantCulture),

@@ -85,22 +85,20 @@ public class HandBoneTracker : MonoBehaviour
                 // Change material metallic value to 0f
                 material.SetFloat("_Metallic", 0f);
             }
-            material.color = GetScoreColor();
+            material.color = GetLatchColor();
         }
         else if (handBoneTrackerType == HandBoneTrackerType.HandGripStatus)
         {
-            material.color = GetScoreColor();
+            material.color = GetLatchColor();
         }
     }
 
-    private Color GetScoreColor()
+    private Color GetLatchColor()
     {
-        float score = hand == Hand.Left
-            ? sceneConfiguror.leftHandGripScore
-            : sceneConfiguror.rightHandGripScore;
-        return sceneConfiguror.gripScoreConfig != null
-            ? sceneConfiguror.gripScoreConfig.EvaluateScoreColor(score)
-            : Color.Lerp(Color.red, Color.green, score);
+        bool latched = hand == Hand.Left
+            ? sceneConfiguror.leftHandIsGripping
+            : sceneConfiguror.rightHandIsGripping;
+        return latched ? Color.green : Color.red;
     }
 
     public void SetFeedbackVisible(bool visible)

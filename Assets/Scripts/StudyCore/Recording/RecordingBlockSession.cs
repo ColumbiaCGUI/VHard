@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -13,6 +14,7 @@ public sealed class RecordingBlockSession
 
     private readonly string directory;
     private readonly double startRealtime;
+    private readonly double blockTimeOffsetSeconds;
     private readonly FixedRateCaptureTimer captureTimer;
     private readonly HoldAggregateCollection holdAggregates;
     private CaptureWriter captureWriter;
@@ -30,9 +32,10 @@ public sealed class RecordingBlockSession
         StreamWriter eventWriter,
         CaptureWriter captureWriter)
         : this(
-            directory,
-            startRealtime,
-            new FixedRateCaptureTimer(CaptureRate, startRealtime),
+             directory,
+             startRealtime,
+             0d,
+             new FixedRateCaptureTimer(CaptureRate, startRealtime),
             new HoldAggregateCollection())
     {
         this.eventWriter = eventWriter;
@@ -42,28 +45,46 @@ public sealed class RecordingBlockSession
     private RecordingBlockSession(
         string directory,
         double startRealtime,
+        double blockTimeOffsetSeconds,
         FixedRateCaptureTimer captureTimer,
         HoldAggregateCollection holdAggregates)
     {
         this.directory = directory;
         this.startRealtime = startRealtime;
+        this.blockTimeOffsetSeconds = blockTimeOffsetSeconds;
         this.captureTimer = captureTimer;
         this.holdAggregates = holdAggregates;
         lastEventFlushRealtime = startRealtime;
     }
 
     public string DirectoryPath => directory;
+    public double StartRealtime => startRealtime;
     public int DroppedCaptureFrames { get; private set; }
     public bool IsFinalized => ended;
+    public bool HasDurableCapture => captureWriter != null && captureWriter.HasDurableCapture;
 
     public static RecordingBlockSession Begin(
         string directory,
         bool recordToCsv,
-        double startRealtime)
+        double startRealtime,
+        string fileSuffix = "",
+        double blockTimeOffsetSeconds = 0d)
     {
+        ValidateFileSuffix(fileSuffix);
+        if (double.IsNaN(blockTimeOffsetSeconds) ||
+            double.IsInfinity(blockTimeOffsetSeconds) ||
+            blockTimeOffsetSeconds < 0d)
+        {
+            throw new ArgumentOutOfRangeException(nameof(blockTimeOffsetSeconds));
+        }
         FixedRateCaptureTimer timer = new(CaptureRate, startRealtime);
         HoldAggregateCollection aggregates = new();
-        RecordingBlockSession session = new(directory, startRealtime, timer, aggregates);
+        RecordingBlockSession session = new(
+            directory,
+            startRealtime,
+            blockTimeOffsetSeconds,
+            timer,
+            aggregates);
         bool eventFileCreated = false;
         bool captureFileCreated = false;
         FileStream eventFile = null;
@@ -77,7 +98,7 @@ public sealed class RecordingBlockSession
                 return session;
             }
 
-            string eventPath = Path.Combine(directory, "events.csv");
+            string eventPath = Path.Combine(directory, "events" + fileSuffix + ".csv");
             eventFile = new FileStream(
                 eventPath,
                 FileMode.CreateNew,
@@ -89,7 +110,7 @@ public sealed class RecordingBlockSession
             session.eventWriter.WriteLine(RecordingCsvSerializer.EventHeader);
             session.eventWriter.Flush();
 
-            string capturePath = Path.Combine(directory, "capture.csv.gz");
+            string capturePath = Path.Combine(directory, "capture" + fileSuffix + ".csv.gz");
             captureFile = new FileStream(
                 capturePath,
                 FileMode.CreateNew,
@@ -112,11 +133,15 @@ public sealed class RecordingBlockSession
             TryRollback(() => captureFile?.Dispose(), rollbackErrors);
             if (eventFileCreated)
             {
-                TryRollback(() => File.Delete(Path.Combine(directory, "events.csv")), rollbackErrors);
+                TryRollback(
+                    () => File.Delete(Path.Combine(directory, "events" + fileSuffix + ".csv")),
+                    rollbackErrors);
             }
             if (captureFileCreated)
             {
-                TryRollback(() => File.Delete(Path.Combine(directory, "capture.csv.gz")), rollbackErrors);
+                TryRollback(
+                    () => File.Delete(Path.Combine(directory, "capture" + fileSuffix + ".csv.gz")),
+                    rollbackErrors);
             }
             if (rollbackErrors.Count > 0)
             {
@@ -126,6 +151,36 @@ public sealed class RecordingBlockSession
                     rollbackErrors);
             }
             throw;
+        }
+    }
+
+    private static void ValidateFileSuffix(string fileSuffix)
+    {
+        if (fileSuffix == null)
+        {
+            throw new ArgumentNullException(nameof(fileSuffix));
+        }
+        if (fileSuffix.Length == 0)
+        {
+            return;
+        }
+
+        const string prefix = "_resume";
+        if (!fileSuffix.StartsWith(prefix, StringComparison.Ordinal) ||
+            !int.TryParse(
+                fileSuffix.Substring(prefix.Length),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int resumeIndex) ||
+            resumeIndex <= 0 ||
+            !string.Equals(
+                fileSuffix,
+                prefix + resumeIndex.ToString(CultureInfo.InvariantCulture),
+                StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Recording file suffix must be empty or a canonical _resumeN suffix.",
+                nameof(fileSuffix));
         }
     }
 
@@ -186,7 +241,7 @@ public sealed class RecordingBlockSession
         {
             throw new ArgumentOutOfRangeException(nameof(currentRealtime));
         }
-        return (float)(currentRealtime - startRealtime);
+        return (float)(blockTimeOffsetSeconds + currentRealtime - startRealtime);
     }
 
     public void EnqueueCapture(
@@ -261,6 +316,31 @@ public sealed class RecordingBlockSession
         EnsureActive();
         if (eventWriter == null ||
             currentRealtime - lastEventFlushRealtime < FlushIntervalSeconds)
+        {
+            return;
+        }
+
+        try
+        {
+            eventWriter.Flush();
+            lastEventFlushRealtime = currentRealtime;
+        }
+        catch (Exception exception)
+        {
+            CaptureFailure(exception);
+            throw;
+        }
+    }
+
+    public void FlushEvents(double currentRealtime)
+    {
+        EnsureActive();
+        if (double.IsNaN(currentRealtime) || double.IsInfinity(currentRealtime) ||
+            currentRealtime < startRealtime)
+        {
+            throw new ArgumentOutOfRangeException(nameof(currentRealtime));
+        }
+        if (eventWriter == null)
         {
             return;
         }
@@ -514,12 +594,13 @@ internal sealed class HoldAggregateCollection
             {
                 hold = pair.Key,
                 secondsTouched = (float)aggregate.secondsTouched,
-                gripsDetected = aggregate.gripsDetected,
-                meanScore = aggregate.scoreSamples > 0
-                    ? (float)(aggregate.scoreSum / aggregate.scoreSamples)
-                    : -1f,
-                maxScore = aggregate.scoreSamples > 0 ? aggregate.maxScore : -1f,
-            };
+                 gripsDetected = aggregate.gripsDetected,
+                 meanScore = aggregate.scoreSamples > 0
+                     ? (float)(aggregate.scoreSum / aggregate.scoreSamples)
+                     : -1f,
+                 maxScore = aggregate.scoreSamples > 0 ? aggregate.maxScore : -1f,
+                 scoreSamples = aggregate.scoreSamples,
+             };
         }
         Array.Sort(result, (left, right) => string.CompareOrdinal(left.hold, right.hold));
         return result;

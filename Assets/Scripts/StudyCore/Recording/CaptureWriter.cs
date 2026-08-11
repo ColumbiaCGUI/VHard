@@ -19,6 +19,7 @@ internal sealed class CaptureWriter
     private readonly TimeSpan flushInterval;
     private readonly Thread thread;
     private ExceptionDispatchInfo writerFailure;
+    private bool hasDurableCapture;
 
     private CaptureWriter(Stream output, int queueCapacity, TimeSpan flushInterval)
     {
@@ -33,6 +34,7 @@ internal sealed class CaptureWriter
     }
 
     public bool IsAlive => thread.IsAlive;
+    public bool HasDurableCapture => Volatile.Read(ref hasDurableCapture);
 
     public static CaptureWriter Start(
         Stream output,
@@ -182,6 +184,7 @@ internal sealed class CaptureWriter
         StringBuilder chunk = new(MaxChunkCharacters);
         chunk.AppendLine(RecordingCsvSerializer.BuildCaptureHeader());
         long lastFlushTimestamp = Stopwatch.GetTimestamp();
+        bool chunkContainsCapture = false;
 
         while (true)
         {
@@ -189,15 +192,23 @@ internal sealed class CaptureWriter
             if (result == CaptureQueueReadResult.Item)
             {
                 RecordingCsvSerializer.AppendCaptureRow(chunk, writerFrame);
+                chunkContainsCapture = true;
             }
 
             bool flushDue = GetElapsedSeconds(lastFlushTimestamp) >= flushInterval.TotalSeconds;
             bool sizeLimitReached = chunk.Length >= MaxChunkCharacters;
+            bool firstCaptureMustBeDurable = chunkContainsCapture && !HasDurableCapture;
             if (chunk.Length > 0 &&
-                (flushDue || sizeLimitReached || result == CaptureQueueReadResult.Completed))
+                (firstCaptureMustBeDurable || flushDue || sizeLimitReached ||
+                 result == CaptureQueueReadResult.Completed))
             {
                 WriteGzipMember(chunk);
+                if (chunkContainsCapture)
+                {
+                    Volatile.Write(ref hasDurableCapture, true);
+                }
                 chunk.Clear();
+                chunkContainsCapture = false;
                 if (chunk.Capacity > MaxChunkCharacters)
                 {
                     chunk.Capacity = MaxChunkCharacters;

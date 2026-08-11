@@ -38,6 +38,7 @@ public sealed class StudyManager : MonoBehaviour
     private OVRHand rightHand;
     private OVRSkeleton leftSkeleton;
     private OVRSkeleton rightSkeleton;
+    private bool shutdownStarted;
 
     public bool IsBlockRunning => state.blockRunning;
     public bool IsPracticeActive => state.practiceActive;
@@ -58,6 +59,35 @@ public sealed class StudyManager : MonoBehaviour
             yield break;
         }
 
+        controlPanel.BuildPanel();
+        while (boardAlignment != null && boardAlignment.IsBusy)
+        {
+            state.statusMessage = "Waiting for board calibration or spatial-anchor loading.";
+            controlPanel.RefreshPanelText();
+            yield return null;
+        }
+
+        ManualRunRecoveryOutcome recoveryOutcome;
+        try
+        {
+            recoveryOutcome = blockRun.TryRecoverManualRun();
+        }
+        catch (Exception exception)
+        {
+            state.manualRunRecoveryBlocked = true;
+            state.statusMessage = "Previous manual run could not be recovered. See the Unity log.";
+            Debug.LogException(exception, this);
+            ShowPanel();
+            yield break;
+        }
+        if (recoveryOutcome == ManualRunRecoveryOutcome.Resumed)
+        {
+            yield break;
+        }
+        string recoveryStatus = recoveryOutcome == ManualRunRecoveryOutcome.Expired
+            ? state.statusMessage
+            : null;
+
         string estimationText = null;
         yield return LoadStreamingAssetText(
             "moonboard_2016_40_estimation.json",
@@ -77,7 +107,10 @@ public sealed class StudyManager : MonoBehaviour
         }
 
         LoadScheduleText(scheduleText);
-        controlPanel.BuildPanel();
+        if (!string.IsNullOrEmpty(recoveryStatus))
+        {
+            state.statusMessage = recoveryStatus;
+        }
         ShowPanel();
         sceneConfiguror?.SetGameMode(GameMode.Basic);
     }
@@ -119,9 +152,9 @@ public sealed class StudyManager : MonoBehaviour
         return blockRun.StartBlock(participant, block);
     }
 
-    public bool StartAdhocBlock()
+    public bool StartManualRun()
     {
-        return blockRun.StartAdhocBlock();
+        return blockRun.StartManualRun();
     }
 
     public void EndBlockEarly()
@@ -305,6 +338,10 @@ public sealed class StudyManager : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (state.blockRunning && blockRun.TryExpireRunningBlock())
+        {
+            return;
+        }
         if (state.blockRunning)
         {
             blockRun.UpdateRunningBlock();
@@ -416,16 +453,51 @@ public sealed class StudyManager : MonoBehaviour
         }
     }
 
+    private void OnApplicationQuit()
+    {
+        ShutdownRuntime(true);
+    }
+
+    private void OnApplicationPause(bool paused)
+    {
+        if (paused && state.blockRunning)
+        {
+            blockRun?.CheckpointRecordingProgress();
+        }
+    }
+
     private void OnDestroy()
     {
-        if (state.blockRunning)
+        ShutdownRuntime(false);
+    }
+
+    private void ShutdownRuntime(bool applicationQuitting)
+    {
+        if (shutdownStarted)
         {
-            EndBlock(true, "app_closed");
+            return;
         }
-        else if (state.IsAuxiliaryActive)
+        shutdownStarted = true;
+        try
         {
-            actionRecorder?.EndBlock();
+            if (applicationQuitting)
+            {
+                actionRecorder?.RecordApplicationQuit();
+            }
+            if (state.blockRunning)
+            {
+                EndBlock(true, "app_closed");
+            }
+            else if (state.IsAuxiliaryActive)
+            {
+                actionRecorder?.EndBlock();
+            }
+            controlPanel?.DestroyMaterials();
         }
-        controlPanel?.DestroyMaterials();
+        catch
+        {
+            shutdownStarted = false;
+            throw;
+        }
     }
 }

@@ -7,7 +7,7 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class StudySessionState
 {
-    public static readonly string[] AdhocConditions = { "A", "B", "C" };
+    public static readonly string[] RuntimeConditions = { "B", "C" };
 
     public readonly List<StudyScheduleRow> schedule = new();
     public readonly List<string> participants = new();
@@ -16,7 +16,7 @@ public sealed class StudySessionState
 
     public int participantIndex;
     public int selectedBlock = 1;
-    public string statusMessage = "Select a participant and block.";
+    public string statusMessage = "Select a mode and route.";
 
     public MoonBoardStudyCatalog routeCatalog;
     public string routeCatalogSha256 = string.Empty;
@@ -25,6 +25,7 @@ public sealed class StudySessionState
 
     public bool blockRunning;
     public bool blockTimerStarted;
+    public bool manualRunRecoveryBlocked;
     public bool panelPinned;
     public StudyScheduleRow activeRow;
     public string activeDirectory;

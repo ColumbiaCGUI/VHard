@@ -1,11 +1,85 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 
 public sealed class GripEngagementTests
 {
     private const int ThreeFingerMask = 0b0_1110;
+
+    [Test]
+    public void LatchedOverlayIsBinaryAndSurvivesHoverInvalidationForEitherHand()
+    {
+        const int leftHandMask = 1;
+        const int rightHandMask = 2;
+        if (!SystemInfo.supportsComputeShaders)
+        {
+            Assert.Ignore("The contact-state fixture requires compute-buffer support.");
+        }
+
+        GameObject hold = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        GripScoreConfig config = ScriptableObject.CreateInstance<GripScoreConfig>();
+        object state = null;
+        try
+        {
+            Type stateType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("GripHoldContactState"))
+                .Single(type => type != null);
+            ConstructorInfo constructor = stateType.GetConstructors(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Single();
+            state = constructor.Invoke(new object[]
+            {
+                null,
+                config,
+                hold,
+                hold.GetComponent<MeshFilter>(),
+                Resources.Load<Material>("ContactPatchOverlay"),
+            });
+            MethodInfo setLatchedHand = stateType.GetMethod("SetLatchedHand");
+            MethodInfo setOverlayVisible = stateType.GetMethod("SetOverlayVisible");
+            MethodInfo invalidateContactData = stateType.GetMethod("InvalidateContactData");
+            PropertyInfo latchedHandMask = stateType.GetProperty("LatchedHandMask");
+            Assert.That(setLatchedHand, Is.Not.Null);
+            Assert.That(setOverlayVisible, Is.Not.Null);
+            Assert.That(invalidateContactData, Is.Not.Null);
+            Assert.That(latchedHandMask, Is.Not.Null);
+
+            Renderer overlay = hold.transform.Find("Contact Patch Overlay")?.GetComponent<Renderer>();
+            Assert.That(overlay, Is.Not.Null);
+            Assert.That(overlay.enabled, Is.False);
+
+            setLatchedHand.Invoke(state, new object[] { leftHandMask, true });
+            Assert.That((int)latchedHandMask.GetValue(state), Is.EqualTo(leftHandMask));
+            Assert.That(overlay.enabled, Is.True);
+            MaterialPropertyBlock properties = new();
+            overlay.GetPropertyBlock(properties);
+            Assert.That(properties.GetFloat("_GripLatched"), Is.EqualTo(1f));
+
+            setOverlayVisible.Invoke(state, new object[] { false });
+            invalidateContactData.Invoke(state, new object[] { -1L });
+            Assert.That(overlay.enabled, Is.True, "Hover exit must not hide a latched hold.");
+
+            setLatchedHand.Invoke(state, new object[] { rightHandMask, true });
+            setLatchedHand.Invoke(state, new object[] { leftHandMask, false });
+            Assert.That((int)latchedHandMask.GetValue(state), Is.EqualTo(rightHandMask));
+            Assert.That(overlay.enabled, Is.True, "One hand releasing must preserve the other latch.");
+
+            setLatchedHand.Invoke(state, new object[] { rightHandMask, false });
+            Assert.That((int)latchedHandMask.GetValue(state), Is.Zero);
+            Assert.That(overlay.enabled, Is.False);
+            overlay.GetPropertyBlock(properties);
+            Assert.That(properties.GetFloat("_GripLatched"), Is.Zero);
+        }
+        finally
+        {
+            (state as IDisposable)?.Dispose();
+            UnityEngine.Object.DestroyImmediate(config);
+            UnityEngine.Object.DestroyImmediate(hold);
+        }
+    }
 
     [Test]
     public void CurlEstimatorNormalizesSyntheticJointBendsAndRetainsLowConfidenceFinger()

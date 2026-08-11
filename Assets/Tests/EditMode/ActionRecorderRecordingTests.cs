@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -249,6 +250,120 @@ public sealed class ActionRecorderRecordingTests
     }
 
     [Test]
+    public void ResumeSegmentPreservesTheInitialRecordingFiles()
+    {
+        string blockDirectory = Path.Combine(temporaryDirectory, "resumed-contract");
+        RecordingBlockSession initial = RecordingBlockSession.Begin(blockDirectory, true, 1d);
+        initial.End(1000, 1d);
+
+        RecordingBlockSession resumed = RecordingBlockSession.Begin(
+            blockDirectory,
+            true,
+            2d,
+            "_resume1",
+            120d);
+        Assert.That(resumed.GetBlockTime(2.5d), Is.EqualTo(120.5f));
+        resumed.End(1000, 2.5d);
+
+        string[] files = Directory.GetFiles(blockDirectory)
+            .Select(Path.GetFileName)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+        Assert.That(files, Is.EqualTo(new[]
+        {
+            "capture.csv.gz",
+            "capture_resume1.csv.gz",
+            "events.csv",
+            "events_resume1.csv",
+        }));
+    }
+
+    [Test]
+    public void FirstCaptureBecomesDurableWithoutWaitingForPeriodicFlush()
+    {
+        string blockDirectory = Path.Combine(temporaryDirectory, "first-capture-flush");
+        RecordingBlockSession session = RecordingBlockSession.Begin(blockDirectory, true, 10d);
+        try
+        {
+            Assert.That(session.TryScheduleCapture(10.04d), Is.True);
+            CaptureFrame frame = CreateFrame("ROUTE");
+            frame.blockTime = session.GetBlockTime(10.04d);
+            session.EnqueueCapture(frame, null, -1f, null, -1f, false);
+
+            Assert.That(
+                SpinWait.SpinUntil(() => session.HasDurableCapture, 1000),
+                Is.True,
+                "The first capture was not flushed within one second.");
+            byte[] captureBytes;
+            using (FileStream stream = new(
+                       Path.Combine(blockDirectory, "capture.csv.gz"),
+                       FileMode.Open,
+                       FileAccess.Read,
+                       FileShare.ReadWrite))
+            using (MemoryStream copy = new())
+            {
+                stream.CopyTo(copy);
+                captureBytes = copy.ToArray();
+            }
+            string[] captureLines = ReadGzip(captureBytes)
+                .Replace("\r\n", "\n")
+                .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            Assert.That(captureLines, Has.Length.EqualTo(2));
+        }
+        finally
+        {
+            session.End(1000, 10.04d);
+        }
+    }
+
+    [Test]
+    public void ManifestReplacementLeavesOneCompleteCanonicalFile()
+    {
+        string directory = Path.Combine(temporaryDirectory, "manifest-storage");
+        Directory.CreateDirectory(directory);
+        string manifestPath = Path.Combine(directory, "session.json");
+
+        StudyManifestStorage.WriteAtomically(manifestPath, "{\"version\":1}", false);
+        StudyManifestStorage.WriteAtomically(manifestPath, "{\"version\":2}", true);
+        StudyManifestStorage.DeleteRecoveryFiles(manifestPath);
+
+        Assert.That(File.ReadAllText(manifestPath), Is.EqualTo("{\"version\":2}"));
+        Assert.That(StudyManifestStorage.GetRecoveryPaths(manifestPath), Is.EqualTo(new[] { manifestPath }));
+    }
+
+    [Test]
+    public void ForcedEventFlushMakesLifecycleRowsImmediatelyDurable()
+    {
+        string blockDirectory = Path.Combine(temporaryDirectory, "lifecycle-flush");
+        RecordingBlockSession session = RecordingBlockSession.Begin(blockDirectory, true, 5d);
+        const string eventRow = "lifecycle event";
+        try
+        {
+            session.WriteEvent(eventRow, "ApplicationPause", string.Empty);
+            session.FlushEvents(5.1d);
+
+            string eventText;
+            using (FileStream stream = new(
+                       Path.Combine(blockDirectory, "events.csv"),
+                       FileMode.Open,
+                       FileAccess.Read,
+                       FileShare.ReadWrite))
+            using (StreamReader reader = new(stream, Encoding.UTF8))
+            {
+                eventText = reader.ReadToEnd();
+            }
+            string[] eventLines = eventText
+                .Replace("\r\n", "\n")
+                .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            Assert.That(eventLines, Is.EqualTo(new[] { RecordingCsvSerializer.EventHeader, eventRow }));
+        }
+        finally
+        {
+            session.End(1000, 5.1d);
+        }
+    }
+
+    [Test]
     public void HitchCountsSkippedIntervalsWithoutBackfillingHoldDuration()
     {
         string blockDirectory = Path.Combine(temporaryDirectory, "block");
@@ -274,6 +389,7 @@ public sealed class ActionRecorderRecordingTests
             Is.EqualTo((float)RecordingBlockSession.CaptureIntervalSeconds).Within(0.000001f));
         Assert.That(aggregates[0].gripsDetected, Is.EqualTo(1));
         Assert.That(aggregates[0].meanScore, Is.EqualTo(0.4f).Within(0.000001f));
+        Assert.That(aggregates[0].scoreSamples, Is.EqualTo(1));
     }
 
     [Test]
@@ -353,6 +469,21 @@ public sealed class ActionRecorderRecordingTests
         Assert.That(File.Exists(Path.Combine(blockDirectory, "events.csv")), Is.False);
         Assert.That(File.ReadAllText(capturePath), Is.EqualTo("existing capture"));
         Assert.That(Directory.GetFiles(blockDirectory), Is.EqualTo(new[] { capturePath }));
+    }
+
+    [Test]
+    public void BeginPreservesExistingEventFile()
+    {
+        string blockDirectory = Path.Combine(temporaryDirectory, "blocked-events");
+        Directory.CreateDirectory(blockDirectory);
+        string eventPath = Path.Combine(blockDirectory, "events.csv");
+        File.WriteAllText(eventPath, "existing events");
+
+        Assert.That(
+            () => RecordingBlockSession.Begin(blockDirectory, true, 0d),
+            Throws.TypeOf<IOException>());
+        Assert.That(File.ReadAllText(eventPath), Is.EqualTo("existing events"));
+        Assert.That(Directory.GetFiles(blockDirectory), Is.EqualTo(new[] { eventPath }));
     }
 
     [Test]
@@ -618,7 +749,10 @@ public sealed class ActionRecorderRecordingTests
 
             string nextDirectory = Path.Combine(temporaryDirectory, "must-not-start");
             TargetInvocationException beginException = Assert.Throws<TargetInvocationException>(
-                () => facadeType.GetMethod("BeginBlock").Invoke(
+                () => facadeType.GetMethod(
+                        "BeginBlock",
+                        new[] { typeof(string), typeof(StudySessionManifest) })
+                    .Invoke(
                     recorder,
                     new object[] { nextDirectory, null }));
             Assert.That(beginException.InnerException, Is.TypeOf<IOException>());

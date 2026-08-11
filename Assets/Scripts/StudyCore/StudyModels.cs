@@ -18,6 +18,7 @@ public sealed class HoldAggregateData
     public int gripsDetected;
     public float meanScore;
     public float maxScore;
+    public int scoreSamples;
 }
 
 [Serializable]
@@ -40,6 +41,12 @@ public sealed class StudySessionManifest
     public string appVersion;
     public string gitRevision;
     public string startUtc;
+    public string rehearsalStartUtc;
+    public string rehearsalDeadlineUtc;
+    public int resumeCount;
+    public int pendingResumeIndex;
+    public bool firstInteractionRecorded;
+    public bool recordingSummaryComplete;
     public string endUtc;
     public bool endedEarly;
     public string endReason;

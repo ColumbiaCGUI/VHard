@@ -7,11 +7,9 @@ Shader "VHard/Contact Patch Overlay"
         _PatchAlpha ("Patch Alpha", Range(0, 1)) = 0.82
         _ProximityColor ("Whole-Hand Proximity Color", Color) = (0.2, 0.75, 1, 1)
         _ProximityAlpha ("Whole-Hand Proximity Alpha", Range(0, 1)) = 0.24
-        _GripScore ("Grip Score", Range(0, 1)) = 0
-        _RimGlowEnabled ("Rim Glow Enabled", Range(0, 1)) = 0
-        _RimGlowAlpha ("Rim Glow Alpha", Range(0, 1)) = 0.35
-        _RimGlowPower ("Rim Glow Power", Float) = 3
-        _RimColor ("Rim Color", Color) = (0.1, 0.85, 0.2, 1)
+        _GripLatched ("Grip Latched", Range(0, 1)) = 0
+        _LatchedColor ("Latched Color", Color) = (0.1, 0.85, 0.2, 1)
+        _LatchedAlpha ("Latched Alpha", Range(0, 1)) = 0.82
     }
     SubShader
     {
@@ -46,11 +44,9 @@ Shader "VHard/Contact Patch Overlay"
                 float _PatchAlpha;
                 float4 _ProximityColor;
                 float _ProximityAlpha;
-                float _GripScore;
-                float _RimGlowEnabled;
-                float _RimGlowAlpha;
-                float _RimGlowPower;
-                float4 _RimColor;
+                float _GripLatched;
+                float4 _LatchedColor;
+                float _LatchedAlpha;
             CBUFFER_END
 
             struct Attributes
@@ -79,10 +75,19 @@ Shader "VHard/Contact Patch Overlay"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
                 output.positionHCS = TransformWorldToHClip(positionWS);
-                float4 contactData = _ContactData[input.vertexID];
-                output.tipId = contactData.z;
-                output.distanceToTip = contactData.w;
-                output.handDistance = min(contactData.x, contactData.y);
+                if (_GripLatched > 0.5)
+                {
+                    output.tipId = -1;
+                    output.distanceToTip = _ProximityThreshold + 1;
+                    output.handDistance = _ProximityThreshold + 1;
+                }
+                else
+                {
+                    float4 contactData = _ContactData[input.vertexID];
+                    output.tipId = contactData.z;
+                    output.distanceToTip = contactData.w;
+                    output.handDistance = min(contactData.x, contactData.y);
+                }
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.viewDirectionWS = GetWorldSpaceNormalizeViewDir(positionWS);
                 return output;
@@ -92,7 +97,7 @@ Shader "VHard/Contact Patch Overlay"
             {
                 if (finger == 0) return half3(0.94, 0.24, 0.20);
                 if (finger == 1) return half3(1.00, 0.62, 0.10);
-                if (finger == 2) return half3(0.20, 0.82, 0.36);
+                if (finger == 2) return half3(0.10, 0.78, 0.86);
                 if (finger == 3) return half3(0.18, 0.58, 1.00);
                 return half3(0.72, 0.30, 0.95);
             }
@@ -100,6 +105,10 @@ Shader "VHard/Contact Patch Overlay"
             half4 Frag(Varyings input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                if (_GripLatched > 0.5)
+                {
+                    return half4(_LatchedColor.rgb, _LatchedAlpha);
+                }
                 int tipId = (int)round(input.tipId);
                 float distanceToTip = input.distanceToTip;
                 half3 patchColor = half3(0, 0, 0);
@@ -122,19 +131,12 @@ Shader "VHard/Contact Patch Overlay"
                     patchAlpha = _ProximityAlpha * proximityFalloff;
                 }
 
-                float rim = pow(
-                    1.0 - saturate(dot(normalize(input.normalWS), normalize(input.viewDirectionWS))),
-                    _RimGlowPower);
-                float rimAlpha = rim * _RimGlowAlpha * _GripScore * _RimGlowEnabled;
-                float combinedAlpha = max(patchAlpha, rimAlpha);
-                if (combinedAlpha <= 0.0001)
+                if (patchAlpha <= 0.0001)
                 {
                     discard;
                 }
 
-                float patchWeight = patchAlpha / max(patchAlpha + rimAlpha, 0.0001);
-                half3 color = lerp(_RimColor.rgb, patchColor, patchWeight);
-                return half4(color, combinedAlpha);
+                return half4(patchColor, patchAlpha);
             }
             ENDHLSL
         }

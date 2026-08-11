@@ -6,8 +6,8 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Runtime-built experimenter console with hand-ray interaction. All study transitions are
-/// explicit button actions; clocks on this panel report elapsed time only.
+/// Runtime-built experimenter console for selecting a VR mode and route, controlling a timed
+/// run, resetting the room, and hiding or moving the panel with hand-ray interaction.
 /// </summary>
 public sealed class StudyControlPanel
 {
@@ -80,6 +80,9 @@ public sealed class StudyControlPanel
     private TextMeshPro practiceEndLabel;
     private TextMeshPro adhocStartLabel;
     private TextMeshPro clearAlignmentLabel;
+    private TextMeshPro manualRouteLabel;
+    private TextMeshPro manualStartLabel;
+    private TextMeshPro manualCompleteLabel;
 
     private StudyPanelButton previousParticipantButton;
     private StudyPanelButton nextParticipantButton;
@@ -96,6 +99,12 @@ public sealed class StudyControlPanel
     private StudyPanelButton estimationNextButton;
     private StudyPanelButton alignBoardButton;
     private StudyPanelButton clearAlignmentButton;
+    private StudyPanelButton manualModeAButton;
+    private StudyPanelButton manualModeBButton;
+    private StudyPanelButton manualRouteButton;
+    private StudyPanelButton manualStartButton;
+    private StudyPanelButton manualCompleteButton;
+    private StudyPanelButton manualResetButton;
     private StudyPanelButton panelGrabHandleVisual;
     private Collider panelGrabHandleCollider;
 
@@ -119,7 +128,7 @@ public sealed class StudyControlPanel
     private bool rightWasPinching;
     private bool leftPinchArmed;
     private bool rightPinchArmed;
-    private int lastBlockElapsedSecond = -1;
+    private int lastBlockRemainingSecond = -1;
     private int lastPracticeElapsedSecond = -1;
     private bool timerWaitingTextShown;
     private PanelGrabHand activePanelGrabHand;
@@ -159,6 +168,7 @@ public sealed class StudyControlPanel
     }
 
     public bool IsPanelHidden => panelRoot != null && !panelRoot.activeSelf;
+    public bool IsPanelBuilt => panelRoot != null;
 
     public void AttachSummonDetector(SummonGestureDetector summonGesture)
     {
@@ -240,7 +250,7 @@ public sealed class StudyControlPanel
             AccentColor,
             TextAlignmentOptions.Center,
             FontStyles.Bold);
-        subtitle.text = "MANUAL CONTROL  |  NO AUTOMATIC TRANSITIONS";
+        subtitle.text = "MANUAL START  |  5 MINUTE RUN";
 
         panelText = CreateText(
             panelRoot.transform,
@@ -253,167 +263,69 @@ public sealed class StudyControlPanel
             FontStyles.Normal);
         panelText.lineSpacing = 0f;
 
-        CreateSectionLabel("SESSION", 0.105f);
-        previousParticipantButton = CreateButton(
-            "Previous Participant",
+        CreateSectionLabel("RUN", 0.105f);
+        manualModeAButton = CreateButton(
+            "Mode A",
             new Vector3(-0.19f, 0.055f, -0.02f),
             new Vector2(0.30f, 0.055f),
-            "< PARTICIPANT",
-            PreviousParticipant,
+            "MODE A",
+            () => SelectManualMode(0),
             out _);
-        nextParticipantButton = CreateButton(
-            "Next Participant",
+        manualModeBButton = CreateButton(
+            "Mode B",
             new Vector3(0.19f, 0.055f, -0.02f),
             new Vector2(0.30f, 0.055f),
-            "PARTICIPANT >",
-            NextParticipant,
+            "MODE B",
+            () => SelectManualMode(1),
             out _);
-        previousBlockButton = CreateButton(
-            "Previous Block",
-            new Vector3(-0.27f, -0.015f, -0.02f),
-            new Vector2(0.16f, 0.055f),
-            "< BLOCK",
-            PreviousBlock,
-            out _);
-        blockActionButton = CreateButton(
-            "Block Action",
-            new Vector3(0f, -0.015f, -0.02f),
-            new Vector2(0.30f, 0.055f),
-            "START BLOCK",
-            HandleBlockAction,
-            out blockActionLabel);
-        nextBlockButton = CreateButton(
-            "Next Block",
-            new Vector3(0.27f, -0.015f, -0.02f),
-            new Vector2(0.16f, 0.055f),
-            "BLOCK >",
-            NextBlock,
-            out _);
-        SetPalette(
-            SessionButtonColor,
-            SessionHoverColor,
-            previousParticipantButton,
-            nextParticipantButton,
-            previousBlockButton,
-            blockActionButton,
-            nextBlockButton);
-
-        CreateSectionLabel("PRACTICE", -0.075f);
-        practiceBButton = CreateButton(
-            "Practice B",
-            new Vector3(-0.25f, -0.125f, -0.02f),
-            new Vector2(0.21f, 0.058f),
-            "PRACTICE B",
-            HandlePracticeB,
-            out practiceBLabel);
-        practiceCButton = CreateButton(
-            "Practice C",
-            new Vector3(0f, -0.125f, -0.02f),
-            new Vector2(0.21f, 0.058f),
-            "MODE C",
-            HandlePracticeC,
-            out practiceCLabel);
-        practiceEndButton = CreateButton(
-            "End Practice",
-            new Vector3(0.25f, -0.125f, -0.02f),
-            new Vector2(0.21f, 0.058f),
-            "END PRACTICE",
-            HandleEndPractice,
-            out practiceEndLabel);
-        SetPalette(
-            PracticeButtonColor,
-            PracticeHoverColor,
-            practiceBButton,
-            practiceCButton,
-            practiceEndButton);
-        practiceEndButton.SetDanger(true);
-
-        CreateSectionLabel("AD HOC", -0.18f);
-        adhocConditionButton = CreateButton(
-            "Adhoc Condition",
-            new Vector3(-0.25f, -0.23f, -0.02f),
-            new Vector2(0.21f, 0.058f),
-            "COND: A",
-            CycleAdhocCondition,
-            out adhocConditionLabel);
-        adhocStartButton = CreateButton(
-            "Adhoc Start",
-            new Vector3(0f, -0.23f, -0.02f),
-            new Vector2(0.21f, 0.058f),
-            "START AD HOC",
-            HandleAdhocStart,
-            out adhocStartLabel);
-        adhocRouteButton = CreateButton(
-            "Adhoc Route",
-            new Vector3(0.25f, -0.23f, -0.02f),
-            new Vector2(0.21f, 0.058f),
+        manualRouteButton = CreateButton(
+            "Next Route",
+            new Vector3(0f, -0.055f, -0.02f),
+            new Vector2(0.60f, 0.06f),
             "ROUTE",
-            CycleAdhocRoute,
-            out adhocRouteLabel);
-        SetPalette(
-            AdhocButtonColor,
-            AdhocHoverColor,
-            adhocConditionButton,
-            adhocStartButton,
-            adhocRouteButton);
-
-        CreateSectionLabel("TOOLS", -0.285f);
-        estimationStartButton = CreateButton(
-            "Estimation Start",
-            new Vector3(-0.29f, -0.335f, -0.02f),
-            new Vector2(0.16f, 0.052f),
-            "EST START",
-            HandleEstimationStart,
+            CycleManualRoute,
+            out manualRouteLabel);
+        manualStartButton = CreateButton(
+            "Start Run",
+            new Vector3(-0.19f, -0.18f, -0.02f),
+            new Vector2(0.30f, 0.06f),
+            "START",
+            StartManualRun,
+            out manualStartLabel);
+        manualCompleteButton = CreateButton(
+            "Complete Run",
+            new Vector3(0.19f, -0.18f, -0.02f),
+            new Vector2(0.30f, 0.06f),
+            "COMPLETE",
+            CompleteManualRun,
+            out manualCompleteLabel);
+        manualResetButton = CreateButton(
+            "Reset To Bottom",
+            new Vector3(-0.19f, -0.435f, -0.02f),
+            new Vector2(0.30f, 0.06f),
+            "RESET TO BOTTOM",
+            ResetToBottom,
             out _);
-        estimationNextButton = CreateButton(
-            "Estimation Next",
-            new Vector3(-0.097f, -0.335f, -0.02f),
-            new Vector2(0.16f, 0.052f),
-            "EST NEXT",
-            HandleEstimationNext,
-            out _);
-        alignBoardButton = CreateButton(
-            "Align Board",
-            new Vector3(0.097f, -0.335f, -0.02f),
-            new Vector2(0.16f, 0.052f),
-            "ALIGN",
-            BeginBoardAlignment,
-            out _);
-        clearAlignmentButton = CreateButton(
-            "Clear Alignment",
-            new Vector3(0.29f, -0.335f, -0.02f),
-            new Vector2(0.16f, 0.052f),
-            "CLEAR",
-            HandleClearAlignment,
-            out clearAlignmentLabel);
-        SetPalette(
-            UtilityButtonColor,
-            UtilityHoverColor,
-            estimationStartButton,
-            estimationNextButton,
-            alignBoardButton,
-            clearAlignmentButton);
-        clearAlignmentButton.SetDanger(true);
-        CreateButton(
-            "Recenter Panel",
-            new Vector3(-0.125f, -0.435f, -0.02f),
-            new Vector2(0.22f, 0.05f),
-            "RECENTER",
-            RecenterPanel,
-            out _).SetPalette(
-                UtilityButtonColor,
-                UtilityHoverColor,
-                SelectedColor);
         CreateButton(
             "Hide Panel",
-            new Vector3(0.125f, -0.435f, -0.02f),
-            new Vector2(0.22f, 0.05f),
+            new Vector3(0.19f, -0.435f, -0.02f),
+            new Vector2(0.30f, 0.06f),
             "HIDE",
             HidePanel,
             out _).SetPalette(
                 UtilityButtonColor,
                 UtilityHoverColor,
                 SelectedColor);
+        SetPalette(
+            SessionButtonColor,
+            SessionHoverColor,
+            manualModeAButton,
+            manualModeBButton,
+            manualStartButton,
+            manualCompleteButton);
+        manualRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
+        manualResetButton.SetPalette(UtilityButtonColor, UtilityHoverColor, SelectedColor);
+        manualCompleteButton.SetDanger(true);
 
         BuildTimerChip();
         BuildPointer("Left Panel Pointer", out leftPointerRoot, out leftPointerLine, out leftPointerReticle);
@@ -454,23 +366,21 @@ public sealed class StudyControlPanel
 
     private void BuildTimerChip()
     {
-        timerChipRoot = new GameObject("Study Elapsed Chip");
+        timerChipRoot = new GameObject("Study Countdown Chip");
         timerChipRoot.layer = uiLayer;
         timerChipRoot.transform.SetParent(panelParent, false);
 
         GameObject chipBackground = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        chipBackground.name = "Elapsed Chip Background";
+        chipBackground.name = "Countdown Chip Background";
         chipBackground.layer = uiLayer;
         chipBackground.transform.SetParent(timerChipRoot.transform, false);
         Vector2 chipSize = new(0.28f, 0.09f);
         chipBackground.transform.localScale = new Vector3(chipSize.x, chipSize.y, 0.018f);
         chipBackground.GetComponent<MeshRenderer>().sharedMaterial = buttonMaterial;
-        StudyPanelButton chipButton = chipBackground.AddComponent<StudyPanelButton>();
-        chipButton.ConfigureSurface(chipSize);
-        chipButton.Pressed = ShowPanel;
+        DestroyUnityObject(chipBackground.GetComponent<Collider>());
         timerText = CreateText(
             timerChipRoot.transform,
-            "Elapsed Chip Label",
+            "Countdown Chip Label",
             new Vector3(0f, 0f, -0.011f),
             new Vector2(0.26f, 0.08f),
             0.016f,
@@ -504,7 +414,7 @@ public sealed class StudyControlPanel
         reticle.layer = uiLayer;
         reticle.transform.SetParent(root.transform, false);
         reticle.transform.localScale = Vector3.one * 0.014f;
-        UnityEngine.Object.Destroy(reticle.GetComponent<Collider>());
+        DestroyUnityObject(reticle.GetComponent<Collider>());
         reticleRenderer = reticle.GetComponent<Renderer>();
         reticleRenderer.sharedMaterial = pointerMaterial;
         reticle.SetActive(false);
@@ -634,6 +544,76 @@ public sealed class StudyControlPanel
         return material;
     }
 
+    private void SelectManualMode(int modeIndex)
+    {
+        CancelConfirmation();
+        if (state.blockRunning || state.IsAuxiliaryActive)
+        {
+            return;
+        }
+        if (modeIndex < 0 || modeIndex >= StudySessionState.RuntimeConditions.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(modeIndex));
+        }
+
+        state.adhocConditionIndex = modeIndex;
+        state.statusMessage = "Mode " + (modeIndex == 0 ? "A" : "B") + " selected.";
+        RefreshPanelText();
+    }
+
+    private void CycleManualRoute()
+    {
+        CancelConfirmation();
+        if (state.blockRunning || state.IsAuxiliaryActive)
+        {
+            return;
+        }
+
+        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetStudyRouteNames().Count : 0;
+        if (routeCount == 0)
+        {
+            state.statusMessage = "No routes are available.";
+            RefreshPanelText();
+            return;
+        }
+
+        state.adhocRouteIndex = (state.adhocRouteIndex + 1) % routeCount;
+        state.statusMessage = "Route " + (state.adhocRouteIndex + 1) + " of " + routeCount + " selected.";
+        RefreshPanelText();
+    }
+
+    private void StartManualRun()
+    {
+        CancelConfirmation();
+        blockRun.StartManualRun();
+    }
+
+    private void CompleteManualRun()
+    {
+        RequireConfirmation(
+            ConfirmCompleteBlock,
+            "Press COMPLETE again to confirm manual completion.",
+            blockRun.CompleteBlock);
+    }
+
+    private void ResetToBottom()
+    {
+        CancelConfirmation();
+        if (sceneConfiguror == null)
+        {
+            throw new InvalidOperationException("The study environment is unavailable.");
+        }
+
+        sceneConfiguror.actionRecorder?.Record(
+            "EnvironmentReset",
+            "",
+            null,
+            "manual_reset_to_bottom");
+        sceneConfiguror.ResetMoonBoardTransform();
+        state.statusMessage = "Room reset to bottom.";
+        RefreshPanelText();
+    }
+
     private void PreviousParticipant()
     {
         CancelConfirmation();
@@ -733,7 +713,7 @@ public sealed class StudyControlPanel
         {
             return;
         }
-        state.adhocConditionIndex = (state.adhocConditionIndex + 1) % StudySessionState.AdhocConditions.Length;
+        state.adhocConditionIndex = (state.adhocConditionIndex + 1) % StudySessionState.RuntimeConditions.Length;
         RefreshPanelText();
     }
 
@@ -744,7 +724,7 @@ public sealed class StudyControlPanel
         {
             return;
         }
-        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetAvailableRouteNames().Count : 0;
+        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetStudyRouteNames().Count : 0;
         if (routeCount == 0)
         {
             return;
@@ -758,7 +738,7 @@ public sealed class StudyControlPanel
         RequireConfirmation(
             ConfirmStartAdhoc,
             "Press START AD HOC again to confirm.",
-            () => blockRun.StartAdhocBlock());
+            () => blockRun.StartManualRun());
     }
 
     private void HandleEstimationStart()
@@ -793,7 +773,7 @@ public sealed class StudyControlPanel
     private string GetAdhocRouteName()
     {
         List<string> routes = sceneConfiguror != null
-            ? sceneConfiguror.GetAvailableRouteNames()
+            ? sceneConfiguror.GetStudyRouteNames()
             : new List<string>();
         if (routes.Count == 0)
         {
@@ -811,178 +791,68 @@ public sealed class StudyControlPanel
             return;
         }
 
-        if (state.estimationActive)
-        {
-            MoonBoardEstimationProblemDefinition problem =
-                state.activeEstimationProblems[state.activeEstimationOrdinal];
-            panelText.text = "ESTIMATION SET " + state.activeEstimationSet.setIndex + "\n" +
-                             "PROBLEM " + (state.activeEstimationOrdinal + 1) + "/4  |  " + problem.apiId;
-            return;
-        }
-
         StringBuilder text = new();
         if (state.blockRunning && state.activeRow != null)
         {
-            text.Append("RUNNING ").Append(state.activeRow.participant)
-                .Append("  BLOCK ").Append(state.activeRow.block)
-                .Append("  [").Append(state.activeRow.condition).Append("]  |  ")
-                .Append(state.blockTimerStarted
-                    ? "ELAPSED " + StudyRehearsalTiming.FormatElapsedSeconds(blockRun.ElapsedSeconds)
-                    : "WAITING FOR FIRST INTERACTION")
+            text.Append("RUNNING MODE ")
+                .Append(state.activeRow.condition == "B" ? "A" : "B")
+                .Append("  |  ")
+                .Append(StudyRehearsalTiming.FormatRemainingSeconds(blockRun.RemainingSeconds))
                 .AppendLine();
-        }
-        else if (state.practiceActive)
-        {
-            text.Append("PRACTICE ").Append(state.practicePhase)
-                .Append("  |  ELAPSED ")
-                .Append(StudyRehearsalTiming.FormatElapsedSeconds(practice.PhaseElapsedSeconds))
-                .AppendLine();
-        }
-        else if (state.participants.Count > 0)
-        {
-            text.Append(state.participants[state.participantIndex])
-                .Append("  |  SELECTED BLOCK ").Append(state.selectedBlock).AppendLine();
-        }
-
-        if (state.participants.Count > 0)
-        {
-            string participant = state.participants[state.participantIndex];
-            foreach (StudyScheduleRow row in state.schedule.Where(row => row.participant == participant))
-            {
-                string routeName = sceneConfiguror != null
-                    ? sceneConfiguror.GetRouteDisplayName(row.route)
-                    : row.route;
-                text.Append(row.block == state.selectedBlock ? "> " : "  ")
-                    .Append("B").Append(row.block).Append("  ")
-                    .Append(row.condition).Append("  ")
-                    .Append(Truncate(routeName, 34))
-                    .AppendLine();
-            }
         }
         else
         {
-            text.AppendLine("NO VALID SCHEDULE LOADED");
+            text.Append("READY  |  MODE ")
+                .Append(state.adhocConditionIndex == 0 ? "A" : "B")
+                .AppendLine();
         }
 
-        lastRoutesStatusLine = sceneConfiguror != null
-            ? sceneConfiguror.GetRoutesLoadStatusLine()
-            : "UNAVAILABLE";
+        lastRoutesStatusLine = GetStudyRouteStatusLine();
         if (!lastRoutesStatusLine.StartsWith("READY", StringComparison.Ordinal))
         {
             text.Append("ROUTES: ").Append(Truncate(lastRoutesStatusLine, 56)).AppendLine();
         }
-        if (sceneConfiguror != null && sceneConfiguror.IsGripFeedbackDegraded)
-        {
-            text.AppendLine("GRIP CUE OFF");
-        }
-        text.Append("STATUS: ").Append(Truncate(state.statusMessage, 58)).AppendLine();
-        if (!string.IsNullOrEmpty(state.supplementalContentStatus))
-        {
-            text.Append(Truncate(state.supplementalContentStatus, 64)).AppendLine();
-        }
-        if (boardAlignment != null)
-        {
-            text.Append("ALIGN: ").Append(Truncate(boardAlignment.StatusMessage, 58));
-        }
+        text.Append("STATUS: ").Append(Truncate(state.statusMessage, 58));
         panelText.text = text.ToString();
     }
 
     private void RefreshButtonStates()
     {
-        bool hasParticipant = state.participants.Count > 0;
-        bool idle = !state.blockRunning && !state.IsAuxiliaryActive;
-        previousParticipantButton?.SetInteractable(idle && hasParticipant);
-        nextParticipantButton?.SetInteractable(idle && hasParticipant);
-        previousBlockButton?.SetInteractable(idle && hasParticipant);
-        nextBlockButton?.SetInteractable(idle && hasParticipant);
+        bool idle = !state.blockRunning && !state.IsAuxiliaryActive &&
+                    !state.manualRunRecoveryBlocked;
+        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetStudyRouteNames().Count : 0;
+        bool hasRoute = routeCount > 0;
+        state.adhocRouteIndex = hasRoute
+            ? Mathf.Clamp(state.adhocRouteIndex, 0, routeCount - 1)
+            : 0;
 
-        string blockConfirmation = state.blockRunning ? ConfirmCompleteBlock : ConfirmStartBlock;
-        blockActionButton?.SetInteractable(state.blockRunning || (idle && hasParticipant));
-        blockActionButton?.SetDanger(state.blockRunning);
-        blockActionButton?.SetSelected(pendingConfirmationKey == blockConfirmation);
-        if (blockActionLabel != null)
+        manualModeAButton?.SetInteractable(idle);
+        manualModeBButton?.SetInteractable(idle);
+        manualModeAButton?.SetSelected(state.adhocConditionIndex == 0);
+        manualModeBButton?.SetSelected(state.adhocConditionIndex == 1);
+        manualRouteButton?.SetInteractable(idle && hasRoute);
+        manualStartButton?.SetInteractable(idle && hasRoute);
+        manualCompleteButton?.SetInteractable(state.blockRunning);
+        manualResetButton?.SetInteractable(sceneConfiguror != null);
+        if (manualRouteLabel != null)
         {
-            blockActionLabel.text = pendingConfirmationKey == blockConfirmation
-                ? "CONFIRM"
-                : state.blockRunning ? "COMPLETE BLOCK" : "START BLOCK";
+            manualRouteLabel.text = hasRoute
+                ? "ROUTE " + (state.adhocRouteIndex + 1) + " / " + routeCount
+                : "NO ROUTES";
         }
-
-        bool practiceAvailable = false;
-        if (practice != null && state.estimationCatalog != null && hasParticipant)
+        if (manualStartLabel != null)
         {
-            practiceAvailable = practice.CanStartPractice(state.participants[state.participantIndex]);
+            manualStartLabel.text = "START";
         }
-        practiceBButton?.SetInteractable(state.practiceActive || (idle && practiceAvailable));
-        practiceCButton?.SetInteractable(state.practiceActive);
-        practiceEndButton?.SetInteractable(state.practiceActive);
-        practiceBButton?.SetSelected(state.practiceActive && state.practicePhase == "B" ||
-                                     pendingConfirmationKey == ConfirmStartPractice);
-        practiceCButton?.SetSelected(state.practiceActive && state.practicePhase == "C");
-        practiceEndButton?.SetSelected(pendingConfirmationKey == ConfirmEndPractice);
-        if (practiceBLabel != null)
+        if (manualCompleteLabel != null)
         {
-            practiceBLabel.text = pendingConfirmationKey == ConfirmStartPractice
-                ? "CONFIRM B"
-                : state.practiceActive ? "MODE B" : "PRACTICE B";
-        }
-        if (practiceCLabel != null)
-        {
-            practiceCLabel.text = "MODE C";
-        }
-        if (practiceEndLabel != null)
-        {
-            practiceEndLabel.text = pendingConfirmationKey == ConfirmEndPractice
-                ? "CONFIRM END"
-                : "END PRACTICE";
-        }
-
-        bool hasAdhocRoute = sceneConfiguror != null && sceneConfiguror.GetAvailableRouteNames().Count > 0;
-        adhocConditionButton?.SetInteractable(idle);
-        adhocRouteButton?.SetInteractable(idle && hasAdhocRoute);
-        adhocStartButton?.SetInteractable(idle && hasAdhocRoute);
-        adhocStartButton?.SetSelected(pendingConfirmationKey == ConfirmStartAdhoc);
-        if (adhocStartLabel != null)
-        {
-            adhocStartLabel.text = pendingConfirmationKey == ConfirmStartAdhoc
-                ? "CONFIRM"
-                : "START AD HOC";
-        }
-        if (adhocConditionLabel != null)
-        {
-            adhocConditionLabel.text = "COND: " + StudySessionState.AdhocConditions[state.adhocConditionIndex];
-        }
-        if (adhocRouteLabel != null)
-        {
-            string routeName = GetAdhocRouteName();
-            adhocRouteLabel.text = string.IsNullOrEmpty(routeName) ? "NO ROUTES" : Truncate(routeName, 12);
-        }
-
-        bool estimationAvailable = false;
-        if (estimation != null && state.estimationCatalog != null && state.lastEndedRow != null && hasParticipant &&
-            StudyRehearsalTiming.IsEstimationSelectionMatch(
-                state.participants[state.participantIndex],
-                state.selectedBlock,
-                state.lastEndedRow.participant,
-                state.lastEndedRow.block))
-        {
-            estimationAvailable = !estimation.HasStartedEstimation(state.lastEndedRow);
-        }
-        estimationStartButton?.SetInteractable(estimationAvailable && idle);
-        estimationNextButton?.SetInteractable(state.estimationActive);
-        alignBoardButton?.SetInteractable(idle && boardAlignment != null);
-        clearAlignmentButton?.SetInteractable(idle && boardAlignment != null);
-        clearAlignmentButton?.SetSelected(pendingConfirmationKey == ConfirmClearAlignment);
-        if (clearAlignmentLabel != null)
-        {
-            clearAlignmentLabel.text = pendingConfirmationKey == ConfirmClearAlignment ? "CONFIRM" : "CLEAR";
+            manualCompleteLabel.text = "COMPLETE";
         }
     }
 
     public void RefreshStatusLinesIfChanged()
     {
-        string routesStatusLine = sceneConfiguror != null
-            ? sceneConfiguror.GetRoutesLoadStatusLine()
-            : "UNAVAILABLE";
+        string routesStatusLine = GetStudyRouteStatusLine();
         if (routesStatusLine != lastRoutesStatusLine && panelRoot != null && panelRoot.activeSelf)
         {
             RefreshPanelText();
@@ -994,26 +864,23 @@ public sealed class StudyControlPanel
         }
     }
 
-    public void UpdateBlockElapsedText(float elapsedSeconds)
+    public void UpdateBlockRemainingText(float remainingSeconds)
     {
         if (timerText == null || state.activeRow == null)
         {
             return;
         }
 
-        int elapsedSecond = Mathf.FloorToInt(elapsedSeconds);
-        if (elapsedSecond == lastBlockElapsedSecond && !timerWaitingTextShown)
+        int remainingSecond = Mathf.CeilToInt(remainingSeconds);
+        if (remainingSecond == lastBlockRemainingSecond && !timerWaitingTextShown)
         {
             return;
         }
 
-        lastBlockElapsedSecond = elapsedSecond;
+        lastBlockRemainingSecond = remainingSecond;
         timerWaitingTextShown = false;
-        timerText.text = state.activeRow.participant + " B" + state.activeRow.block + "\nELAPSED " +
-                         StudyRehearsalTiming.FormatElapsedSeconds(elapsedSeconds) +
-                         (sceneConfiguror != null && sceneConfiguror.IsGripFeedbackDegraded
-                             ? "\nGRIP CUE OFF"
-                             : string.Empty);
+        timerText.text = "REMAINING\n" +
+                         StudyRehearsalTiming.FormatRemainingSeconds(remainingSeconds);
         if (panelRoot != null && panelRoot.activeSelf)
         {
             RefreshPanelText();
@@ -1028,13 +895,13 @@ public sealed class StudyControlPanel
         }
 
         timerWaitingTextShown = true;
-        timerText.text = state.activeRow.participant + " B" + state.activeRow.block +
-                         "\nWAITING FOR INTERACTION";
+        timerText.text = "WAITING\n" + StudyRehearsalTiming.FormatRemainingSeconds(
+            BlockRunController.RehearsalDurationSeconds);
     }
 
     public void ResetBlockTimerDisplay()
     {
-        lastBlockElapsedSecond = -1;
+        lastBlockRemainingSecond = -1;
         timerWaitingTextShown = false;
     }
 
@@ -1058,6 +925,7 @@ public sealed class StudyControlPanel
         CancelPanelGrab();
         CancelConfirmation();
         PositionPanelInFrontOfUser();
+        state.panelPinned = true;
         SetPanelVisible(true);
         panelPressableAt = Time.unscaledTime + Mathf.Max(0f, panelSettleSeconds());
         leftWasPinching = false;
@@ -1067,6 +935,23 @@ public sealed class StudyControlPanel
         SetTimerChipVisible(ShouldShowTimerChip());
         PositionTimerChip();
         RefreshPanelText();
+    }
+
+    public void TogglePanel()
+    {
+        if (!IsPanelBuilt)
+        {
+            return;
+        }
+
+        if (IsPanelHidden)
+        {
+            ShowPanel();
+        }
+        else
+        {
+            SetPanelVisible(false);
+        }
     }
 
     public void UpdateIdlePanelPosition()
@@ -1099,7 +984,7 @@ public sealed class StudyControlPanel
         }
 
         Transform cameraTransform = userCamera.transform;
-        if (panelRoot != null)
+        if (panelRoot != null && panelRoot.activeSelf)
         {
             timerChipRoot.transform.position = panelRoot.transform.position +
                                                panelRoot.transform.up * 0.575f -
@@ -1143,7 +1028,7 @@ public sealed class StudyControlPanel
 
     private bool ShouldShowTimerChip()
     {
-        return state.blockRunning && state.activeRow != null && state.activeRow.condition == "A";
+        return state.blockRunning && state.activeRow != null;
     }
 
     public void HandlePanelInput(
@@ -1218,12 +1103,14 @@ public sealed class StudyControlPanel
             return;
         }
 
+        bool panelTargeted = target.isGrabHandle || target.button != null;
         bool summonConsumed = summonGesture != null && summonGesture.UpdateSummonGesture(
             hand,
             skeleton,
             pinching,
             pinchStarted,
-            isLeft);
+            isLeft,
+            panelTargeted);
         if (!pinchStarted || summonConsumed ||
             Time.unscaledTime < panelPressableAt ||
             lastPanelPressFrame == Time.frameCount)
@@ -1256,8 +1143,7 @@ public sealed class StudyControlPanel
         LineRenderer line,
         Renderer reticle)
     {
-        bool uiVisible = panelRoot != null && panelRoot.activeSelf ||
-                         timerChipRoot != null && timerChipRoot.activeSelf;
+        bool uiVisible = panelRoot != null && panelRoot.activeSelf;
         bool pointerValid = uiVisible && hand != null && hand.IsTracked && hand.IsDataHighConfidence &&
                             hand.IsPointerPoseValid && hand.PointerPose != null;
         if (!pointerValid)
@@ -1709,23 +1595,47 @@ public sealed class StudyControlPanel
         return value.Substring(0, maximumLength - 2) + "..";
     }
 
+    private string GetStudyRouteStatusLine()
+    {
+        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetStudyRouteNames().Count : 0;
+        return routeCount > 0
+            ? "READY (" + routeCount + " approved)"
+            : "UNAVAILABLE";
+    }
+
+    private static void DestroyUnityObject(UnityEngine.Object target)
+    {
+        if (target == null)
+        {
+            return;
+        }
+        if (Application.isPlaying)
+        {
+            UnityEngine.Object.Destroy(target);
+        }
+        else
+        {
+            UnityEngine.Object.DestroyImmediate(target);
+        }
+    }
+
     public void DestroyMaterials()
     {
         if (panelMaterial != null)
         {
-            UnityEngine.Object.Destroy(panelMaterial);
+            DestroyUnityObject(panelMaterial);
         }
         if (buttonMaterial != null)
         {
-            UnityEngine.Object.Destroy(buttonMaterial);
+            DestroyUnityObject(buttonMaterial);
         }
         if (pointerMaterial != null)
         {
-            UnityEngine.Object.Destroy(pointerMaterial);
+            DestroyUnityObject(pointerMaterial);
         }
         if (textMaterial != null)
         {
-            UnityEngine.Object.Destroy(textMaterial);
+            DestroyUnityObject(textMaterial);
         }
     }
 }

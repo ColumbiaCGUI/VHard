@@ -22,6 +22,8 @@ public sealed class ActionRecorder : MonoBehaviour
     private GameObject cachedLeftTouchedHold;
     private GameObject cachedRightTouchedHold;
     private string cachedTouchedHoldName = string.Empty;
+    private readonly string applicationStartedUtc = DateTime.UtcNow.ToString("o");
+    private bool applicationQuitRecorded;
 
     public int DroppedCaptureFrames { get; private set; }
     public bool IsRecording { get; private set; }
@@ -50,6 +52,23 @@ public sealed class ActionRecorder : MonoBehaviour
 
     public void BeginBlock(string directory, StudySessionManifest manifest)
     {
+        BeginBlock(directory, manifest, string.Empty, 0d);
+    }
+
+    public void BeginBlock(
+        string directory,
+        StudySessionManifest manifest,
+        string fileSuffix)
+    {
+        BeginBlock(directory, manifest, fileSuffix, 0d);
+    }
+
+    public void BeginBlock(
+        string directory,
+        StudySessionManifest manifest,
+        string fileSuffix,
+        double blockTimeOffsetSeconds)
+    {
         if (recordingSession != null)
         {
             EndBlock();
@@ -60,9 +79,11 @@ public sealed class ActionRecorder : MonoBehaviour
         try
         {
             newSession = RecordingBlockSession.Begin(
-                directory,
-                recordToCsv,
-                Time.realtimeSinceStartupAsDouble);
+                 directory,
+                 recordToCsv,
+                 Time.realtimeSinceStartupAsDouble,
+                 fileSuffix,
+                 blockTimeOffsetSeconds);
         }
         catch (Exception exception)
         {
@@ -80,6 +101,12 @@ public sealed class ActionRecorder : MonoBehaviour
         cachedTouchedHoldName = string.Empty;
         IsRecording = true;
         Debug.Log($"[ActionRecorder] Recording block to: {directory}");
+        RecordLifecycleEvent(
+             "ApplicationSession",
+             "startedUtc=" + applicationStartedUtc + ";recordingSegment=" +
+             (string.IsNullOrEmpty(fileSuffix) ? "initial" : fileSuffix.Substring(1)) +
+             ";blockTimeOffsetSeconds=" +
+             blockTimeOffsetSeconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
     }
 
     public void EndBlock()
@@ -104,7 +131,7 @@ public sealed class ActionRecorder : MonoBehaviour
         {
             session.End(
                 WriterShutdownTimeoutMilliseconds,
-                Time.realtimeSinceStartupAsDouble);
+                ResolveCurrentRealtime(session));
         }
         catch (TimeoutException exception)
         {
@@ -169,6 +196,50 @@ public sealed class ActionRecorder : MonoBehaviour
         }
     }
 
+    private void RecordLifecycleEvent(string action, string details)
+    {
+        if (!IsRecording)
+        {
+            return;
+        }
+
+        Record(action, "", null, details);
+        try
+        {
+            recordingSession.FlushEvents(ResolveCurrentRealtime(recordingSession));
+        }
+        catch (Exception exception)
+        {
+            SurfaceTerminalFailure(exception);
+            throw;
+        }
+    }
+
+    private void OnApplicationPause(bool paused)
+    {
+        RecordLifecycleEvent("ApplicationPause", "paused=" + paused.ToString().ToLowerInvariant());
+    }
+
+    private void OnApplicationFocus(bool focused)
+    {
+        RecordLifecycleEvent("ApplicationFocus", "focused=" + focused.ToString().ToLowerInvariant());
+    }
+
+    public void RecordApplicationQuit()
+    {
+        if (applicationQuitRecorded)
+        {
+            return;
+        }
+        applicationQuitRecorded = true;
+        RecordLifecycleEvent("ApplicationQuit", string.Empty);
+    }
+
+    private void OnApplicationQuit()
+    {
+        RecordApplicationQuit();
+    }
+
     public HoldAggregateData[] GetHoldAggregates()
     {
         HoldAggregateData[] source = recordingSession != null
@@ -182,10 +253,11 @@ public sealed class ActionRecorder : MonoBehaviour
             {
                 hold = aggregate.hold,
                 secondsTouched = aggregate.secondsTouched,
-                gripsDetected = aggregate.gripsDetected,
-                meanScore = aggregate.meanScore,
-                maxScore = aggregate.maxScore,
-            };
+                 gripsDetected = aggregate.gripsDetected,
+                 meanScore = aggregate.meanScore,
+                 maxScore = aggregate.maxScore,
+                 scoreSamples = aggregate.scoreSamples,
+             };
         }
         return result;
     }
@@ -334,6 +406,21 @@ public sealed class ActionRecorder : MonoBehaviour
     {
         return recordingSession ?? throw new InvalidOperationException(
             "ActionRecorder is recording without an active block session.");
+    }
+
+    private double ResolveCurrentRealtime(RecordingBlockSession session)
+    {
+        double currentRealtime = Time.realtimeSinceStartupAsDouble;
+        if (currentRealtime >= session.StartRealtime)
+        {
+            return currentRealtime;
+        }
+
+        Debug.LogWarning(
+            "[ActionRecorder] Unity realtime reset during recording teardown; " +
+            "finalizing at the last valid monotonic origin.",
+            this);
+        return session.StartRealtime;
     }
 
     private void SurfaceTerminalFailure(Exception exception)

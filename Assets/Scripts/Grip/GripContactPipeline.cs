@@ -190,8 +190,22 @@ public sealed class GripContactPipeline : IDisposable
 
     public void ClearFeedback()
     {
+        holdStore.ClearAllLatchFeedback();
         holdStore.InvalidateAllContactData();
         feedback.Clear();
+    }
+
+    public void SetLatchFeedback(Hand hand, GameObject hold, bool latched)
+    {
+        if (disposed || !feedbackVisible)
+        {
+            return;
+        }
+
+        holdStore.SetLatchFeedback(
+            hold,
+            hand == Hand.Left ? LeftHandMask : RightHandMask,
+            latched);
     }
 
     public void Prepare(IReadOnlyList<GameObject> holds)

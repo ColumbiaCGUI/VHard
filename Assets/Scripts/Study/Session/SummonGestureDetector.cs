@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Left-hand palm-up dwell-then-pinch gesture that summons the hidden experimenter panel.
+/// Left-hand palm-up dwell-then-pinch gesture that toggles the experimenter panel.
 /// </summary>
 public sealed class SummonGestureDetector
 {
@@ -32,13 +32,14 @@ public sealed class SummonGestureDetector
         OVRSkeleton skeleton,
         bool pinching,
         bool pinchStarted,
-        bool isLeft)
+        bool isLeft,
+        bool panelTargeted)
     {
-        if (!isLeft)
+        if (!isLeft || !panel.IsPanelBuilt)
         {
             return false;
         }
-        if (!panel.IsPanelHidden)
+        if (!panel.IsPanelHidden && panelTargeted)
         {
             ResetSummonDwell();
             return false;
@@ -51,7 +52,7 @@ public sealed class SummonGestureDetector
             ResetSummonDwell();
             if (palmUp && pinchStarted)
             {
-                panel.ShowPanel();
+                panel.TogglePanel();
                 return true;
             }
             return false;
@@ -83,7 +84,7 @@ public sealed class SummonGestureDetector
         if (summonReadyForPinch && pinchStarted)
         {
             summonCooldownUntil = now + Mathf.Max(0f, summonCooldownSeconds());
-            panel.ShowPanel();
+            panel.TogglePanel();
             ResetSummonDwell();
             return true;
         }

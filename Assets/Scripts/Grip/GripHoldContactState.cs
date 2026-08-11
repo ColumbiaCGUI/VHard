@@ -8,10 +8,9 @@ internal sealed class GripHoldContactState : IDisposable
     private readonly GripContactOutputSet[] outputs;
     private readonly Renderer overlayRenderer;
     private readonly MaterialPropertyBlock overlayProperties;
-    private readonly GripScoreConfig config;
-    private bool rimGlowActive;
     private bool contactBufferReady;
     private bool overlayRequested;
+    private int latchedHandMask;
     private long boundEpoch;
     public readonly GameObject hold;
     public readonly Mesh mesh;
@@ -30,7 +29,6 @@ internal sealed class GripHoldContactState : IDisposable
         Material overlayMaterial)
     {
         this.hold = hold;
-        this.config = config;
         mesh = meshFilter.sharedMesh;
         vertexCount = mesh.vertexCount;
         Vector3[] meshVertices = mesh.vertices;
@@ -63,12 +61,13 @@ internal sealed class GripHoldContactState : IDisposable
             overlayRenderer.GetPropertyBlock(overlayProperties);
             overlayProperties.SetFloat("_ContactThreshold", config.contactThreshold);
             overlayProperties.SetFloat("_ProximityThreshold", config.proximityThreshold);
-            overlayProperties.SetFloat("_RimGlowEnabled", 0f);
-            overlayProperties.SetFloat("_RimGlowAlpha", config.rimGlowAlpha);
-            overlayProperties.SetFloat("_RimGlowPower", config.rimGlowPower);
+            overlayProperties.SetFloat("_GripLatched", 0f);
+            overlayProperties.SetColor("_LatchedColor", new Color(0.1f, 0.85f, 0.2f, 1f));
             overlayRenderer.SetPropertyBlock(overlayProperties);
         }
     }
+
+    public int LatchedHandMask => latchedHandMask;
 
     public GripContactOutputSet GetAvailableOutput()
     {
@@ -85,10 +84,7 @@ internal sealed class GripHoldContactState : IDisposable
     public void SetOverlayVisible(bool visible)
     {
         overlayRequested = visible;
-        if (overlayRenderer != null)
-        {
-            overlayRenderer.enabled = visible && contactBufferReady;
-        }
+        RefreshOverlayVisibility();
     }
 
     public void SetContactBuffer(ComputeBuffer contactBuffer, long epoch)
@@ -103,7 +99,7 @@ internal sealed class GripHoldContactState : IDisposable
         overlayRenderer.SetPropertyBlock(overlayProperties);
         boundEpoch = epoch;
         contactBufferReady = true;
-        overlayRenderer.enabled = overlayRequested;
+        RefreshOverlayVisibility();
     }
 
     public void InvalidateContactData(long epoch = -1)
@@ -117,29 +113,50 @@ internal sealed class GripHoldContactState : IDisposable
         boundEpoch = 0;
         if (overlayRenderer != null)
         {
-            overlayRenderer.enabled = false;
+            RefreshOverlayVisibility();
         }
     }
 
-    public void SetGripScore(float score)
+    public void SetLatchedHand(int handMask, bool latched)
     {
-        if (overlayRenderer == null)
+        if (handMask == 0)
         {
-            return;
+            throw new ArgumentOutOfRangeException(nameof(handMask));
         }
 
-        float lowerThreshold = Mathf.Clamp01(config.rimGlowThreshold - config.hysteresis);
-        float upperThreshold = Mathf.Clamp01(config.rimGlowThreshold + config.hysteresis);
-        rimGlowActive = rimGlowActive ? score > lowerThreshold : score >= upperThreshold;
-        overlayRenderer.GetPropertyBlock(overlayProperties);
-        overlayProperties.SetFloat("_GripScore", Mathf.Clamp01(score));
-        overlayProperties.SetFloat("_RimGlowEnabled", config.rimGlow && rimGlowActive ? 1f : 0f);
-        overlayProperties.SetColor("_RimColor", config.EvaluateScoreColor(score));
-        overlayRenderer.SetPropertyBlock(overlayProperties);
+        latchedHandMask = latched ? latchedHandMask | handMask : latchedHandMask & ~handMask;
+        if (overlayRenderer != null)
+        {
+            overlayRenderer.GetPropertyBlock(overlayProperties);
+            overlayProperties.SetFloat("_GripLatched", latchedHandMask != 0 ? 1f : 0f);
+            overlayRenderer.SetPropertyBlock(overlayProperties);
+            RefreshOverlayVisibility();
+        }
+    }
+
+    public void ClearLatchFeedback()
+    {
+        latchedHandMask = 0;
+        if (overlayRenderer != null)
+        {
+            overlayRenderer.GetPropertyBlock(overlayProperties);
+            overlayProperties.SetFloat("_GripLatched", 0f);
+            overlayRenderer.SetPropertyBlock(overlayProperties);
+            RefreshOverlayVisibility();
+        }
+    }
+
+    private void RefreshOverlayVisibility()
+    {
+        if (overlayRenderer != null)
+        {
+            overlayRenderer.enabled = latchedHandMask != 0 || overlayRequested && contactBufferReady;
+        }
     }
 
     public void Dispose()
     {
+        ClearLatchFeedback();
         InvalidateContactData();
         foreach (GripContactOutputSet output in outputs)
         {

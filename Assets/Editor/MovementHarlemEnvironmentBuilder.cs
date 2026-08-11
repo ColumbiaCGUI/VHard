@@ -14,6 +14,7 @@ public static class MovementHarlemEnvironmentBuilder
     private const string ScenePath = "Assets/Scenes/VHardStudy.unity";
     private const string EnvironmentName = "Environment";
     private const string BoardName = "BoardAlignmentRoot";
+    private const string SceneryRootName = "GripLocomotionSceneryRoot";
     private const string ReconstructionName = "Movement Harlem Reconstruction";
     private const string UpperBoardName = "Upper Vertical Board Wall";
     private const string MaterialFolder = "Assets/Materials/MovementHarlemEnvironment";
@@ -98,7 +99,7 @@ public static class MovementHarlemEnvironmentBuilder
                 throw new InvalidOperationException("VHardStudy is missing BoardAlignmentRoot/Moonboard.");
             }
 
-            TransformState[] boardState = board.GetComponentsInChildren<Transform>(true)
+            TransformState[] boardState = board.Find("Moonboard").GetComponentsInChildren<Transform>(true)
                 .Select(CaptureTransform)
                 .ToArray();
 
@@ -164,7 +165,29 @@ public static class MovementHarlemEnvironmentBuilder
                 0f,
                 upperBoardTexture);
 
-            Transform reconstruction = GetOrCreateGroup(environment.transform, ReconstructionName);
+            Transform sceneryRoot = MoveRequiredChild(
+                environment.transform,
+                board,
+                SceneryRootName);
+            sceneryRoot.localScale = Vector3.one;
+            sceneryRoot.gameObject.SetActive(true);
+            GameObjectUtility.SetStaticEditorFlags(sceneryRoot.gameObject, (StaticEditorFlags)0);
+            Transform reconstruction = MoveRequiredChild(
+                environment.transform,
+                sceneryRoot,
+                ReconstructionName);
+            reconstruction = GetOrCreateGroup(sceneryRoot, ReconstructionName);
+            Transform floor = MoveRequiredChild(environment.transform, sceneryRoot, "Floor");
+            MoveRequiredChild(
+                environment.transform,
+                sceneryRoot,
+                "Directional Light");
+            Rigidbody floorBody = floor.GetComponent<Rigidbody>();
+            if (floorBody == null)
+            {
+                throw new InvalidOperationException("The Movement Harlem floor is missing its Rigidbody.");
+            }
+            floorBody.isKinematic = true;
 
             Transform architecture = GetOrCreateGroup(reconstruction, "Architecture");
             Transform boardSurround = GetOrCreateGroup(reconstruction, "Board Surround");
@@ -384,7 +407,7 @@ public static class MovementHarlemEnvironmentBuilder
                 new[] { "Architecture", "Board Surround", "Ceiling Fixtures", "Floor Details" });
 
             ValidateBoardState(boardState);
-            ValidateReconstruction(environment.transform, board, reconstruction);
+            ValidateReconstruction(environment.transform, board, sceneryRoot, reconstruction);
 
             EditorSceneManager.MarkSceneDirty(scene);
             if (!EditorSceneManager.SaveScene(scene))
@@ -440,12 +463,28 @@ public static class MovementHarlemEnvironmentBuilder
     private static void ValidateReconstruction(
         Transform environment,
         Transform board,
+        Transform sceneryRoot,
         Transform reconstruction)
     {
-        if (reconstruction.parent != environment || reconstruction.localPosition != Vector3.zero ||
+        if (sceneryRoot.parent != board || sceneryRoot.position != Vector3.zero ||
+            sceneryRoot.rotation != Quaternion.identity || sceneryRoot.localScale != Vector3.one ||
+            reconstruction.parent != sceneryRoot || reconstruction.localPosition != Vector3.zero ||
             reconstruction.localRotation != Quaternion.identity || reconstruction.localScale != Vector3.one)
         {
             throw new InvalidOperationException("The Movement Harlem reconstruction root is not stable.");
+        }
+        string[] sceneryChildren = sceneryRoot.Cast<Transform>()
+            .Select(child => child.name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+        if (!sceneryChildren.SequenceEqual(new[]
+            {
+                "Directional Light",
+                "Floor",
+                ReconstructionName,
+            }))
+        {
+            throw new InvalidOperationException("The grip-locomotion scenery root has unexpected children.");
         }
         Renderer[] renderers = reconstruction.GetComponentsInChildren<Renderer>(true);
         MeshFilter[] meshFilters = reconstruction.GetComponentsInChildren<MeshFilter>(true);
@@ -457,14 +496,13 @@ public static class MovementHarlemEnvironmentBuilder
             reconstruction.GetComponentsInChildren<MonoBehaviour>(true).Length != 0)
         {
             throw new InvalidOperationException(
-                "The Movement Harlem reconstruction must contain 26 renderers and no physics/runtime components.");
+                "The Movement Harlem reconstruction must contain 27 renderers and no physics/runtime components.");
         }
         if (renderers.Any(renderer =>
-                GameObjectUtility.GetStaticEditorFlags(renderer.gameObject) !=
-                StaticEditorFlags.BatchingStatic))
+                GameObjectUtility.GetStaticEditorFlags(renderer.gameObject) != (StaticEditorFlags)0))
         {
             throw new InvalidOperationException(
-                "Movement Harlem renderers must use only the batching static flag.");
+                "Movement Harlem renderers must remain movable for grip locomotion.");
         }
         if (renderers.Any(renderer =>
                 !renderer.enabled ||
@@ -512,12 +550,39 @@ public static class MovementHarlemEnvironmentBuilder
             }
         }
 
-        Renderer floorRenderer = environment.Find("Floor")?.GetComponent<Renderer>();
+        Renderer floorRenderer = sceneryRoot.Find("Floor")?.GetComponent<Renderer>();
         if (AssetDatabase.GetAssetPath(floorRenderer?.sharedMaterial) !=
             "Assets/Materials/MovementHarlemFloor.mat")
         {
             throw new InvalidOperationException("The photo-derived Movement Harlem floor material is missing.");
         }
+        Rigidbody floorBody = sceneryRoot.Find("Floor")?.GetComponent<Rigidbody>();
+        if (floorBody == null || !floorBody.isKinematic)
+        {
+            throw new InvalidOperationException("The movable Movement Harlem floor must be kinematic.");
+        }
+    }
+
+    private static Transform MoveRequiredChild(
+        Transform currentParent,
+        Transform destinationParent,
+        string name)
+    {
+        Transform existingAtDestination = TakeUniqueChild(destinationParent, name);
+        Transform existingAtCurrentParent = TakeUniqueChild(currentParent, name);
+        if (existingAtDestination != null && existingAtCurrentParent != null &&
+            existingAtDestination != existingAtCurrentParent)
+        {
+            throw new InvalidOperationException("Duplicate environment object: " + name + ".");
+        }
+
+        Transform child = existingAtDestination ?? existingAtCurrentParent;
+        if (child == null)
+        {
+            throw new InvalidOperationException("VHardStudy is missing environment object: " + name + ".");
+        }
+        child.SetParent(destinationParent, true);
+        return child;
     }
 
     private static Transform GetOrCreateGroup(Transform parent, string name)
@@ -604,7 +669,7 @@ public static class MovementHarlemEnvironmentBuilder
         cube.layer = 0;
         cube.tag = "Untagged";
         cube.SetActive(true);
-        GameObjectUtility.SetStaticEditorFlags(cube, StaticEditorFlags.BatchingStatic);
+        GameObjectUtility.SetStaticEditorFlags(cube, (StaticEditorFlags)0);
 
         filter.sharedMesh = canonicalCubeMesh;
         renderer.enabled = true;

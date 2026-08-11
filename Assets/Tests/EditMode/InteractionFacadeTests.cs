@@ -46,15 +46,15 @@ public sealed class InteractionFacadeTests
     }
 
     [Test]
-    public void RouteCuePolicyKeepsConditionsBAndCSymmetricAndSurfacesBaseline()
+    public void RouteCuePolicyHidesDigitalCuesAndSurfacesBaselineConfiguration()
     {
         RouteCuePresentation baseline = RouteCuePresentation.PhysicalBoardLeds;
 
         Assert.That(RouteCuePolicy.ForCondition("A", baseline), Is.EqualTo(baseline));
         Assert.That(RouteCuePolicy.ForCondition("B", baseline),
-            Is.EqualTo(RouteCuePresentation.VirtualHalos));
+            Is.EqualTo(RouteCuePresentation.Hidden));
         Assert.That(RouteCuePolicy.ForCondition("C", baseline),
-            Is.EqualTo(RouteCuePresentation.VirtualHalos));
+            Is.EqualTo(RouteCuePresentation.Hidden));
         Assert.That(RouteCuePolicy.GetStyle(RouteCueRole.Start).RingCount, Is.EqualTo(2));
         Assert.That(RouteCuePolicy.GetStyle(RouteCueRole.Intermediate).RingCount, Is.EqualTo(1));
         Assert.That(RouteCuePolicy.GetStyle(RouteCueRole.Finish).RingCount, Is.EqualTo(2));

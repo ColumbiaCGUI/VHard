@@ -166,10 +166,7 @@ public sealed class GripInteractionCoordinator
             movement = AdvanceGripLocomotion(Hand.Right, wristPosition, now);
             owner.rightHandGripLastPosition = wristPosition;
         }
-        if (owner.moonBoardEnv != null)
-        {
-            owner.moonBoardEnv.transform.position += movement;
-        }
+        owner.MoveStudyEnvironment(movement);
     }
 
     public void SetInputSuppressed(bool suppressed)
@@ -212,6 +209,8 @@ public sealed class GripInteractionCoordinator
     public void ResetState()
     {
         StopGripLocomotion();
+        owner.SetGripLatchFeedback(Hand.Left, leftLatchedHold, false);
+        owner.SetGripLatchFeedback(Hand.Right, rightLatchedHold, false);
         leftGripLatch?.Reset();
         rightGripLatch?.Reset();
         leftGripAcquisitionSample.Invalidate();
@@ -231,12 +230,14 @@ public sealed class GripInteractionCoordinator
     {
         if (leftGripLatch != null && leftGripLatch.HoldId == holdId)
         {
+            owner.SetGripLatchFeedback(Hand.Left, leftLatchedHold, false);
             leftGripLatch.Reset();
             leftLatchedHold = null;
             StopGripLocomotion(Hand.Left);
         }
         if (rightGripLatch != null && rightGripLatch.HoldId == holdId)
         {
+            owner.SetGripLatchFeedback(Hand.Right, rightLatchedHold, false);
             rightGripLatch.Reset();
             rightLatchedHold = null;
             StopGripLocomotion(Hand.Right);
@@ -469,6 +470,7 @@ public sealed class GripInteractionCoordinator
         {
             latchedHold = candidate;
             SetLatchedHold(hand, latchedHold);
+            owner.SetGripLatchFeedback(hand, latchedHold, true);
             owner.RaiseGripEngagement(
                 "GripLatched",
                 hand,
@@ -482,6 +484,7 @@ public sealed class GripInteractionCoordinator
         else if (transition.Kind == GripLatchTransitionKind.Released)
         {
             CompleteGripLocomotion(hand);
+            owner.SetGripLatchFeedback(hand, latchedHold, false);
             owner.RaiseGripEngagement(
                 "GripReleased",
                 hand,
@@ -494,6 +497,18 @@ public sealed class GripInteractionCoordinator
         if (transition.ResetAnchor && trackingValid)
         {
             ResetGripAnchor(hand, now);
+        }
+    }
+
+    public void RestoreLatchFeedback()
+    {
+        if (leftGripLatch != null && leftGripLatch.IsEngaged)
+        {
+            owner.SetGripLatchFeedback(Hand.Left, leftLatchedHold, true);
+        }
+        if (rightGripLatch != null && rightGripLatch.IsEngaged)
+        {
+            owner.SetGripLatchFeedback(Hand.Right, rightLatchedHold, true);
         }
     }
 

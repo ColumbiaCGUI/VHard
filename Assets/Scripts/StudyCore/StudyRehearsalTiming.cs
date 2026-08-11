@@ -7,6 +7,8 @@ using UnityEngine;
 
 public static class StudyRehearsalTiming
 {
+    public const float RehearsalDurationSeconds = 300f;
+
     [Serializable]
     private sealed class RecoveryManifest
     {
@@ -24,6 +26,43 @@ public static class StudyRehearsalTiming
     {
         public string directory;
         public int retry;
+    }
+
+    private sealed class AggregateMergeState
+    {
+        public double secondsTouched;
+        public int gripsDetected;
+        public double scoreSum;
+        public int scoreSamples;
+        public float maxScore = -1f;
+    }
+
+    public sealed class ActiveManualRunRecovery
+    {
+        public string DirectoryPath { get; internal set; }
+        public string SourceManifestPath { get; internal set; }
+        public StudySessionManifest Manifest { get; internal set; }
+        public DateTimeOffset RehearsalStartUtc { get; internal set; }
+        public DateTimeOffset RehearsalDeadlineUtc { get; internal set; }
+
+        public bool IsExpired(DateTimeOffset utcNow)
+        {
+            return utcNow >= RehearsalDeadlineUtc;
+        }
+
+        public float GetElapsedSeconds(DateTimeOffset utcNow)
+        {
+            if (utcNow < RehearsalStartUtc)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(utcNow),
+                    "Recovery time cannot precede the persisted rehearsal start.");
+            }
+
+            return (float)Math.Min(
+                RehearsalDurationSeconds,
+                (utcNow - RehearsalStartUtc).TotalSeconds);
+        }
     }
 
     public static bool TryGetFirstInteraction(
@@ -45,6 +84,85 @@ public static class StudyRehearsalTiming
 
         interaction = string.Empty;
         return false;
+    }
+
+    public static HoldAggregateData[] MergeHoldAggregates(
+        HoldAggregateData[] baseline,
+        HoldAggregateData[] currentSegment)
+    {
+        Dictionary<string, AggregateMergeState> merged = new(StringComparer.Ordinal);
+        AddHoldAggregates(merged, baseline);
+        AddHoldAggregates(merged, currentSegment);
+
+        HoldAggregateData[] result = new HoldAggregateData[merged.Count];
+        int index = 0;
+        foreach (KeyValuePair<string, AggregateMergeState> pair in merged)
+        {
+            AggregateMergeState aggregate = pair.Value;
+            result[index++] = new HoldAggregateData
+            {
+                hold = pair.Key,
+                secondsTouched = (float)aggregate.secondsTouched,
+                gripsDetected = aggregate.gripsDetected,
+                meanScore = aggregate.scoreSamples > 0
+                    ? (float)(aggregate.scoreSum / aggregate.scoreSamples)
+                    : -1f,
+                maxScore = aggregate.maxScore,
+                scoreSamples = aggregate.scoreSamples,
+            };
+        }
+        Array.Sort(result, (left, right) => string.CompareOrdinal(left.hold, right.hold));
+        return result;
+    }
+
+    private static void AddHoldAggregates(
+        IDictionary<string, AggregateMergeState> destination,
+        IEnumerable<HoldAggregateData> source)
+    {
+        if (source == null)
+        {
+            return;
+        }
+
+        foreach (HoldAggregateData aggregate in source)
+        {
+            if (aggregate == null || string.IsNullOrWhiteSpace(aggregate.hold) ||
+                float.IsNaN(aggregate.secondsTouched) || float.IsInfinity(aggregate.secondsTouched) ||
+                aggregate.secondsTouched < 0f || aggregate.gripsDetected < 0 ||
+                aggregate.scoreSamples < 0 || float.IsNaN(aggregate.meanScore) ||
+                float.IsInfinity(aggregate.meanScore) || float.IsNaN(aggregate.maxScore) ||
+                float.IsInfinity(aggregate.maxScore))
+            {
+                throw new InvalidDataException("Hold aggregate data is malformed.");
+            }
+
+            if (!destination.TryGetValue(aggregate.hold, out AggregateMergeState merged))
+            {
+                merged = new AggregateMergeState();
+                destination.Add(aggregate.hold, merged);
+            }
+            merged.secondsTouched += aggregate.secondsTouched;
+            merged.gripsDetected = checked(merged.gripsDetected + aggregate.gripsDetected);
+
+            int scoreSamples = aggregate.scoreSamples;
+            if (scoreSamples == 0 && aggregate.meanScore >= 0f && aggregate.secondsTouched > 0f)
+            {
+                scoreSamples = Math.Max(
+                    1,
+                    (int)Math.Round(
+                        aggregate.secondsTouched / RecordingBlockSession.CaptureIntervalSeconds));
+            }
+            if (scoreSamples > 0)
+            {
+                if (aggregate.meanScore < 0f || aggregate.maxScore < 0f)
+                {
+                    throw new InvalidDataException("Scored hold aggregate data is malformed.");
+                }
+                merged.scoreSum += aggregate.meanScore * scoreSamples;
+                merged.scoreSamples = checked(merged.scoreSamples + scoreSamples);
+                merged.maxScore = Math.Max(merged.maxScore, aggregate.maxScore);
+            }
+        }
     }
 
     public static bool TryConsumeArmedPinch(
@@ -88,6 +206,347 @@ public static class StudyRehearsalTiming
         int totalSeconds = Mathf.FloorToInt(elapsedSeconds);
         return (totalSeconds / 60).ToString("00", CultureInfo.InvariantCulture) + ":" +
                (totalSeconds % 60).ToString("00", CultureInfo.InvariantCulture);
+    }
+
+    public static string FormatRemainingSeconds(float remainingSeconds)
+    {
+        if (float.IsNaN(remainingSeconds) || float.IsInfinity(remainingSeconds) || remainingSeconds < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(remainingSeconds));
+        }
+
+        int totalSeconds = Mathf.CeilToInt(remainingSeconds);
+        return (totalSeconds / 60).ToString("00", CultureInfo.InvariantCulture) + ":" +
+               (totalSeconds % 60).ToString("00", CultureInfo.InvariantCulture);
+    }
+
+    public static float ResolveElapsedSeconds(
+        double elapsedBeforeCurrentProcess,
+        double monotonicStartSeconds,
+        double monotonicNowSeconds)
+    {
+        if (double.IsNaN(elapsedBeforeCurrentProcess) ||
+            double.IsInfinity(elapsedBeforeCurrentProcess) ||
+            elapsedBeforeCurrentProcess < 0d ||
+            double.IsNaN(monotonicStartSeconds) || double.IsInfinity(monotonicStartSeconds) ||
+            double.IsNaN(monotonicNowSeconds) || double.IsInfinity(monotonicNowSeconds) ||
+            monotonicStartSeconds < 0d || monotonicNowSeconds < monotonicStartSeconds)
+        {
+            throw new ArgumentOutOfRangeException(nameof(monotonicNowSeconds));
+        }
+
+        return (float)(elapsedBeforeCurrentProcess + monotonicNowSeconds - monotonicStartSeconds);
+    }
+
+    public static bool TryRecoverActiveManualRun(
+        string manualRoot,
+        string expectedCatalogSha256,
+        IEnumerable<string> approvedRoutes,
+        DateTimeOffset utcNow,
+        out ActiveManualRunRecovery recovery,
+        out string diagnostic)
+    {
+        if (string.IsNullOrWhiteSpace(manualRoot))
+        {
+            throw new ArgumentException("Manual study root is required.", nameof(manualRoot));
+        }
+        if (string.IsNullOrWhiteSpace(expectedCatalogSha256))
+        {
+            throw new ArgumentException("Approved catalog hash is required.", nameof(expectedCatalogSha256));
+        }
+        if (approvedRoutes == null)
+        {
+            throw new ArgumentNullException(nameof(approvedRoutes));
+        }
+
+        HashSet<string> approvedRouteIds = new(approvedRoutes, StringComparer.Ordinal);
+        if (approvedRouteIds.Count == 0)
+        {
+            throw new ArgumentException("At least one approved route is required.", nameof(approvedRoutes));
+        }
+
+        recovery = null;
+        diagnostic = string.Empty;
+        if (!Directory.Exists(manualRoot))
+        {
+            return false;
+        }
+
+        List<string> diagnostics = new();
+        List<ActiveManualRunRecovery> candidates = new();
+        string[] directories;
+        try
+        {
+            directories = Directory.GetDirectories(manualRoot);
+            Array.Sort(directories, StringComparer.Ordinal);
+        }
+        catch (Exception exception)
+        {
+            diagnostic = "Failed to enumerate manual-run recovery candidates under '" +
+                         manualRoot + "'." + Environment.NewLine + exception;
+            return false;
+        }
+
+        foreach (string directory in directories)
+        {
+            if (!TryReadLatestCompleteManifest(
+                    directory,
+                    out StudySessionManifest manifest,
+                    out string sourceManifestPath,
+                    out string readDiagnostic))
+            {
+                diagnostics.Add("Rejected manual-run recovery directory '" + directory +
+                                "': " + readDiagnostic);
+                continue;
+            }
+            bool activeManifestValid = TryValidateActiveManualManifest(
+                    manifest,
+                    expectedCatalogSha256,
+                    approvedRouteIds,
+                    utcNow,
+                    out DateTimeOffset rehearsalStartUtc,
+                    out DateTimeOffset rehearsalDeadlineUtc,
+                    out string rejection);
+            string canonicalPath = Path.Combine(directory, "session.json");
+            if (!activeManifestValid)
+            {
+                if (string.IsNullOrEmpty(rejection) &&
+                    !string.Equals(sourceManifestPath, canonicalPath, StringComparison.Ordinal))
+                {
+                    StudyManifestStorage.RestoreCanonical(
+                        canonicalPath,
+                        File.ReadAllText(sourceManifestPath));
+                }
+                if (!string.IsNullOrEmpty(rejection))
+                {
+                    diagnostics.Add("Rejected manual-run recovery directory '" + directory +
+                                    "': " + rejection);
+                }
+                continue;
+            }
+            if (!string.Equals(sourceManifestPath, canonicalPath, StringComparison.Ordinal))
+            {
+                StudyManifestStorage.RestoreCanonical(
+                    canonicalPath,
+                    File.ReadAllText(sourceManifestPath));
+                sourceManifestPath = canonicalPath;
+            }
+
+            candidates.Add(new ActiveManualRunRecovery
+            {
+                DirectoryPath = directory,
+                SourceManifestPath = sourceManifestPath,
+                Manifest = manifest,
+                RehearsalStartUtc = rehearsalStartUtc,
+                RehearsalDeadlineUtc = rehearsalDeadlineUtc,
+            });
+        }
+
+        candidates.Sort((left, right) =>
+        {
+            int timeComparison = left.RehearsalStartUtc.CompareTo(right.RehearsalStartUtc);
+            return timeComparison != 0
+                ? timeComparison
+                : string.Compare(left.DirectoryPath, right.DirectoryPath, StringComparison.Ordinal);
+        });
+        if (candidates.Count == 0)
+        {
+            diagnostic = string.Join(Environment.NewLine, diagnostics);
+            return false;
+        }
+
+        if (candidates.Count > 1)
+        {
+            diagnostics.Add("Multiple active manual runs were found; recovery requires manual reconciliation.");
+            diagnostic = string.Join(Environment.NewLine, diagnostics);
+            return false;
+        }
+        recovery = candidates[0];
+        diagnostic = string.Join(Environment.NewLine, diagnostics);
+        return true;
+    }
+
+    private static bool TryReadLatestCompleteManifest(
+        string directory,
+        out StudySessionManifest manifest,
+        out string sourceManifestPath,
+        out string diagnostic)
+    {
+        manifest = null;
+        sourceManifestPath = string.Empty;
+        diagnostic = string.Empty;
+        string canonicalPath = Path.Combine(directory, "session.json");
+        string[] paths;
+        try
+        {
+            paths = StudyManifestStorage.GetRecoveryPaths(canonicalPath);
+        }
+        catch (Exception exception)
+        {
+            diagnostic = "failed to enumerate session manifest files." + Environment.NewLine + exception;
+            return false;
+        }
+        if (paths.Length == 0)
+        {
+            diagnostic = "session.json and its recovery files are missing.";
+            return false;
+        }
+
+        Array.Sort(paths, (left, right) =>
+        {
+            int timeComparison = File.GetLastWriteTimeUtc(right).CompareTo(File.GetLastWriteTimeUtc(left));
+            return timeComparison != 0
+                ? timeComparison
+                : string.Compare(right, left, StringComparison.Ordinal);
+        });
+        List<string> failures = new();
+        foreach (string recoveryPath in paths)
+        {
+            string path = recoveryPath;
+            try
+            {
+                string json = File.ReadAllText(path);
+                string trimmedJson = json.Trim();
+                if (trimmedJson.Length < 2 || trimmedJson[0] != '{' ||
+                    trimmedJson[trimmedJson.Length - 1] != '}')
+                {
+                    throw new FormatException("manifest must contain one complete JSON object.");
+                }
+
+                StudySessionManifest parsed = JsonUtility.FromJson<StudySessionManifest>(trimmedJson);
+                if (parsed == null)
+                {
+                    throw new FormatException("manifest JSON did not produce a session object.");
+                }
+                manifest = parsed;
+                sourceManifestPath = path;
+                diagnostic = string.Join(Environment.NewLine, failures);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                failures.Add("Could not read '" + path + "'." + Environment.NewLine + exception);
+            }
+        }
+
+        diagnostic = string.Join(Environment.NewLine, failures);
+        return false;
+    }
+
+    private static bool TryValidateActiveManualManifest(
+        StudySessionManifest manifest,
+        string expectedCatalogSha256,
+        ISet<string> approvedRoutes,
+        DateTimeOffset utcNow,
+        out DateTimeOffset rehearsalStartUtc,
+        out DateTimeOffset rehearsalDeadlineUtc,
+        out string rejection)
+    {
+        rehearsalStartUtc = default;
+        rehearsalDeadlineUtc = default;
+        if (!manifest.adhoc || !string.Equals(manifest.participant, "UNASSIGNED", StringComparison.Ordinal) ||
+            manifest.block != 0)
+        {
+            rejection = "manifest is not an unassigned manual run.";
+            return false;
+        }
+        if (!string.Equals(manifest.condition, "B", StringComparison.Ordinal) &&
+            !string.Equals(manifest.condition, "C", StringComparison.Ordinal))
+        {
+            rejection = "manifest condition is not canonical B or C.";
+            return false;
+        }
+        if (!approvedRoutes.Contains(manifest.route))
+        {
+            rejection = "manifest route is not in the approved catalog.";
+            return false;
+        }
+        if (!string.Equals(
+                manifest.routeCatalogSha256,
+                expectedCatalogSha256,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            rejection = "manifest catalog hash does not match the approved catalog.";
+            return false;
+        }
+        if (!TryParseRoundTripTimestamp(manifest.startUtc, out DateTimeOffset sessionStartUtc))
+        {
+            rejection = "manifest startUtc is invalid.";
+            return false;
+        }
+        if (!TryParseRoundTripTimestamp(manifest.rehearsalStartUtc, out rehearsalStartUtc))
+        {
+            rejection = "manifest rehearsalStartUtc is invalid.";
+            return false;
+        }
+        if (!TryParseRoundTripTimestamp(manifest.rehearsalDeadlineUtc, out rehearsalDeadlineUtc))
+        {
+            rejection = "manifest rehearsalDeadlineUtc is invalid.";
+            return false;
+        }
+        if (sessionStartUtc > rehearsalStartUtc)
+        {
+            rejection = "manifest rehearsal starts before its session.";
+            return false;
+        }
+        if (sessionStartUtc > utcNow || rehearsalStartUtc > utcNow)
+        {
+            rejection = "manifest start timestamp is in the future.";
+            return false;
+        }
+        double durationSeconds = (rehearsalDeadlineUtc - rehearsalStartUtc).TotalSeconds;
+        if (Math.Abs(durationSeconds - RehearsalDurationSeconds) > 0.001d)
+        {
+            rejection = "manifest rehearsal deadline is not exactly five minutes after its start.";
+            return false;
+        }
+        if (manifest.resumeCount < 0 || manifest.pendingResumeIndex < 0)
+        {
+            rejection = "manifest resume indices are negative.";
+            return false;
+        }
+        if (manifest.pendingResumeIndex != 0 &&
+            manifest.pendingResumeIndex != manifest.resumeCount + 1)
+        {
+            rejection = "manifest pendingResumeIndex is inconsistent with resumeCount.";
+            return false;
+        }
+
+        bool hasEndTimestamp = !string.IsNullOrWhiteSpace(manifest.endUtc);
+        bool hasRunningReason = string.Equals(manifest.endReason, "running", StringComparison.Ordinal);
+        if (!hasEndTimestamp && hasRunningReason)
+        {
+            rejection = string.Empty;
+            return true;
+        }
+        if (!hasEndTimestamp || hasRunningReason || string.IsNullOrWhiteSpace(manifest.endReason))
+        {
+            rejection = "manifest terminal state is inconsistent.";
+            return false;
+        }
+        if (!TryParseRoundTripTimestamp(manifest.endUtc, out DateTimeOffset endUtc) ||
+            endUtc < rehearsalStartUtc || endUtc > utcNow)
+        {
+            rejection = "manifest endUtc is invalid for its rehearsal interval.";
+            return false;
+        }
+        if (manifest.pendingResumeIndex != 0)
+        {
+            rejection = "completed manifest still has a pending resume transaction.";
+            return false;
+        }
+
+        rejection = string.Empty;
+        return false;
+    }
+
+    private static bool TryParseRoundTripTimestamp(string value, out DateTimeOffset parsed)
+    {
+        return DateTimeOffset.TryParse(
+            value,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind,
+            out parsed);
     }
 
     public static bool TryConfirmPanelAction(
@@ -564,5 +1023,110 @@ public static class StudyRehearsalTiming
     {
         return !float.IsNaN(value.x) && !float.IsInfinity(value.x) &&
                !float.IsNaN(value.y) && !float.IsInfinity(value.y);
+    }
+}
+
+public static class StudyManifestStorage
+{
+    public static void RestoreCanonical(string manifestPath, string contents)
+    {
+        WriteAtomically(manifestPath, contents, File.Exists(manifestPath));
+        DeleteRecoveryFiles(manifestPath);
+    }
+
+    public static void WriteAtomically(string manifestPath, string contents, bool overwriteExisting)
+    {
+        if (string.IsNullOrWhiteSpace(manifestPath))
+        {
+            throw new ArgumentException("Manifest path is required.", nameof(manifestPath));
+        }
+        if (contents == null)
+        {
+            throw new ArgumentNullException(nameof(contents));
+        }
+
+        string directory = Path.GetDirectoryName(manifestPath);
+        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+        {
+            throw new DirectoryNotFoundException("Manifest directory does not exist: " + directory);
+        }
+        bool destinationExists = File.Exists(manifestPath);
+        if (overwriteExisting != destinationExists)
+        {
+            throw new IOException(overwriteExisting
+                ? "Active study manifest disappeared before update: " + manifestPath
+                : "Refusing to overwrite existing study manifest: " + manifestPath);
+        }
+
+        string temporaryPath = manifestPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        byte[] bytes = new UTF8Encoding(false).GetBytes(contents);
+        using (FileStream stream = new(
+                   temporaryPath,
+                   FileMode.CreateNew,
+                   FileAccess.Write,
+                   FileShare.None))
+        {
+            stream.Write(bytes, 0, bytes.Length);
+            stream.Flush(true);
+        }
+
+        if (!overwriteExisting)
+        {
+            File.Move(temporaryPath, manifestPath);
+            return;
+        }
+
+        string backupPath = manifestPath + ".bak";
+        if (File.Exists(backupPath))
+        {
+            File.Delete(backupPath);
+        }
+        File.Replace(temporaryPath, manifestPath, backupPath);
+        if (File.Exists(backupPath))
+        {
+            File.Delete(backupPath);
+        }
+    }
+
+    public static string[] GetRecoveryPaths(string manifestPath)
+    {
+        if (string.IsNullOrWhiteSpace(manifestPath))
+        {
+            throw new ArgumentException("Manifest path is required.", nameof(manifestPath));
+        }
+
+        string directory = Path.GetDirectoryName(manifestPath);
+        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+        {
+            return Array.Empty<string>();
+        }
+
+        string fileName = Path.GetFileName(manifestPath);
+        List<string> paths = new();
+        if (File.Exists(manifestPath))
+        {
+            paths.Add(manifestPath);
+        }
+        string backupPath = manifestPath + ".bak";
+        if (File.Exists(backupPath))
+        {
+            paths.Add(backupPath);
+        }
+        foreach (string temporaryPath in Directory.GetFiles(directory, fileName + "*.tmp"))
+        {
+            paths.Add(temporaryPath);
+        }
+        return paths.ToArray();
+    }
+
+    public static void DeleteRecoveryFiles(string manifestPath)
+    {
+        foreach (string path in GetRecoveryPaths(manifestPath))
+        {
+            if (!string.Equals(path, manifestPath, StringComparison.Ordinal) && File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
     }
 }

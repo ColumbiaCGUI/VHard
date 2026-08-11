@@ -96,6 +96,33 @@ internal sealed class GripHoldContactStore
         }
     }
 
+    public void SetLatchFeedback(GameObject hold, int handMask, bool latched)
+    {
+        if (hold == null)
+        {
+            return;
+        }
+
+        GripHoldContactState state;
+        if (latched)
+        {
+            state = ResolveState(hold);
+        }
+        else
+        {
+            holdStates.TryGetValue(hold.GetInstanceID(), out state);
+        }
+        state?.SetLatchedHand(handMask, latched);
+    }
+
+    public void ClearAllLatchFeedback()
+    {
+        foreach (GripHoldContactState state in holdStates.Values)
+        {
+            state.ClearLatchFeedback();
+        }
+    }
+
     public void RemoveDestroyedStates()
     {
         staleStateIds.Clear();

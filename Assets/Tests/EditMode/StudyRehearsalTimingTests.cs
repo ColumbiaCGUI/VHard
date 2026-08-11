@@ -29,7 +29,7 @@ public sealed class StudyRehearsalTimingTests
     }
 
     [Test]
-    public void ConditionBStartsOnlyAtGripLocomotionEngagement()
+    public void ConditionBClassifiesGripLocomotionAsItsFirstInteraction()
     {
         Assert.That(
             StudyRehearsalTiming.TryGetFirstInteraction("B", false, true, out _),
@@ -41,7 +41,7 @@ public sealed class StudyRehearsalTimingTests
     }
 
     [Test]
-    public void ConditionCStartsOnlyAtFirstDetachedHold()
+    public void ConditionCClassifiesDetachedHoldAsItsFirstInteraction()
     {
         Assert.That(
             StudyRehearsalTiming.TryGetFirstInteraction("C", true, false, out _),
@@ -59,6 +59,74 @@ public sealed class StudyRehearsalTimingTests
             StudyRehearsalTiming.TryGetFirstInteraction("A", true, true, out string interaction),
             Is.False);
         Assert.That(interaction, Is.Empty);
+    }
+
+    [Test]
+    public void RuntimeModeButtonsMapOnlyToCanonicalGripAndGhostConditions()
+    {
+        Type stateType = FindLoadedType("StudySessionState");
+        FieldInfo runtimeConditions = stateType.GetField(
+            "RuntimeConditions",
+            BindingFlags.Public | BindingFlags.Static);
+
+        Assert.That(runtimeConditions, Is.Not.Null);
+        Assert.That((string[])runtimeConditions.GetValue(null), Is.EqualTo(new[] { "B", "C" }));
+    }
+
+    [Test]
+    public void RuntimePanelContainsOnlyTheSevenRequestedControls()
+    {
+        GameObject parentObject = new("Panel Test Parent");
+        GameObject cameraObject = new("Panel Test Camera");
+        Camera camera = cameraObject.AddComponent<Camera>();
+        Type panelType = FindLoadedType("StudyControlPanel");
+        Type stateType = FindLoadedType("StudySessionState");
+        Type buttonType = FindLoadedType("StudyPanelButton");
+        ConstructorInfo constructor = panelType.GetConstructors()
+            .Single(candidate => candidate.GetParameters().Length == 6);
+        object panel = constructor.Invoke(new object[]
+        {
+            parentObject.transform,
+            camera,
+            null,
+            null,
+            Activator.CreateInstance(stateType),
+            new Func<float>(() => 0f),
+        });
+        try
+        {
+            panelType.GetMethod("BuildPanel", BindingFlags.Public | BindingFlags.Instance)
+                ?.Invoke(panel, null);
+            Transform console = parentObject.transform.Find("Study Experimenter Console");
+            Assert.That(console, Is.Not.Null);
+            string[] controls =
+            {
+                "Mode A",
+                "Mode B",
+                "Next Route",
+                "Start Run",
+                "Complete Run",
+                "Reset To Bottom",
+                "Hide Panel",
+            };
+            foreach (string control in controls)
+            {
+                Assert.That(console.Find(control), Is.Not.Null, control);
+            }
+            Assert.That(console.Find("Previous Participant"), Is.Null);
+            Assert.That(console.Find("Previous Block"), Is.Null);
+            Assert.That(console.Find("Practice B"), Is.Null);
+            Assert.That(console.Find("Align Board"), Is.Null);
+            Assert.That(console.GetComponentsInChildren(buttonType, true), Has.Length.EqualTo(8),
+                "Seven controls plus the panel grab handle are expected.");
+        }
+        finally
+        {
+            panelType.GetMethod("DestroyMaterials", BindingFlags.Public | BindingFlags.Instance)
+                ?.Invoke(panel, null);
+            UnityEngine.Object.DestroyImmediate(parentObject);
+            UnityEngine.Object.DestroyImmediate(cameraObject);
+        }
     }
 
     [Test]
@@ -98,6 +166,251 @@ public sealed class StudyRehearsalTimingTests
         Assert.That(StudyRehearsalTiming.FormatElapsedSeconds(0f), Is.EqualTo("00:00"));
         Assert.That(StudyRehearsalTiming.FormatElapsedSeconds(1200f), Is.EqualTo("20:00"));
         Assert.That(StudyRehearsalTiming.FormatElapsedSeconds(3661.9f), Is.EqualTo("61:01"));
+    }
+
+    [Test]
+    public void CountdownDisplayUsesCeilingAtSecondBoundaries()
+    {
+        Assert.That(StudyRehearsalTiming.FormatRemainingSeconds(300f), Is.EqualTo("05:00"));
+        Assert.That(StudyRehearsalTiming.FormatRemainingSeconds(299.1f), Is.EqualTo("05:00"));
+        Assert.That(StudyRehearsalTiming.FormatRemainingSeconds(0.1f), Is.EqualTo("00:01"));
+        Assert.That(StudyRehearsalTiming.FormatRemainingSeconds(0f), Is.EqualTo("00:00"));
+    }
+
+    [Test]
+    public void ElapsedClockUsesPersistedOffsetAndCurrentProcessMonotonicTime()
+    {
+        Assert.That(
+            StudyRehearsalTiming.ResolveElapsedSeconds(
+                20d,
+                100d,
+                105d),
+            Is.EqualTo(25f));
+        Assert.That(
+            StudyRehearsalTiming.ResolveElapsedSeconds(
+                0d,
+                100d,
+                125d),
+            Is.EqualTo(25f));
+    }
+
+    [Test]
+    public void ActiveManualRunRecoveryPreservesThePersistedFiveMinuteDeadline()
+    {
+        DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        WriteActiveManualManifest(
+            "20260811_120000_000_B_MB2016_21329",
+            "approved-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            start.AddMinutes(5));
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329", "MB2016_19215" },
+            start.AddMinutes(2),
+            out StudyRehearsalTiming.ActiveManualRunRecovery recovery,
+            out string diagnostic);
+
+        Assert.That(found, Is.True, diagnostic);
+        Assert.That(recovery.Manifest.condition, Is.EqualTo("B"));
+        Assert.That(recovery.RehearsalStartUtc, Is.EqualTo(start));
+        Assert.That(recovery.GetElapsedSeconds(start.AddMinutes(2)), Is.EqualTo(120f));
+        Assert.That(recovery.IsExpired(start.AddMinutes(4)), Is.False);
+        Assert.That(recovery.IsExpired(start.AddMinutes(5)), Is.True);
+    }
+
+    [Test]
+    public void ActiveManualRunRecoveryRejectsFutureStartTimestamp()
+    {
+        DateTimeOffset now = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        DateTimeOffset start = now.AddMinutes(1);
+        WriteActiveManualManifest(
+            "future-start",
+            "approved-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            start.AddMinutes(5));
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329" },
+            now,
+            out _,
+            out string diagnostic);
+
+        Assert.That(found, Is.False);
+        Assert.That(diagnostic, Does.Contain("future"));
+    }
+
+    [Test]
+    public void RecoveryPromotesNewestCompletedTemporaryManifestToCanonicalPath()
+    {
+        DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        string directory = WriteActiveManualManifest(
+            "completed-temporary",
+            "approved-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            start.AddMinutes(5));
+        string canonicalPath = Path.Combine(directory, "session.json");
+        string temporaryPath = canonicalPath + ".interrupted.tmp";
+        string completedJson = File.ReadAllText(canonicalPath)
+            .Replace("\"endUtc\": \"\"", "\"endUtc\": \"" + start.AddMinutes(5).ToString("o") + "\"")
+            .Replace("\"endReason\": \"running\"", "\"endReason\": \"timer_expired\"");
+        File.WriteAllText(temporaryPath, completedJson);
+        File.SetLastWriteTimeUtc(canonicalPath, start.UtcDateTime);
+        File.SetLastWriteTimeUtc(temporaryPath, start.AddSeconds(1).UtcDateTime);
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329" },
+            start.AddMinutes(6),
+            out _,
+            out _);
+
+        Assert.That(found, Is.False);
+        Assert.That(File.ReadAllText(canonicalPath), Does.Contain("timer_expired"));
+        Assert.That(File.Exists(temporaryPath), Is.False);
+    }
+
+    [Test]
+    public void RecoveryDoesNotPromoteInconsistentTerminalTemporaryManifest()
+    {
+        DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        string directory = WriteActiveManualManifest(
+            "invalid-terminal-temporary",
+            "approved-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            start.AddMinutes(5));
+        string canonicalPath = Path.Combine(directory, "session.json");
+        string temporaryPath = canonicalPath + ".interrupted.tmp";
+        string invalidJson = File.ReadAllText(canonicalPath)
+            .Replace("\"endReason\": \"running\"", "\"endReason\": \"timer_expired\"");
+        File.WriteAllText(temporaryPath, invalidJson);
+        File.SetLastWriteTimeUtc(canonicalPath, start.UtcDateTime);
+        File.SetLastWriteTimeUtc(temporaryPath, start.AddSeconds(1).UtcDateTime);
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329" },
+            start.AddMinutes(1),
+            out _,
+            out string diagnostic);
+
+        Assert.That(found, Is.False);
+        Assert.That(diagnostic, Does.Contain("terminal state"));
+        Assert.That(File.ReadAllText(canonicalPath), Does.Contain("\"endReason\": \"running\""));
+        Assert.That(File.Exists(temporaryPath), Is.True);
+    }
+
+    [Test]
+    public void HoldAggregateMergePreservesWholeRunScoreWeights()
+    {
+        HoldAggregateData[] merged = StudyRehearsalTiming.MergeHoldAggregates(
+            new[]
+            {
+                new HoldAggregateData
+                {
+                    hold = "A1",
+                    secondsTouched = 1f,
+                    gripsDetected = 1,
+                    meanScore = 0.4f,
+                    maxScore = 0.8f,
+                    scoreSamples = 30,
+                },
+            },
+            new[]
+            {
+                new HoldAggregateData
+                {
+                    hold = "A1",
+                    secondsTouched = 0.5f,
+                    gripsDetected = 2,
+                    meanScore = 0.8f,
+                    maxScore = 0.9f,
+                    scoreSamples = 15,
+                },
+            });
+
+        Assert.That(merged, Has.Length.EqualTo(1));
+        Assert.That(merged[0].secondsTouched, Is.EqualTo(1.5f).Within(0.000001f));
+        Assert.That(merged[0].gripsDetected, Is.EqualTo(3));
+        Assert.That(merged[0].meanScore, Is.EqualTo(0.533333f).Within(0.000001f));
+        Assert.That(merged[0].maxScore, Is.EqualTo(0.9f));
+        Assert.That(merged[0].scoreSamples, Is.EqualTo(45));
+    }
+
+    [Test]
+    public void ActiveManualRunRecoveryRejectsWrongCatalogAndUnknownRoutes()
+    {
+        DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        WriteActiveManualManifest(
+            "wrong-hash",
+            "wrong-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            start.AddMinutes(5));
+        WriteActiveManualManifest(
+            "unknown-route",
+            "approved-hash",
+            "NOT_APPROVED",
+            "C",
+            start.AddSeconds(1),
+            start.AddMinutes(5).AddSeconds(1));
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329" },
+            start.AddMinutes(2),
+            out _,
+            out string diagnostic);
+
+        Assert.That(found, Is.False);
+        Assert.That(diagnostic, Does.Contain("catalog hash"));
+        Assert.That(diagnostic, Does.Contain("approved catalog"));
+    }
+
+    [Test]
+    public void ActiveManualRunRecoveryBlocksMultipleRunningCandidates()
+    {
+        DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        WriteActiveManualManifest(
+            "first-active",
+            "approved-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            start.AddMinutes(5));
+        WriteActiveManualManifest(
+            "second-active",
+            "approved-hash",
+            "MB2016_19215",
+            "C",
+            start.AddSeconds(1),
+            start.AddMinutes(5).AddSeconds(1));
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329", "MB2016_19215" },
+            start.AddMinutes(1),
+            out _,
+            out string diagnostic);
+
+        Assert.That(found, Is.False);
+        Assert.That(diagnostic, Does.Contain("Multiple active manual runs"));
     }
 
     [Test]
@@ -533,4 +846,42 @@ public sealed class StudyRehearsalTimingTests
         return directory;
     }
 
+    private string WriteActiveManualManifest(
+        string directoryName,
+        string catalogSha256,
+        string route,
+        string condition,
+        DateTimeOffset start,
+        DateTimeOffset deadline)
+    {
+        string directory = Path.Combine(recoveryStudyRoot, directoryName);
+        Directory.CreateDirectory(directory);
+        string json = "{\n" +
+                      "  \"participant\": \"UNASSIGNED\",\n" +
+                      "  \"block\": 0,\n" +
+                      "  \"condition\": \"" + condition + "\",\n" +
+                      "  \"route\": \"" + route + "\",\n" +
+                      "  \"routeCatalogSha256\": \"" + catalogSha256 + "\",\n" +
+                      "  \"retry\": 0,\n" +
+                      "  \"adhoc\": true,\n" +
+                      "  \"startUtc\": \"" + start.ToString("o") + "\",\n" +
+                      "  \"rehearsalStartUtc\": \"" + start.ToString("o") + "\",\n" +
+                       "  \"rehearsalDeadlineUtc\": \"" + deadline.ToString("o") + "\",\n" +
+                       "  \"resumeCount\": 0,\n" +
+                       "  \"pendingResumeIndex\": 0,\n" +
+                       "  \"firstInteractionRecorded\": false,\n" +
+                       "  \"recordingSummaryComplete\": true,\n" +
+                      "  \"endUtc\": \"\",\n" +
+                      "  \"endReason\": \"running\"\n" +
+                      "}";
+        File.WriteAllText(Path.Combine(directory, "session.json"), json);
+        return directory;
+    }
+
+    private static Type FindLoadedType(string name)
+    {
+        return AppDomain.CurrentDomain.GetAssemblies()
+            .Select(assembly => assembly.GetType(name))
+            .Single(type => type != null);
+    }
 }

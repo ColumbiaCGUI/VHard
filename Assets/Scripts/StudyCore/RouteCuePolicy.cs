@@ -40,8 +40,8 @@ public static class RouteCuePolicy
         return condition switch
         {
             "A" => baselinePresentation,
-            "B" => RouteCuePresentation.VirtualHalos,
-            "C" => RouteCuePresentation.VirtualHalos,
+            "B" => RouteCuePresentation.Hidden,
+            "C" => RouteCuePresentation.Hidden,
             _ => throw new ArgumentException("Study condition must be A, B, or C.", nameof(condition)),
         };
     }
