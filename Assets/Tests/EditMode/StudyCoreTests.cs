@@ -217,6 +217,9 @@ public sealed class StudyCoreTests
             "B103", "Y37", "W62", "B137", "Y34", "B144", "B101", "Y31",
             "B112", "Y20", "Y5", "W96", "W69", "B117", "W51", "B139",
             "W82",
+            // 2026-08-12c true-scale re-instrument: first reliable spins for 7 cleared
+            // flags (B18/W99 stays unmeasurable) + the two never-measured holds.
+            "W58", "W80", "W95", "W60", "W92", "Y40", "Y18", "W71", "W87",
         };
         int correctedMeshes = 0;
         foreach (MoonBoardHoldDefinition hold in catalog.holds)
@@ -230,7 +233,7 @@ public sealed class StudyCoreTests
                 Assert.That(expectedCorrectedMeshes.Remove(hold.scanId), Is.True, hold.coordinate);
             }
         }
-        Assert.That(correctedMeshes, Is.EqualTo(92));
+        Assert.That(correctedMeshes, Is.EqualTo(101));
         Assert.That(expectedCorrectedMeshes, Is.Empty);
 
         Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
@@ -341,6 +344,16 @@ public sealed class StudyCoreTests
             { "D17", ("W51", 0, -90f) },
             { "A18", ("B139", 0, -140f) },
             { "G18", ("W82", 270, -85f) },
+            // 2026-08-12c true-scale re-instrument.
+            { "J2", ("W58", 135, 50f) },
+            { "B3", ("W80", 225, -130f) },
+            { "C6", ("W95", 180, 175f) },
+            { "I6", ("W60", 45, 45f) },
+            { "J6", ("W92", 180, -170f) },
+            { "F9", ("Y40", 0, 10f) },
+            { "F15", ("Y18", 0, -155f) },
+            { "B16", ("W71", 315, -40f) },
+            { "K18", ("W87", 270, -90f) },
         };
         Quaternion boardMount = Quaternion.Euler(catalog.SurfaceTiltDegrees, 0f, 180f);
         Vector3 climbingSideNormal = boardMount * Vector3.up;

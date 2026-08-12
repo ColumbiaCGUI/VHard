@@ -459,6 +459,20 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     "W84": -40.0,  # K11; official-image residual +40 deg
     "Y37": -10.0,  # K13; official-image residual +10 deg
     "B144": 45.0,  # K14; official-image residual -45 deg
+    # 2026-08-12c: spins from the true-scale re-instrument
+    # (docs/route-selection/board-audit/reassign-2026-08-12/, gold-validated to 2 deg median /
+    # 7 deg max over 41 confirmed-correct cells). First reliable angles for 7 of the 8 cleared
+    # geometry flags (B18/W99 excluded: near-symmetric jug, reference variants disagree) plus
+    # two holds the 07-28 sweep could never read (K18, I6).
+    "W80": -130.0,  # B3; true-scale residual +130 deg
+    "W71": -40.0,  # B16; true-scale residual +40 deg
+    "W95": 175.0,  # C6; true-scale residual -175 deg
+    "W60": 45.0,  # I6; true-scale residual -45 deg
+    "Y40": 10.0,  # F9; true-scale residual -10 deg
+    "Y18": -155.0,  # F15; true-scale residual +155 deg
+    "W58": 50.0,  # J2; true-scale residual -50 deg
+    "W92": -170.0,  # J6; true-scale residual +170 deg
+    "W87": -90.0,  # K18; true-scale residual +90 deg
 }
 MESH_FRAME_CORRECTIONS = {
     # Approved by-eye W98 orientation from 1b9df47, expressed after the FBX -90-degree X basis.
