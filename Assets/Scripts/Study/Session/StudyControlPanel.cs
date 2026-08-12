@@ -80,7 +80,6 @@ public sealed class StudyControlPanel
     private TextMeshPro practiceEndLabel;
     private TextMeshPro adhocStartLabel;
     private TextMeshPro clearAlignmentLabel;
-    private TextMeshPro manualRouteLabel;
     private TextMeshPro manualStartLabel;
     private TextMeshPro manualCompleteLabel;
 
@@ -101,7 +100,8 @@ public sealed class StudyControlPanel
     private StudyPanelButton clearAlignmentButton;
     private StudyPanelButton manualModeAButton;
     private StudyPanelButton manualModeBButton;
-    private StudyPanelButton manualRouteButton;
+    private StudyPanelButton manualPreviousRouteButton;
+    private StudyPanelButton manualNextRouteButton;
     private StudyPanelButton manualStartButton;
     private StudyPanelButton manualCompleteButton;
     private StudyPanelButton manualResetButton;
@@ -278,13 +278,20 @@ public sealed class StudyControlPanel
             "MODE B",
             () => SelectManualMode(1),
             out _);
-        manualRouteButton = CreateButton(
+        manualPreviousRouteButton = CreateButton(
+            "Previous Route",
+            new Vector3(-0.19f, -0.055f, -0.02f),
+            new Vector2(0.30f, 0.06f),
+            "ROUTE PREV",
+            () => ChangeManualRoute(-1),
+            out _);
+        manualNextRouteButton = CreateButton(
             "Next Route",
-            new Vector3(0f, -0.055f, -0.02f),
-            new Vector2(0.60f, 0.06f),
-            "ROUTE",
-            CycleManualRoute,
-            out manualRouteLabel);
+            new Vector3(0.19f, -0.055f, -0.02f),
+            new Vector2(0.30f, 0.06f),
+            "ROUTE NEXT",
+            () => ChangeManualRoute(1),
+            out _);
         manualStartButton = CreateButton(
             "Start Run",
             new Vector3(-0.19f, -0.18f, -0.02f),
@@ -300,22 +307,12 @@ public sealed class StudyControlPanel
             CompleteManualRun,
             out manualCompleteLabel);
         manualResetButton = CreateButton(
-            "Reset To Bottom",
-            new Vector3(-0.19f, -0.435f, -0.02f),
-            new Vector2(0.30f, 0.06f),
-            "RESET TO BOTTOM",
-            ResetToBottom,
+            "Reset",
+            new Vector3(0f, -0.435f, -0.02f),
+            new Vector2(0.60f, 0.06f),
+            "RESET",
+            ResetStudyState,
             out _);
-        CreateButton(
-            "Hide Panel",
-            new Vector3(0.19f, -0.435f, -0.02f),
-            new Vector2(0.30f, 0.06f),
-            "HIDE",
-            HidePanel,
-            out _).SetPalette(
-                UtilityButtonColor,
-                UtilityHoverColor,
-                SelectedColor);
         SetPalette(
             SessionButtonColor,
             SessionHoverColor,
@@ -323,7 +320,8 @@ public sealed class StudyControlPanel
             manualModeBButton,
             manualStartButton,
             manualCompleteButton);
-        manualRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
+        manualPreviousRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
+        manualNextRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
         manualResetButton.SetPalette(UtilityButtonColor, UtilityHoverColor, SelectedColor);
         manualCompleteButton.SetDanger(true);
 
@@ -561,7 +559,7 @@ public sealed class StudyControlPanel
         RefreshPanelText();
     }
 
-    private void CycleManualRoute()
+    private void ChangeManualRoute(int offset)
     {
         CancelConfirmation();
         if (state.blockRunning || state.IsAuxiliaryActive)
@@ -577,7 +575,7 @@ public sealed class StudyControlPanel
             return;
         }
 
-        state.adhocRouteIndex = (state.adhocRouteIndex + 1) % routeCount;
+        state.adhocRouteIndex = (state.adhocRouteIndex + offset + routeCount) % routeCount;
         state.statusMessage = "Route " + (state.adhocRouteIndex + 1) + " of " + routeCount + " selected.";
         RefreshPanelText();
     }
@@ -596,7 +594,7 @@ public sealed class StudyControlPanel
             blockRun.CompleteBlock);
     }
 
-    private void ResetToBottom()
+    private void ResetStudyState()
     {
         CancelConfirmation();
         if (sceneConfiguror == null)
@@ -608,9 +606,22 @@ public sealed class StudyControlPanel
             "EnvironmentReset",
             "",
             null,
-            "manual_reset_to_bottom");
-        sceneConfiguror.ResetMoonBoardTransform();
-        state.statusMessage = "Room reset to bottom.";
+            "manual_reset");
+        sceneConfiguror.ResetManualStudyState();
+        CancelPanelGrab();
+        ResetPointerAndHover();
+        PositionPanelInFrontOfUser();
+        PositionTimerChip();
+        state.panelPinned = true;
+        panelPressableAt = Time.unscaledTime + Mathf.Max(0f, panelSettleSeconds());
+        leftWasPinching = false;
+        rightWasPinching = false;
+        leftPinchArmed = false;
+        rightPinchArmed = false;
+        if (!state.manualRunRecoveryBlocked)
+        {
+            state.statusMessage = "Board, room, grip, ghost, and panel reset.";
+        }
         RefreshPanelText();
     }
 
@@ -764,12 +775,6 @@ public sealed class StudyControlPanel
         RefreshPanelText();
     }
 
-    private void HidePanel()
-    {
-        CancelConfirmation();
-        SetPanelVisible(false);
-    }
-
     private string GetAdhocRouteName()
     {
         List<string> routes = sceneConfiguror != null
@@ -807,6 +812,16 @@ public sealed class StudyControlPanel
                 .AppendLine();
         }
 
+        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetStudyRouteNames().Count : 0;
+        if (routeCount > 0)
+        {
+            text.Append("ROUTE ")
+                .Append(Mathf.Clamp(state.adhocRouteIndex, 0, routeCount - 1) + 1)
+                .Append(" / ")
+                .Append(routeCount)
+                .AppendLine();
+        }
+
         lastRoutesStatusLine = GetStudyRouteStatusLine();
         if (!lastRoutesStatusLine.StartsWith("READY", StringComparison.Ordinal))
         {
@@ -830,16 +845,11 @@ public sealed class StudyControlPanel
         manualModeBButton?.SetInteractable(idle);
         manualModeAButton?.SetSelected(state.adhocConditionIndex == 0);
         manualModeBButton?.SetSelected(state.adhocConditionIndex == 1);
-        manualRouteButton?.SetInteractable(idle && hasRoute);
+        manualPreviousRouteButton?.SetInteractable(idle && hasRoute);
+        manualNextRouteButton?.SetInteractable(idle && hasRoute);
         manualStartButton?.SetInteractable(idle && hasRoute);
         manualCompleteButton?.SetInteractable(state.blockRunning);
         manualResetButton?.SetInteractable(sceneConfiguror != null);
-        if (manualRouteLabel != null)
-        {
-            manualRouteLabel.text = hasRoute
-                ? "ROUTE " + (state.adhocRouteIndex + 1) + " / " + routeCount
-                : "NO ROUTES";
-        }
         if (manualStartLabel != null)
         {
             manualStartLabel.text = "START";

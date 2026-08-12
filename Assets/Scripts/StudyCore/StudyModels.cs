@@ -44,6 +44,7 @@ public sealed class StudySessionManifest
     public string rehearsalStartUtc;
     public string rehearsalDeadlineUtc;
     public int resumeCount;
+    public bool pendingStart;
     public int pendingResumeIndex;
     public bool firstInteractionRecorded;
     public bool recordingSummaryComplete;

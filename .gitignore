@@ -106,5 +106,9 @@ InitTestScene*.unity*
 /[Aa]ssets/[Ss]ceneDependencyCache*
 __pycache__/
 
+# Meta DevAgent generates a machine-local access token in this runtime asset.
+/[Aa]ssets/[Rr]esources/DevAgentSettings.asset
+/[Aa]ssets/[Rr]esources/DevAgentSettings.asset.meta
+
 # Editor screenshots captured via MCP (manage_scene requires a project-relative folder)
 /[Cc]aptures/

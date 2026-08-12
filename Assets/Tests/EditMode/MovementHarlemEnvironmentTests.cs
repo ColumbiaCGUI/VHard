@@ -17,6 +17,13 @@ public sealed class MovementHarlemEnvironmentTests
     private const string MaterialFolder = "Assets/Materials/MovementHarlemEnvironment/";
 
     [Test]
+    public void StudyInteractionLayersRemainDefined()
+    {
+        Assert.That(LayerMask.NameToLayer("StudyHolds"), Is.GreaterThanOrEqualTo(0));
+        Assert.That(LayerMask.NameToLayer("StudyGhostHolds"), Is.GreaterThanOrEqualTo(0));
+    }
+
+    [Test]
     public void ReconstructionIsStableAndSharesTheBoardAlignmentFrame()
     {
         Scene scene = SceneManager.GetSceneByPath(ScenePath);
@@ -187,7 +194,7 @@ public sealed class MovementHarlemEnvironmentTests
 
             Renderer[] renderers = reconstruction.GetComponentsInChildren<Renderer>(true);
             MeshFilter[] meshFilters = reconstruction.GetComponentsInChildren<MeshFilter>(true);
-            Assert.That(renderers, Has.Length.EqualTo(27));
+            Assert.That(renderers, Has.Length.EqualTo(23));
             Assert.That(meshFilters, Has.Length.EqualTo(renderers.Length));
             Assert.That(meshFilters[0].sharedMesh, Is.Not.Null);
             Assert.That(meshFilters[0].sharedMesh.name, Is.EqualTo("Cube"));
@@ -220,7 +227,7 @@ public sealed class MovementHarlemEnvironmentTests
                 Is.True);
 
             Material[] materials = renderers.Select(renderer => renderer.sharedMaterial).Distinct().ToArray();
-            Assert.That(materials, Has.Length.EqualTo(7));
+            Assert.That(materials, Has.Length.EqualTo(6));
             Assert.That(materials.All(material => material != null && material.shader != null), Is.True);
             Assert.That(materials.All(material => material.shader.isSupported), Is.True);
             Assert.That(materials.All(material => !material.enableInstancing), Is.True);
@@ -248,7 +255,11 @@ public sealed class MovementHarlemEnvironmentTests
 
             int triangleCount = reconstruction.GetComponentsInChildren<MeshFilter>(true)
                 .Sum(filter => filter.sharedMesh == null ? 0 : filter.sharedMesh.triangles.Length / 3);
-            Assert.That(triangleCount, Is.LessThanOrEqualTo(324));
+            Assert.That(triangleCount, Is.LessThanOrEqualTo(276));
+            Assert.That(
+                reconstruction.GetComponentsInChildren<Transform>(true)
+                    .Any(item => item.name.Contains("LED", StringComparison.OrdinalIgnoreCase)),
+                Is.False);
 
             Transform mainSurface = environment.transform.Find(
                 "BoardAlignmentRoot/Moonboard/Main Surface");
@@ -281,8 +292,13 @@ public sealed class MovementHarlemEnvironmentTests
                 Assert.That(boardTexture.height, Is.EqualTo(768));
                 Color32[] boardPixels = boardTexture.GetPixels32();
                 Assert.That(
+                    boardPixels.Count(pixel => pixel.Equals(new Color32(26, 31, 33, 255))),
+                    Is.Zero,
+                    "The MoonBoard texture must not contain generated LED sockets.");
+                Assert.That(
                     boardPixels.Count(pixel => pixel.Equals(new Color32(63, 82, 85, 255))),
-                    Is.EqualTo(187 * 5));
+                    Is.Zero,
+                    "The MoonBoard texture must not contain generated LED lenses.");
                 Assert.That(
                     boardPixels.Count(pixel => pixel.Equals(new Color32(102, 105, 103, 255))),
                     Is.GreaterThan(100));

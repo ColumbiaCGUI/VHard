@@ -8,10 +8,7 @@ internal sealed class GripHoldContactState : IDisposable
     private readonly GripContactOutputSet[] outputs;
     private readonly Renderer overlayRenderer;
     private readonly MaterialPropertyBlock overlayProperties;
-    private bool contactBufferReady;
-    private bool overlayRequested;
     private int latchedHandMask;
-    private long boundEpoch;
     public readonly GameObject hold;
     public readonly Mesh mesh;
     public readonly int vertexCount;
@@ -83,38 +80,17 @@ internal sealed class GripHoldContactState : IDisposable
 
     public void SetOverlayVisible(bool visible)
     {
-        overlayRequested = visible;
         RefreshOverlayVisibility();
     }
 
     public void SetContactBuffer(ComputeBuffer contactBuffer, long epoch)
     {
-        if (overlayRenderer == null)
-        {
-            return;
-        }
-
-        overlayRenderer.GetPropertyBlock(overlayProperties);
-        overlayProperties.SetBuffer("_ContactData", contactBuffer);
-        overlayRenderer.SetPropertyBlock(overlayProperties);
-        boundEpoch = epoch;
-        contactBufferReady = true;
         RefreshOverlayVisibility();
     }
 
     public void InvalidateContactData(long epoch = -1)
     {
-        if (epoch >= 0 && boundEpoch != epoch)
-        {
-            return;
-        }
-        contactBufferReady = false;
-        overlayRequested = false;
-        boundEpoch = 0;
-        if (overlayRenderer != null)
-        {
-            RefreshOverlayVisibility();
-        }
+        RefreshOverlayVisibility();
     }
 
     public void SetLatchedHand(int handMask, bool latched)
@@ -150,7 +126,7 @@ internal sealed class GripHoldContactState : IDisposable
     {
         if (overlayRenderer != null)
         {
-            overlayRenderer.enabled = latchedHandMask != 0 || overlayRequested && contactBufferReady;
+            overlayRenderer.enabled = latchedHandMask != 0;
         }
     }
 

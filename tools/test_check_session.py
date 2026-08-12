@@ -38,9 +38,76 @@ class SessionValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "incomplete or crashed"):
                 validate_session(block)
 
+    def test_rejects_boolean_resume_count(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_manual")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["resumeCount"] = False
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "resumeCount"):
+                validate_session(block)
+
+    def test_rejects_boolean_pending_resume_index(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_manual")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["pendingResumeIndex"] = False
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "pending resume transaction"):
+                validate_session(block)
+
+    def test_rejects_nonfinite_alignment_number(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_manual")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["boardAlignmentEnd"]["position"]["x"] = float("nan")
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "strict finite JSON"):
+                validate_session(block)
+
+    def test_rejects_completed_manifest_with_pending_start(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_manual")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["pendingStart"] = True
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "pending start transaction"):
+                validate_session(block)
+
+    def test_rejects_manifest_without_pending_start_field(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_manual")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            del manifest["pendingStart"]
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "pendingStart"):
+                validate_session(block)
+
     def test_rejects_timer_expiry_before_persisted_deadline(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             block = self._write_block(Path(temporary_directory), "timer_expired")
+
+            with self.assertRaisesRegex(SystemExit, "persisted rehearsal deadline"):
+                validate_session(block)
+
+    def test_rejects_timer_expiry_with_subsecond_deadline_drift(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "timer_expired")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            deadline = datetime.fromisoformat(manifest["rehearsalDeadlineUtc"])
+            manifest["endUtc"] = (deadline + timedelta(milliseconds=1)).isoformat()
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
             with self.assertRaisesRegex(SystemExit, "persisted rehearsal deadline"):
                 validate_session(block)
@@ -217,6 +284,7 @@ class SessionValidationTests(unittest.TestCase):
             "rehearsalStartUtc": start.isoformat(),
             "rehearsalDeadlineUtc": (start + timedelta(minutes=5)).isoformat(),
             "resumeCount": 0,
+            "pendingStart": False,
             "pendingResumeIndex": 0,
             "firstInteractionRecorded": True,
             "recordingSummaryComplete": True,

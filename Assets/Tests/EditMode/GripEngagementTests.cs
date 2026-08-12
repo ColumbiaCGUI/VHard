@@ -22,6 +22,7 @@ public sealed class GripEngagementTests
         GameObject hold = GameObject.CreatePrimitive(PrimitiveType.Cube);
         GripScoreConfig config = ScriptableObject.CreateInstance<GripScoreConfig>();
         object state = null;
+        ComputeBuffer contactBuffer = null;
         try
         {
             Type stateType = AppDomain.CurrentDomain.GetAssemblies()
@@ -40,16 +41,23 @@ public sealed class GripEngagementTests
             });
             MethodInfo setLatchedHand = stateType.GetMethod("SetLatchedHand");
             MethodInfo setOverlayVisible = stateType.GetMethod("SetOverlayVisible");
+            MethodInfo setContactBuffer = stateType.GetMethod("SetContactBuffer");
             MethodInfo invalidateContactData = stateType.GetMethod("InvalidateContactData");
             PropertyInfo latchedHandMask = stateType.GetProperty("LatchedHandMask");
             Assert.That(setLatchedHand, Is.Not.Null);
             Assert.That(setOverlayVisible, Is.Not.Null);
+            Assert.That(setContactBuffer, Is.Not.Null);
             Assert.That(invalidateContactData, Is.Not.Null);
             Assert.That(latchedHandMask, Is.Not.Null);
 
             Renderer overlay = hold.transform.Find("Contact Patch Overlay")?.GetComponent<Renderer>();
             Assert.That(overlay, Is.Not.Null);
             Assert.That(overlay.enabled, Is.False);
+
+            contactBuffer = new ComputeBuffer(hold.GetComponent<MeshFilter>().sharedMesh.vertexCount, sizeof(float) * 4);
+            setOverlayVisible.Invoke(state, new object[] { true });
+            setContactBuffer.Invoke(state, new object[] { contactBuffer, 1L });
+            Assert.That(overlay.enabled, Is.False, "Proximity alone must not render a graded hold cue.");
 
             setLatchedHand.Invoke(state, new object[] { leftHandMask, true });
             Assert.That((int)latchedHandMask.GetValue(state), Is.EqualTo(leftHandMask));
@@ -76,6 +84,7 @@ public sealed class GripEngagementTests
         finally
         {
             (state as IDisposable)?.Dispose();
+            contactBuffer?.Release();
             UnityEngine.Object.DestroyImmediate(config);
             UnityEngine.Object.DestroyImmediate(hold);
         }

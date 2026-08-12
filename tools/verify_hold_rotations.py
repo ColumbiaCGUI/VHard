@@ -22,6 +22,11 @@ from pathlib import Path
 CATALOG_PATH = Path(__file__).resolve().parent.parent / "Assets" / "StreamingAssets" / "moonboard_2016_40.json"
 
 CARDINAL_DEGREES = {"N": 0, "NE": 45, "E": 90, "SE": 135, "S": 180, "SW": 225, "W": 270, "NW": 315}
+CATALOG_HOLDSETS = {
+    "school": ("Original School Holds", "Y"),
+    "setA": ("Hold Set A", "W"),
+    "setB": ("Hold Set B", "B"),
+}
 
 # (hold number, coordinate, cardinal) transcribed from the official PDF page 2.
 OFFICIAL = {
@@ -98,11 +103,19 @@ def main():
         if coordinate not in table:
             identity_errors.append(f"{coordinate}: not an official 2016 position")
             continue
-        _, number, _ = table[coordinate]
+        set_name, number, _ = table[coordinate]
+        expected_holdset, expected_scan_prefix = CATALOG_HOLDSETS[set_name]
+        if hold.get("holdset") != expected_holdset:
+            identity_errors.append(
+                f"{coordinate}: catalog holdset {hold.get('holdset')!r} != official {expected_holdset!r}")
         if int(hold["holdNumber"]) != number:
             identity_errors.append(
                 f"{coordinate}: catalog holdNumber {hold['holdNumber']} != official {number}")
         scan_id = hold.get("scanId", "")
+        if not scan_id.startswith(expected_scan_prefix):
+            identity_errors.append(
+                f"{coordinate}: scanId {scan_id!r} does not match official set prefix "
+                f"{expected_scan_prefix!r}")
         scan_digits = "".join(ch for ch in scan_id if ch.isdigit())
         if scan_digits and int(scan_digits) != number:
             identity_errors.append(
@@ -117,6 +130,8 @@ def main():
         )
         if hits > best_hits:
             best_label, best_fn, best_hits = label, fn, hits
+    if best_fn is None:
+        raise RuntimeError("No cardinal rotation convention was evaluated.")
 
     rotation_errors = []
     for hold in holds:

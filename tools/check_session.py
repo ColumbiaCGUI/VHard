@@ -21,13 +21,26 @@ MAX_ALIGNMENT_DRIFT_DEGREES = 2.0
 COMPLETE_END_REASONS = {"completed_manual", "completed_early", "timer_expired"}
 
 
+def _reject_nonfinite_json(value: str):
+    raise ValueError(f"non-finite JSON number: {value}")
+
+
+def _finite_number(value) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("value is not a JSON number")
+    result = float(value)
+    if not math.isfinite(result):
+        raise ValueError("value is not finite")
+    return result
+
+
 def _vector_distance(left: dict, right: dict) -> float:
-    return math.sqrt(sum((float(left[axis]) - float(right[axis])) ** 2 for axis in "xyz"))
+    return math.sqrt(sum((_finite_number(left[axis]) - _finite_number(right[axis])) ** 2 for axis in "xyz"))
 
 
 def _quaternion_angle_degrees(left: dict, right: dict) -> float:
-    left_values = [float(left[axis]) for axis in "xyzw"]
-    right_values = [float(right[axis]) for axis in "xyzw"]
+    left_values = [_finite_number(left[axis]) for axis in "xyzw"]
+    right_values = [_finite_number(right[axis]) for axis in "xyzw"]
     left_norm = math.sqrt(sum(value * value for value in left_values))
     right_norm = math.sqrt(sum(value * value for value in right_values))
     if left_norm == 0 or right_norm == 0:
@@ -42,13 +55,19 @@ def validate_session(directory: Path) -> int:
         or MANUAL_DIRECTORY_PATTERN.match(directory.name)
     ):
         raise SystemExit(f"Invalid block directory name: {directory.name}")
-    manifest = json.loads((directory / "session.json").read_text(encoding="utf-8"))
+    try:
+        manifest = json.loads(
+            (directory / "session.json").read_text(encoding="utf-8"),
+            parse_constant=_reject_nonfinite_json,
+        )
+    except (json.JSONDecodeError, ValueError) as error:
+        raise SystemExit("Manifest is not strict finite JSON") from error
     required = {
         "participant", "block", "condition", "route", "routeName", "routeSourceProblemId",
         "routeCatalogSha256", "boardSetup", "boardOverhangAngleDegrees", "routeDefinition",
         "boardAlignment", "boardAlignmentEnd", "retry", "adhoc", "appVersion", "gitRevision",
         "startUtc", "rehearsalStartUtc", "rehearsalDeadlineUtc", "resumeCount",
-        "pendingResumeIndex", "firstInteractionRecorded", "recordingSummaryComplete",
+        "pendingStart", "pendingResumeIndex", "firstInteractionRecorded", "recordingSummaryComplete",
         "endUtc", "endedEarly", "endReason",
         "routesJsonSha256", "gripFeedback",
         "droppedCaptureFrames", "holdAggregates",
@@ -62,12 +81,16 @@ def validate_session(directory: Path) -> int:
         raise SystemExit("Manually completed block is incorrectly marked endedEarly")
     if manifest["endReason"] == "completed_early" and not manifest["endedEarly"]:
         raise SystemExit("Early completion is not marked endedEarly")
-    if not isinstance(manifest["resumeCount"], int) or manifest["resumeCount"] < 0:
+    if type(manifest["resumeCount"]) is not int or manifest["resumeCount"] < 0:
         raise SystemExit("Manifest resumeCount is not a non-negative integer")
     if not isinstance(manifest["firstInteractionRecorded"], bool):
         raise SystemExit("Manifest firstInteractionRecorded is not boolean")
-    if manifest["pendingResumeIndex"] != 0:
+    if type(manifest["pendingResumeIndex"]) is not int or manifest["pendingResumeIndex"] != 0:
         raise SystemExit("Completed manifest still has a pending resume transaction")
+    if not isinstance(manifest["pendingStart"], bool):
+        raise SystemExit("Manifest pendingStart is not boolean")
+    if manifest["pendingStart"]:
+        raise SystemExit("Completed manifest still has a pending start transaction")
     if not isinstance(manifest["recordingSummaryComplete"], bool):
         raise SystemExit("Manifest recordingSummaryComplete is not boolean")
     if not manifest["appVersion"] or not manifest["gitRevision"]:
@@ -131,6 +154,8 @@ def validate_session(directory: Path) -> int:
         raise SystemExit("Manifest contains a malformed board alignment snapshot") from error
     if identity_changed or pose_changed:
         raise SystemExit("Board alignment changed during the recorded block")
+    if type(manifest["droppedCaptureFrames"]) is not int or manifest["droppedCaptureFrames"] < 0:
+        raise SystemExit("Manifest droppedCaptureFrames is not a non-negative integer")
     if manifest["droppedCaptureFrames"] != 0:
         raise SystemExit(f"Capture dropped {manifest['droppedCaptureFrames']} frames")
     if manifest["adhoc"]:
@@ -205,7 +230,7 @@ def validate_session(directory: Path) -> int:
     if manifest["endReason"] == "timer_expired":
         if manifest["endedEarly"]:
             raise SystemExit("Timer expiry is incorrectly marked endedEarly")
-        if abs((end_utc - rehearsal_deadline).total_seconds()) > 1.0:
+        if end_utc != rehearsal_deadline:
             raise SystemExit("Timer expiry does not match the persisted rehearsal deadline")
     elapsed = (
         end_utc - rehearsal_start

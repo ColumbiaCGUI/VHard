@@ -10,7 +10,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
+public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport, IPostprocessBuildWithReport
 {
     private const string ScenePath = "Assets/Scenes/VHardStudy.unity";
     private const string CatalogPath = "Assets/StreamingAssets/moonboard_2016_40.json";
@@ -21,12 +21,44 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
     private const string BoardMaterialPath = "Assets/Materials/MovementHarlemMoonBoard.mat";
     private const string BoardTexturePath = "Assets/Materials/MovementHarlemMoonBoard.png";
     private const string KickerMaterialPath = "Assets/Materials/MovementHarlemKicker.mat";
+    private const string DevAgentSettingsPath = "Assets/Resources/DevAgentSettings.asset";
+    private const string EditorSettingsPath = "ProjectSettings/EditorSettings.asset";
+    private const string StudyHoldsLayerName = "StudyHolds";
+    private const string StudyGhostHoldsLayerName = "StudyGhostHolds";
 
     public int callbackOrder => -1100;
 
     public void OnPreprocessBuild(BuildReport report)
     {
+        RemoveGeneratedDevAgentSettings();
         ValidateOrThrow();
+    }
+
+    public void OnPostprocessBuild(BuildReport report)
+    {
+        if (report == null || report.packedAssets == null)
+        {
+            throw new BuildFailedException("Build report is unavailable for DevAgent credential validation.");
+        }
+        PackedAssetInfo[] packedAssetContents = report.packedAssets
+            .Where(packed => packed != null && packed.contents != null)
+            .SelectMany(packed => packed.contents)
+            .ToArray();
+        if (packedAssetContents.Length == 0)
+        {
+            throw new BuildFailedException(
+                "Detailed packed-asset data is unavailable for DevAgent credential validation.");
+        }
+        bool credentialWasPacked = packedAssetContents.Any(asset => string.Equals(
+                asset.sourceAssetPath,
+                DevAgentSettingsPath,
+                StringComparison.OrdinalIgnoreCase));
+        if (credentialWasPacked)
+        {
+            throw new BuildFailedException(
+                "The generated Meta DevAgent credential asset was packed into the study build.");
+        }
+        Debug.Log("[StudyContentBuildValidator] Verified that no DevAgent credential asset was packed.");
     }
 
     [MenuItem("VHard/Validate Study Content")]
@@ -77,6 +109,19 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
         {
             throw new BuildFailedException("VHardStudy must be the only enabled study build scene.");
         }
+        if (EditorSettings.enterPlayModeOptionsEnabled &&
+            (EditorSettings.enterPlayModeOptions & EnterPlayModeOptions.DisableDomainReload) != 0)
+        {
+            throw new BuildFailedException("Domain Reload must remain enabled for study validation.");
+        }
+        if (ReadProjectSettingInt(EditorSettingsPath, "m_EnterPlayModeOptionsEnabled") != 0 ||
+            ReadProjectSettingInt(EditorSettingsPath, "m_EnterPlayModeOptions") != 0)
+        {
+            throw new BuildFailedException(
+                "Serialized Enter Play Mode options must remain disabled so Domain Reload stays enabled.");
+        }
+        ValidateStudyInteractionLayers();
+        ValidateBoardTextureHasNoLedArtifacts();
 
         Scene scene = SceneManager.GetSceneByPath(ScenePath);
         bool openedForValidation = !scene.isLoaded;
@@ -166,9 +211,26 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
         }
         GameObject networkingRoot = scene.GetRootGameObjects()
             .FirstOrDefault(root => root.name == "SIGGRAPHNetworkingJace");
-        if (networkingRoot != null && networkingRoot.activeSelf)
+        if (networkingRoot != null)
         {
-            throw new BuildFailedException("Participant study builds must keep networking disabled.");
+            throw new BuildFailedException("Participant study builds must not contain the legacy networking root.");
+        }
+        Transform[] sceneTransforms = scene.GetRootGameObjects()
+            .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
+            .ToArray();
+        if (sceneTransforms.Any(item =>
+                IsLedArtifactName(item.name) ||
+                item.name.Contains("Minimap", StringComparison.OrdinalIgnoreCase) ||
+                item.name.Contains("Highlight circle", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new BuildFailedException(
+                "Participant study builds must not contain LED, minimap, or route-halo objects.");
+        }
+        Light[] lights = FindComponents<Light>(scene);
+        if (lights.Length != 1 || lights[0].type != LightType.Directional)
+        {
+            throw new BuildFailedException(
+                "VHardStudy must contain only its single room-level Directional Light.");
         }
 
         Transform holdsRoot = configuror.holdsParentGameObject.transform;
@@ -239,6 +301,85 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport
         return scene.GetRootGameObjects()
             .SelectMany(root => root.GetComponentsInChildren<T>(true))
             .ToArray();
+    }
+
+    private static void RemoveGeneratedDevAgentSettings()
+    {
+        UnityEngine.Object settings = AssetDatabase.LoadMainAssetAtPath(DevAgentSettingsPath);
+        if (settings == null)
+        {
+            return;
+        }
+
+        UnityEngine.Object[] preloadedAssets = PlayerSettings.GetPreloadedAssets()
+            .Where(asset => asset != settings)
+            .ToArray();
+        PlayerSettings.SetPreloadedAssets(preloadedAssets);
+        if (!AssetDatabase.DeleteAsset(DevAgentSettingsPath))
+        {
+            throw new BuildFailedException(
+                "Failed to remove the generated Meta DevAgent credential asset before the study build.");
+        }
+        Debug.LogWarning(
+            "[StudyContentBuildValidator] Removed generated Meta DevAgent settings from the study build.");
+    }
+
+    private static bool IsLedArtifactName(string name)
+    {
+        return name.Equals("LED", StringComparison.OrdinalIgnoreCase) ||
+               name.StartsWith("LED ", StringComparison.OrdinalIgnoreCase) ||
+               name.StartsWith("LED-", StringComparison.OrdinalIgnoreCase) ||
+               name.StartsWith("LED_", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void ValidateStudyInteractionLayers()
+    {
+        if (LayerMask.NameToLayer(StudyHoldsLayerName) < 0 ||
+            LayerMask.NameToLayer(StudyGhostHoldsLayerName) < 0)
+        {
+            throw new BuildFailedException(
+                "StudyHolds and StudyGhostHolds layers must remain defined for participant interaction.");
+        }
+    }
+
+    private static void ValidateBoardTextureHasNoLedArtifacts()
+    {
+        Texture2D texture = new(2, 2, TextureFormat.RGBA32, false, false);
+        try
+        {
+            if (!ImageConversion.LoadImage(texture, File.ReadAllBytes(BoardTexturePath), false))
+            {
+                throw new BuildFailedException("MoonBoard texture could not be decoded for LED validation.");
+            }
+            Color32 socketColor = new(26, 31, 33, 255);
+            Color32 lensColor = new(63, 82, 85, 255);
+            if (texture.GetPixels32().Any(pixel => pixel.Equals(socketColor) || pixel.Equals(lensColor)))
+            {
+                throw new BuildFailedException(
+                    "MoonBoard texture still contains generated LED socket or lens pixels.");
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(texture);
+        }
+    }
+
+    private static int ReadProjectSettingInt(string path, string key)
+    {
+        string prefix = key + ":";
+        string[] matches = File.ReadLines(path)
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith(prefix, StringComparison.Ordinal))
+            .ToArray();
+        if (matches.Length != 1 ||
+            !int.TryParse(
+                matches[0].Substring(prefix.Length).Trim(),
+                out int value))
+        {
+            throw new BuildFailedException("Project setting is missing or invalid: " + key + ".");
+        }
+        return value;
     }
 
     private static string ComputeFileSha256(string path)

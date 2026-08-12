@@ -27,6 +27,7 @@ public sealed class ActionRecorder : MonoBehaviour
 
     public int DroppedCaptureFrames { get; private set; }
     public bool IsRecording { get; private set; }
+    public bool HasActiveSession => recordingSession != null;
     public string CurrentDirectory => currentDirectory;
 
     private void Start()

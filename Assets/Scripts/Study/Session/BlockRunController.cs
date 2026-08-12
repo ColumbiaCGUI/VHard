@@ -153,7 +153,13 @@ public sealed class BlockRunController
         }
 
         retryConfirmationKey = null;
-        BeginValidatedRow(row, requestedDirectory, retry, false);
+        BeginValidatedRow(
+            row,
+            requestedDirectory,
+            retry,
+            false,
+            Time.realtimeSinceStartupAsDouble,
+            DateTimeOffset.UtcNow);
         return true;
     }
 
@@ -187,6 +193,8 @@ public sealed class BlockRunController
             panel.RefreshPanelText();
             return false;
         }
+        double requestedStartRealtime = Time.realtimeSinceStartupAsDouble;
+        DateTimeOffset requestedStartUtc = DateTimeOffset.UtcNow;
         List<string> routes = sceneConfiguror != null
             ? sceneConfiguror.GetStudyRouteNames()
             : new List<string>();
@@ -218,9 +226,15 @@ public sealed class BlockRunController
             Application.persistentDataPath,
             "study",
             "MANUAL",
-            $"{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}_{row.condition}_{SanitizePathToken(row.route)}");
+            $"{requestedStartUtc.UtcDateTime:yyyyMMdd_HHmmss_fff}_{row.condition}_{SanitizePathToken(row.route)}");
         directory = GetUnusedDirectory(directory);
-        BeginValidatedRow(row, directory, 0, true);
+        BeginValidatedRow(
+            row,
+            directory,
+            0,
+            true,
+            requestedStartRealtime,
+            requestedStartUtc);
         return true;
     }
 
@@ -251,7 +265,13 @@ public sealed class BlockRunController
         return true;
     }
 
-    private void BeginValidatedRow(StudyScheduleRow row, string directory, int retry, bool adhoc)
+    private void BeginValidatedRow(
+        StudyScheduleRow row,
+        string directory,
+        int retry,
+        bool adhoc,
+        double requestedStartRealtime,
+        DateTimeOffset requestedStartUtc)
     {
         if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any())
         {
@@ -288,6 +308,7 @@ public sealed class BlockRunController
             rehearsalStartUtc = string.Empty,
             rehearsalDeadlineUtc = string.Empty,
             resumeCount = 0,
+            pendingStart = true,
             pendingResumeIndex = 0,
             firstInteractionRecorded = row.condition == "A",
             recordingSummaryComplete = true,
@@ -310,6 +331,15 @@ public sealed class BlockRunController
         bool recordingStarted = false;
         try
         {
+            state.blockTimerStarted = false;
+            completionRequested = false;
+            firstInteractionRecorded = activeManifest.firstInteractionRecorded;
+            panel.ResetBlockTimerDisplay();
+            state.panelPinned = true;
+            state.blockRunning = true;
+            PrepareRehearsalClock(requestedStartRealtime, requestedStartUtc);
+            WriteManifest();
+
             sceneConfiguror.ResetMoonBoardTransform();
             sceneConfiguror.SetStudyEnvironmentVisible(true);
             sceneConfiguror.SetUpRouteByName(row.route);
@@ -321,21 +351,15 @@ public sealed class BlockRunController
             });
             sceneConfiguror.SetStudyEnvironmentVisible(row.condition != "A");
             sceneConfiguror.SetStudyFeedbackVisible(row.condition != "A");
-            GC.Collect();
 
-            state.blockTimerStarted = false;
-            completionRequested = false;
-            firstInteractionRecorded = activeManifest.firstInteractionRecorded;
-            panel.ResetBlockTimerDisplay();
-            state.panelPinned = true;
-            state.blockRunning = true;
-            PrepareRehearsalClock();
             actionRecorder.BeginBlock(
                 state.activeDirectory,
                 activeManifest,
                 string.Empty,
                 ElapsedSeconds);
             recordingStarted = true;
+
+            activeManifest.pendingStart = false;
             RecordRehearsalClockStarted("ManualStart");
 
             headsetPresence.InitializeBlockHeadsetWear();
@@ -355,29 +379,70 @@ public sealed class BlockRunController
         }
         catch (Exception startException)
         {
-            state.blockRunning = false;
-            state.blockTimerStarted = false;
-            state.manualRunRecoveryBlocked = adhoc && manifestCreated;
-            if (!recordingStarted)
+            List<Exception> rollbackErrors = new();
+            if (recordingStarted || actionRecorder.HasActiveSession)
             {
-                if (!manifestCreated && Directory.Exists(directory) &&
-                    !Directory.EnumerateFileSystemEntries(directory).Any())
+                try
                 {
-                    Directory.Delete(directory);
+                    actionRecorder.EndBlock();
                 }
-                throw;
+                catch (Exception exception)
+                {
+                    rollbackErrors.Add(exception);
+                }
             }
-
             try
             {
-                actionRecorder.EndBlock();
+                sceneConfiguror.ResetManualStudyState(true);
             }
-            catch (Exception endException)
+            catch (Exception exception)
             {
+                rollbackErrors.Add(exception);
+            }
+            try
+            {
+                if (manifestCreated)
+                {
+                    activeManifest.pendingStart = false;
+                    activeManifest.recordingSummaryComplete = false;
+                    activeManifest.endUtc = DateTime.UtcNow.ToString("o");
+                    activeManifest.endedEarly = true;
+                    activeManifest.endReason = "startup_failed";
+                    activeManifest.boardAlignmentEnd = null;
+                    WriteManifest();
+                }
+            }
+            catch (Exception exception)
+            {
+                rollbackErrors.Add(exception);
+            }
+            if (!manifestCreated && Directory.Exists(directory))
+            {
+                try
+                {
+                    if (!Directory.EnumerateFileSystemEntries(directory).Any())
+                    {
+                        Directory.Delete(directory);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    rollbackErrors.Add(exception);
+                }
+            }
+            bool unresolvedStorage = !manifestCreated && Directory.Exists(directory);
+            if (!adhoc)
+            {
+                state.participantsWithBlockRuns.Remove(row.participant);
+            }
+            ClearRecoveredRunReferences();
+            state.manualRunRecoveryBlocked = adhoc && (unresolvedStorage || rollbackErrors.Count > 0);
+            if (rollbackErrors.Count > 0)
+            {
+                rollbackErrors.Insert(0, startException);
                 throw new AggregateException(
-                    "Study run startup and recording rollback both failed.",
-                    startException,
-                    endException);
+                    "Study run startup failed and rollback was incomplete.",
+                    rollbackErrors);
             }
             throw;
         }
@@ -429,6 +494,10 @@ public sealed class BlockRunController
         manifestCreated = File.Exists(manifestPath);
         ReconcilePendingResumeSegment(recovery.DirectoryPath);
         utcNow = DateTimeOffset.UtcNow;
+        if (activeManifest.pendingStart)
+        {
+            return FinalizeInterruptedStartup(recovery, utcNow);
+        }
         if (recovery.IsExpired(utcNow))
         {
             return FinalizeExpiredRecoveredRun(recovery);
@@ -469,7 +538,6 @@ public sealed class BlockRunController
         sceneConfiguror.SetUpRouteByName(row.route);
         sceneConfiguror.SetGameMode(row.condition == "B" ? GameMode.Grip : GameMode.Ghost);
         sceneConfiguror.SetStudyFeedbackVisible(true);
-        GC.Collect();
 
         utcNow = DateTimeOffset.UtcNow;
         if (recovery.IsExpired(utcNow))
@@ -563,7 +631,7 @@ public sealed class BlockRunController
             state.blockRunning = false;
             state.blockTimerStarted = false;
             state.manualRunRecoveryBlocked = true;
-            if (!recordingStarted)
+            if (!recordingStarted && !actionRecorder.HasActiveSession)
             {
                 throw;
             }
@@ -611,7 +679,10 @@ public sealed class BlockRunController
             sceneConfiguror.SetStudyEnvironmentVisible(true);
             sceneConfiguror.SetStudyFeedbackVisible(true);
         }
-        activeManifest.endUtc = DateTime.UtcNow.ToString("o");
+        activeManifest.endUtc = string.Equals(reason, "timer_expired", StringComparison.Ordinal)
+            ? activeManifest.rehearsalDeadlineUtc
+            : DateTime.UtcNow.ToString("o");
+        activeManifest.pendingStart = false;
         activeManifest.endedEarly = endedEarly;
         activeManifest.endReason = reason;
         headsetPresence.FinalizeBlockHeadsetWear();
@@ -714,7 +785,9 @@ public sealed class BlockRunController
         return true;
     }
 
-    private void PrepareRehearsalClock()
+    private void PrepareRehearsalClock(
+        double requestedStartRealtime,
+        DateTimeOffset requestedStartUtc)
     {
         if (!state.blockRunning || state.blockTimerStarted || state.activeRow == null)
         {
@@ -722,13 +795,17 @@ public sealed class BlockRunController
         }
 
         double now = Time.realtimeSinceStartupAsDouble;
-        blockStartRealtime = now;
+        if (double.IsNaN(requestedStartRealtime) || double.IsInfinity(requestedStartRealtime) ||
+            requestedStartRealtime < 0d || requestedStartRealtime > now)
+        {
+            throw new ArgumentOutOfRangeException(nameof(requestedStartRealtime));
+        }
+        blockStartRealtime = requestedStartRealtime;
         elapsedBeforeCurrentProcess = 0d;
-        DateTimeOffset blockStartUtc = DateTimeOffset.UtcNow;
         state.blockTimerStarted = true;
-        activeManifest.startUtc = blockStartUtc.ToString("o");
-        activeManifest.rehearsalStartUtc = blockStartUtc.ToString("o");
-        activeManifest.rehearsalDeadlineUtc = blockStartUtc
+        activeManifest.startUtc = requestedStartUtc.ToString("o");
+        activeManifest.rehearsalStartUtc = requestedStartUtc.ToString("o");
+        activeManifest.rehearsalDeadlineUtc = requestedStartUtc
             .AddSeconds(RehearsalDurationSeconds)
             .ToString("o");
     }
@@ -828,6 +905,7 @@ public sealed class BlockRunController
     private ManualRunRecoveryOutcome FinalizeExpiredRecoveredRun(
         StudyRehearsalTiming.ActiveManualRunRecovery recovery)
     {
+        activeManifest.pendingStart = false;
         activeManifest.pendingResumeIndex = 0;
         activeManifest.recordingSummaryComplete = false;
         activeManifest.endUtc = recovery.RehearsalDeadlineUtc.ToString("o");
@@ -836,6 +914,23 @@ public sealed class BlockRunController
         activeManifest.boardAlignmentEnd = null;
         WriteManifest();
         state.statusMessage = "Previous run expired while the app was closed.";
+        ClearRecoveredRunReferences();
+        return ManualRunRecoveryOutcome.Expired;
+    }
+
+    private ManualRunRecoveryOutcome FinalizeInterruptedStartup(
+        StudyRehearsalTiming.ActiveManualRunRecovery recovery,
+        DateTimeOffset utcNow)
+    {
+        activeManifest.pendingStart = false;
+        activeManifest.pendingResumeIndex = 0;
+        activeManifest.recordingSummaryComplete = false;
+        activeManifest.endUtc = utcNow.ToString("o");
+        activeManifest.endedEarly = true;
+        activeManifest.endReason = "app_interrupted_startup";
+        activeManifest.boardAlignmentEnd = null;
+        WriteManifest();
+        state.statusMessage = "Previous run was interrupted during startup.";
         ClearRecoveredRunReferences();
         return ManualRunRecoveryOutcome.Expired;
     }

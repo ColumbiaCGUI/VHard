@@ -486,7 +486,10 @@ public sealed class StudyManager : MonoBehaviour
             }
             if (state.blockRunning)
             {
-                EndBlock(true, "app_closed");
+                if (blockRun == null || !blockRun.TryExpireRunningBlock())
+                {
+                    EndBlock(true, "app_closed");
+                }
             }
             else if (state.IsAuxiliaryActive)
             {

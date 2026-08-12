@@ -105,7 +105,7 @@ public static class MovementHarlemEnvironmentBuilder
 
             EnsureAssetFolder();
             Texture2D cmuTexture = GenerateCmuTexture();
-            AddBoardLabelsAndLedSockets();
+            AddBoardLabels();
             Texture2D upperBoardTexture = GenerateUpperBoardTexture();
             UnityEngine.Shader shader = UnityEngine.Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null)
@@ -149,14 +149,6 @@ public static class MovementHarlemEnvironmentBuilder
                 new Color(0.025f, 0.045f, 0.075f),
                 0.06f,
                 0f);
-            Material lightPanel = CreateMaterial(
-                shader,
-                MaterialFolder + "/MovementHarlemLightPanel.mat",
-                new Color(0.88f, 0.91f, 0.93f),
-                0.42f,
-                0f,
-                null,
-                new Color(2.4f, 2.55f, 2.65f));
             Material upperBoard = CreateMaterial(
                 shader,
                 MaterialFolder + "/MovementHarlemUpperBoard.mat",
@@ -350,26 +342,6 @@ public static class MovementHarlemEnvironmentBuilder
                     steel);
             }
 
-            float[] lightXs =
-            {
-            BoardCenterX - 2.85f,
-            BoardCenterX - 0.95f,
-            BoardCenterX + 0.95f,
-            BoardCenterX + 2.85f,
-        };
-            foreach (float x in lightXs)
-            {
-                CreateCube(
-                    ceilingFixtures,
-                    ceilingFixtureChildren,
-                    $"LED Batten {FormatSigned(x - BoardCenterX)}",
-                    new Vector3(x, CeilingY - 0.145f, 0.42f),
-                    new Vector3(1.2f, 0.035f, 0.19f),
-                    Quaternion.identity,
-                    lightPanel,
-                    false);
-            }
-
             float seamY = FloorY + 0.004f;
             float[] transverseSeams = { -1.18f, 0.62f, 2.42f };
             foreach (float z in transverseSeams)
@@ -417,7 +389,7 @@ public static class MovementHarlemEnvironmentBuilder
 
             AssetDatabase.SaveAssets();
             Debug.Log(
-                "[MovementHarlemEnvironmentBuilder] Reconciled 27 collider-free renderers in VHardStudy.");
+                "[MovementHarlemEnvironmentBuilder] Reconciled 23 collider-free renderers in VHardStudy.");
         }
         finally
         {
@@ -488,7 +460,7 @@ public static class MovementHarlemEnvironmentBuilder
         }
         Renderer[] renderers = reconstruction.GetComponentsInChildren<Renderer>(true);
         MeshFilter[] meshFilters = reconstruction.GetComponentsInChildren<MeshFilter>(true);
-        if (renderers.Length != 27 ||
+        if (renderers.Length != 23 ||
             meshFilters.Length != renderers.Length ||
             meshFilters.Any(filter => filter.sharedMesh != GetBuiltinCubeMesh()) ||
             reconstruction.GetComponentsInChildren<Collider>(true).Length != 0 ||
@@ -496,7 +468,7 @@ public static class MovementHarlemEnvironmentBuilder
             reconstruction.GetComponentsInChildren<MonoBehaviour>(true).Length != 0)
         {
             throw new InvalidOperationException(
-                "The Movement Harlem reconstruction must contain 27 renderers and no physics/runtime components.");
+                "The Movement Harlem reconstruction must contain 23 renderers and no physics/runtime components.");
         }
         if (renderers.Any(renderer =>
                 GameObjectUtility.GetStaticEditorFlags(renderer.gameObject) != (StaticEditorFlags)0))
@@ -723,7 +695,7 @@ public static class MovementHarlemEnvironmentBuilder
         }
     }
 
-    private static void AddBoardLabelsAndLedSockets()
+    private static void AddBoardLabels()
     {
         if (!File.Exists(BoardTexturePath))
         {
@@ -741,35 +713,10 @@ public static class MovementHarlemEnvironmentBuilder
             }
 
             Color32[] pixels = texture.GetPixels32();
-            Color32 socketColor = new(26, 31, 33, 255);
-            Color32 lensColor = new(63, 82, 85, 255);
             Color32 labelColor = new(102, 105, 103, 255);
             for (int rowIndex = 0; rowIndex < BoardGridRowPixels.Length; rowIndex++)
             {
                 int rowPixel = BoardGridRowPixels[rowIndex];
-                int nextRowPixel = rowIndex + 1 < BoardGridRowPixels.Length
-                    ? BoardGridRowPixels[rowIndex + 1]
-                    : texture.height - 5;
-                int ledPixel = Mathf.RoundToInt((rowPixel + nextRowPixel) * 0.5f);
-                foreach (int columnPixel in BoardGridColumnPixels)
-                {
-                    DrawFilledCircleTop(
-                        pixels,
-                        texture.width,
-                        texture.height,
-                        columnPixel,
-                        ledPixel,
-                        3,
-                        socketColor);
-                    DrawFilledCircleTop(
-                        pixels,
-                        texture.width,
-                        texture.height,
-                        columnPixel,
-                        ledPixel,
-                        1,
-                        lensColor);
-                }
                 DrawNumberTop(
                     pixels,
                     texture.width,

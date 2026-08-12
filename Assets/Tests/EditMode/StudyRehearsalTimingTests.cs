@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 public sealed class StudyRehearsalTimingTests
@@ -74,6 +75,16 @@ public sealed class StudyRehearsalTimingTests
     }
 
     [Test]
+    public void EnterPlayModeKeepsDomainReloadEnabled()
+    {
+        Assert.That(EditorSettings.enterPlayModeOptionsEnabled, Is.False);
+        Assert.That(EditorSettings.enterPlayModeOptions, Is.EqualTo((EnterPlayModeOptions)0));
+        string settings = File.ReadAllText("ProjectSettings/EditorSettings.asset");
+        StringAssert.Contains("m_EnterPlayModeOptionsEnabled: 0", settings);
+        StringAssert.Contains("m_EnterPlayModeOptions: 0", settings);
+    }
+
+    [Test]
     public void RuntimePanelContainsOnlyTheSevenRequestedControls()
     {
         GameObject parentObject = new("Panel Test Parent");
@@ -99,24 +110,34 @@ public sealed class StudyRehearsalTimingTests
                 ?.Invoke(panel, null);
             Transform console = parentObject.transform.Find("Study Experimenter Console");
             Assert.That(console, Is.Not.Null);
-            string[] controls =
+            (string objectName, string label)[] controls =
             {
-                "Mode A",
-                "Mode B",
-                "Next Route",
-                "Start Run",
-                "Complete Run",
-                "Reset To Bottom",
-                "Hide Panel",
+                ("Mode A", "MODE A"),
+                ("Mode B", "MODE B"),
+                ("Previous Route", "ROUTE PREV"),
+                ("Next Route", "ROUTE NEXT"),
+                ("Start Run", "START"),
+                ("Complete Run", "COMPLETE"),
+                ("Reset", "RESET"),
             };
-            foreach (string control in controls)
+            foreach ((string objectName, string label) control in controls)
             {
-                Assert.That(console.Find(control), Is.Not.Null, control);
+                Transform button = console.Find(control.objectName);
+                Assert.That(button, Is.Not.Null, control.objectName);
+                Transform labelObject = console.Find(control.objectName + " Label");
+                Assert.That(labelObject, Is.Not.Null, control.objectName + " label");
+                Component label = labelObject.GetComponents<Component>()
+                    .Single(component => component.GetType().Name == "TextMeshPro");
+                Assert.That(
+                    label.GetType().GetProperty("text")?.GetValue(label),
+                    Is.EqualTo(control.label),
+                    control.objectName);
             }
             Assert.That(console.Find("Previous Participant"), Is.Null);
             Assert.That(console.Find("Previous Block"), Is.Null);
             Assert.That(console.Find("Practice B"), Is.Null);
             Assert.That(console.Find("Align Board"), Is.Null);
+            Assert.That(console.Find("Hide Panel"), Is.Null);
             Assert.That(console.GetComponentsInChildren(buttonType, true), Has.Length.EqualTo(8),
                 "Seven controls plus the panel grab handle are expected.");
         }
@@ -220,6 +241,31 @@ public sealed class StudyRehearsalTimingTests
         Assert.That(recovery.GetElapsedSeconds(start.AddMinutes(2)), Is.EqualTo(120f));
         Assert.That(recovery.IsExpired(start.AddMinutes(4)), Is.False);
         Assert.That(recovery.IsExpired(start.AddMinutes(5)), Is.True);
+    }
+
+    [Test]
+    public void ActiveManualRunRecoveryPreservesPendingStartTransaction()
+    {
+        DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        WriteActiveManualManifest(
+            "pending-start",
+            "approved-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            start.AddMinutes(5),
+            true);
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329" },
+            start.AddSeconds(1),
+            out StudyRehearsalTiming.ActiveManualRunRecovery recovery,
+            out string diagnostic);
+
+        Assert.That(found, Is.True, diagnostic);
+        Assert.That(recovery.Manifest.pendingStart, Is.True);
     }
 
     [Test]
@@ -852,7 +898,8 @@ public sealed class StudyRehearsalTimingTests
         string route,
         string condition,
         DateTimeOffset start,
-        DateTimeOffset deadline)
+        DateTimeOffset deadline,
+        bool pendingStart = false)
     {
         string directory = Path.Combine(recoveryStudyRoot, directoryName);
         Directory.CreateDirectory(directory);
@@ -868,6 +915,7 @@ public sealed class StudyRehearsalTimingTests
                       "  \"rehearsalStartUtc\": \"" + start.ToString("o") + "\",\n" +
                        "  \"rehearsalDeadlineUtc\": \"" + deadline.ToString("o") + "\",\n" +
                        "  \"resumeCount\": 0,\n" +
+                       "  \"pendingStart\": " + (pendingStart ? "true" : "false") + ",\n" +
                        "  \"pendingResumeIndex\": 0,\n" +
                        "  \"firstInteractionRecorded\": false,\n" +
                        "  \"recordingSummaryComplete\": true,\n" +

@@ -68,10 +68,6 @@ public class SceneConfiguror : MonoBehaviour
     public OVRSkeleton leftHandOVRSkeleton;
     public OVRSkeleton rightHandOVRSkeleton;
 
-    [Header("Other Player's Avatar")]
-    public AvatarHand otherPlayerLeftHand;
-    public AvatarHand otherPlayerRightHand;
-
     [Header("Hands State")]
     public int numBonesPerHand;
     public Vector3 centerEyePosition;
@@ -251,11 +247,6 @@ public class SceneConfiguror : MonoBehaviour
         {
             return;
         }
-
-        // The SIGGRAPH two-player networked-hands path is gone with Photon; the
-        // other-player avatar hands stay inactive.
-        otherPlayerLeftHand.gameObject.SetActive(false);
-        otherPlayerRightHand.gameObject.SetActive(false);
 
     }
 
@@ -668,6 +659,15 @@ public class SceneConfiguror : MonoBehaviour
         StudyEnvironment.ResetMoonBoardTransform();
     }
 
+    public void ResetManualStudyState(bool restoreBasicMode = false)
+    {
+        ghostHoldController?.DismissGhost();
+        SetGameMode(restoreBasicMode ? GameMode.Basic : gameMode);
+        ResetMoonBoardTransform();
+        SetStudyEnvironmentVisible(true);
+        SetStudyFeedbackVisible(true);
+    }
+
     public void MoveStudyEnvironment(Vector3 worldDelta)
     {
         StudyEnvironment.MoveStudyEnvironment(worldDelta);
@@ -891,7 +891,8 @@ public class SceneConfiguror : MonoBehaviour
         }
         if (studyHoldsLayer < 0 || studyGhostHoldsLayer < 0)
         {
-            Debug.LogError("Study hold layers are missing; hold and ghost interaction layers cannot be assigned.");
+            throw new InvalidOperationException(
+                "Study hold layers are missing; hold and ghost interaction layers cannot be assigned.");
         }
     }
 
