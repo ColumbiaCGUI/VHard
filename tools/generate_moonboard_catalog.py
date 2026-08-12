@@ -388,6 +388,77 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     "B132": -145.0,  # I18; observed board residual +145 deg
     "B130": -35.0,  # J5; observed board residual +35 deg
     "Y2": -55.0,  # J14; observed board residual +55 deg
+    # 2026-08-12 Ben-directed landing of the remaining full-board audit predictions
+    # (docs/route-selection/board-audit/orientation-audit-2026-07-28.md, "Predicted but
+    # NOT landed"): the official 2016 setup image alone is now accepted as landing
+    # evidence; the rectified gym photo stays advisory. The 8 low-IoU geometry flags
+    # (B16/W71, B18/W99, B3/W80, C6/W95, F15/Y18, F9/Y40, J2/W58, J6/W92) and D10/Y33
+    # (wrong-mesh assignment) have no defensible angle and remain uncorrected.
+    "B133": -60.0,  # A9; official-image residual +60 deg
+    "Y9": -140.0,  # A10; official-image residual +140 deg
+    "W68": 85.0,  # A12; official-image residual -85 deg
+    "Y26": -130.0,  # A13; official-image residual +130 deg
+    "Y5": -40.0,  # A16; official-image residual +40 deg
+    "B139": -140.0,  # A18; official-image residual +140 deg
+    "Y29": -140.0,  # B4; official-image residual +140 deg
+    "B147": -80.0,  # B6; official-image residual +80 deg
+    "Y13": 170.0,  # B7; official-image residual -170 deg
+    "W78": 40.0,  # B9; official-image residual -40 deg
+    "B148": 50.0,  # B10; official-image residual -50 deg
+    "W56": -35.0,  # B11; official-image residual +35 deg
+    "W77": -40.0,  # B13; official-image residual +40 deg
+    "B101": 40.0,  # B15; official-image residual -40 deg
+    "B125": -15.0,  # C5; official-image residual +15 deg
+    "Y8": -85.0,  # C9; official-image residual +85 deg
+    "W79": 50.0,  # C10; official-image residual -50 deg
+    "W94": -90.0,  # C11; official-image residual +90 deg
+    "Y31": -45.0,  # C15; official-image residual +45 deg
+    "B146": 75.0,  # D7; official-image residual -75 deg
+    "W52": 50.0,  # D9; official-image residual -50 deg
+    "B119": -150.0,  # D11; official-image residual +150 deg
+    "Y24": 155.0,  # D13; official-image residual -155 deg
+    "W51": -90.0,  # D17; official-image residual +90 deg
+    "B129": -45.0,  # E6; official-image residual +45 deg
+    "B122": -180.0,  # E8; official-image residual +180 deg
+    "W64": -40.0,  # E10; official-image residual +40 deg
+    "B118": -95.0,  # F11; official-image residual +95 deg
+    "W54": 85.0,  # F12; official-image residual -85 deg
+    "W62": -40.0,  # F14; official-image residual +40 deg
+    "W96": 175.0,  # F16; official-image residual -175 deg
+    "W81": -70.0,  # G2; official-image residual +70 deg
+    "B134": -140.0,  # G6; official-image residual +140 deg
+    "Y19": -140.0,  # G7; official-image residual +140 deg
+    "B128": 40.0,  # G9; official-image residual -40 deg
+    "B145": 165.0,  # G10; official-image residual -165 deg
+    "Y27": 80.0,  # G11; official-image residual -80 deg
+    "W55": 40.0,  # G12; official-image residual -40 deg
+    "B137": 90.0,  # G14; official-image residual -90 deg
+    "B112": -30.0,  # G15; official-image residual +30 deg
+    "W82": -85.0,  # G18; official-image residual +85 deg
+    "Y1": 140.0,  # H7; official-image residual -140 deg
+    "B131": 145.0,  # H8; official-image residual -145 deg
+    "Y32": 140.0,  # H9; official-image residual -140 deg
+    "B140": 35.0,  # H10; official-image residual -35 deg
+    "W73": -90.0,  # H11; official-image residual +90 deg
+    "B114": 170.0,  # H12; official-image residual -170 deg
+    "Y34": 40.0,  # H14; official-image residual -40 deg
+    "Y20": 50.0,  # H15; official-image residual -50 deg
+    "Y35": -95.0,  # I5; official-image residual +95 deg
+    "B107": 40.0,  # I7; official-image residual -40 deg
+    "B120": -95.0,  # I10; official-image residual +95 deg
+    "W63": 80.0,  # I13; official-image residual -80 deg
+    "W69": 35.0,  # I16; official-image residual -35 deg
+    "B113": -40.0,  # J7; official-image residual +40 deg
+    "W61": 140.0,  # J9; official-image residual -140 deg
+    "W57": 45.0,  # J10; official-image residual -45 deg
+    "B102": 35.0,  # J12; official-image residual -35 deg
+    "B103": 40.0,  # J13; official-image residual -40 deg
+    "B117": 90.0,  # J16; official-image residual -90 deg
+    "B121": -100.0,  # K9; official-image residual +100 deg
+    "Y15": 180.0,  # K10; official-image residual -180 deg
+    "W84": -40.0,  # K11; official-image residual +40 deg
+    "Y37": -10.0,  # K13; official-image residual +10 deg
+    "B144": 45.0,  # K14; official-image residual -45 deg
 }
 MESH_FRAME_CORRECTIONS = {
     # Approved by-eye W98 orientation from 1b9df47, expressed after the FBX -90-degree X basis.

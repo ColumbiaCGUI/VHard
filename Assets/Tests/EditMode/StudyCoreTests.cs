@@ -207,6 +207,16 @@ public sealed class StudyCoreTests
             "W98", "B127", "B109", "B115", "B141", "Y28", "Y6", "B138",
             "Y12", "B123", "B135", "W97", "B126", "B110", "W66", "W74", "W53", "W65",
             "B105", "B149", "W83", "Y36", "B124", "B108", "B132", "B130", "Y2",
+            // 2026-08-12 official-image landing of the remaining audit predictions.
+            "W81", "Y29", "B125", "Y35", "B147", "B129", "B134", "Y13",
+            "B146", "Y19", "Y1", "B107", "B113", "B122", "B131", "B133",
+            "W78", "Y8", "W52", "B128", "Y32", "W61", "B121", "Y9",
+            "B148", "W79", "W64", "B145", "B140", "B120", "W57", "Y15",
+            "W56", "W94", "B119", "B118", "Y27", "W73", "W84", "W68",
+            "W54", "W55", "B114", "B102", "Y26", "W77", "Y24", "W63",
+            "B103", "Y37", "W62", "B137", "Y34", "B144", "B101", "Y31",
+            "B112", "Y20", "Y5", "W96", "W69", "B117", "W51", "B139",
+            "W82",
         };
         int correctedMeshes = 0;
         foreach (MoonBoardHoldDefinition hold in catalog.holds)
@@ -220,7 +230,7 @@ public sealed class StudyCoreTests
                 Assert.That(expectedCorrectedMeshes.Remove(hold.scanId), Is.True, hold.coordinate);
             }
         }
-        Assert.That(correctedMeshes, Is.EqualTo(27));
+        Assert.That(correctedMeshes, Is.EqualTo(92));
         Assert.That(expectedCorrectedMeshes, Is.Empty);
 
         Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
@@ -265,6 +275,72 @@ public sealed class StudyCoreTests
             { "E15", ("W66", 315, -55f) },
             { "I15", ("B108", 315, -45f) },
             { "I18", ("B132", 45, -145f) },
+            // 2026-08-12 official-image landing of the remaining audit predictions.
+            { "G2", ("W81", 0, -70f) },
+            { "B4", ("Y29", 225, -140f) },
+            { "C5", ("B125", 0, -15f) },
+            { "I5", ("Y35", 0, -95f) },
+            { "B6", ("B147", 315, -80f) },
+            { "E6", ("B129", 315, -45f) },
+            { "G6", ("B134", 225, -140f) },
+            { "B7", ("Y13", 180, 170f) },
+            { "D7", ("B146", 180, 75f) },
+            { "G7", ("Y19", 225, -140f) },
+            { "H7", ("Y1", 135, 140f) },
+            { "I7", ("B107", 45, 40f) },
+            { "J7", ("B113", 0, -40f) },
+            { "E8", ("B122", 0, -180f) },
+            { "H8", ("B131", 45, 145f) },
+            { "A9", ("B133", 315, -60f) },
+            { "B9", ("W78", 45, 40f) },
+            { "C9", ("Y8", 270, -85f) },
+            { "D9", ("W52", 45, 50f) },
+            { "G9", ("B128", 45, 40f) },
+            { "H9", ("Y32", 90, 140f) },
+            { "J9", ("W61", 135, 140f) },
+            { "K9", ("B121", 0, -100f) },
+            { "A10", ("Y9", 225, -140f) },
+            { "B10", ("B148", 135, 50f) },
+            { "C10", ("W79", 45, 50f) },
+            { "E10", ("W64", 315, -40f) },
+            { "G10", ("B145", 45, 165f) },
+            { "H10", ("B140", 45, 35f) },
+            { "I10", ("B120", 0, -95f) },
+            { "J10", ("W57", 45, 45f) },
+            { "K10", ("Y15", 180, 180f) },
+            { "B11", ("W56", 315, -35f) },
+            { "C11", ("W94", 270, -90f) },
+            { "D11", ("B119", 225, -150f) },
+            { "F11", ("B118", 45, -95f) },
+            { "G11", ("Y27", 90, 80f) },
+            { "H11", ("W73", 270, -90f) },
+            { "K11", ("W84", 315, -40f) },
+            { "A12", ("W68", 90, 85f) },
+            { "F12", ("W54", 90, 85f) },
+            { "G12", ("W55", 45, 40f) },
+            { "H12", ("B114", 315, 170f) },
+            { "J12", ("B102", 45, 35f) },
+            { "A13", ("Y26", 0, -130f) },
+            { "B13", ("W77", 315, -40f) },
+            { "D13", ("Y24", 0, 155f) },
+            { "I13", ("W63", 90, 80f) },
+            { "J13", ("B103", 0, 40f) },
+            { "K13", ("Y37", 0, -10f) },
+            { "F14", ("W62", 315, -40f) },
+            { "G14", ("B137", 90, 90f) },
+            { "H14", ("Y34", 270, 40f) },
+            { "K14", ("B144", 45, 45f) },
+            { "B15", ("B101", 0, 40f) },
+            { "C15", ("Y31", 315, -45f) },
+            { "G15", ("B112", 315, -30f) },
+            { "H15", ("Y20", 45, 50f) },
+            { "A16", ("Y5", 315, -40f) },
+            { "F16", ("W96", 180, 175f) },
+            { "I16", ("W69", 45, 35f) },
+            { "J16", ("B117", 90, 90f) },
+            { "D17", ("W51", 0, -90f) },
+            { "A18", ("B139", 0, -140f) },
+            { "G18", ("W82", 270, -85f) },
         };
         Quaternion boardMount = Quaternion.Euler(catalog.SurfaceTiltDegrees, 0f, 180f);
         Vector3 climbingSideNormal = boardMount * Vector3.up;
@@ -284,7 +360,9 @@ public sealed class StudyCoreTests
             Quaternion expectedCorrection = Quaternion.AngleAxis(
                 entry.Value.correctionDegrees,
                 Vector3.forward);
-            Assert.That(Quaternion.Angle(correction, expectedCorrection), Is.LessThan(0.001f), entry.Key);
+            // 0.05 deg bound: Quaternion.Angle uses acos near dot=1, where one float32 ulp
+            // reads as ~0.03 deg; the corrections themselves sit on a 5-degree grid.
+            Assert.That(Quaternion.Angle(correction, expectedCorrection), Is.LessThan(0.05f), entry.Key);
 
             Quaternion uncorrected = boardMount *
                                      Quaternion.Euler(270f, 360f - hold.rotationDegrees, 0f);
@@ -294,9 +372,9 @@ public sealed class StudyCoreTests
                 climbingSideNormal);
             Quaternion actualBoardDelta = corrected * Quaternion.Inverse(uncorrected);
             Assert.That(Quaternion.Angle(actualBoardDelta, expectedBoardDelta),
-                Is.LessThan(0.001f), entry.Key);
+                Is.LessThan(0.05f), entry.Key);
             Assert.That(Vector3.Angle(corrected * Vector3.forward, climbingSideNormal),
-                Is.LessThan(0.001f), entry.Key);
+                Is.LessThan(0.05f), entry.Key);
         }
 
         Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
@@ -469,10 +547,11 @@ public sealed class StudyCoreTests
         Assert.That(quaternionError, Does.Contain("physical calibration").And.Contain("A15"));
 
         catalog = LoadCatalog();
-        Assert.That(catalog.TryGetHold("G2", out MoonBoardHoldDefinition g2), Is.True);
-        g2.meshFrameCorrection.w = 1f;
+        // K8/Y30 is deliberately correction-free (G2/W81 gained a correction 2026-08-12).
+        Assert.That(catalog.TryGetHold("K8", out MoonBoardHoldDefinition k8), Is.True);
+        k8.meshFrameCorrection.w = 1f;
         Assert.That(catalog.TryValidate(out string unflaggedError), Is.False);
-        Assert.That(unflaggedError, Does.Contain("physical calibration").And.Contain("G2"));
+        Assert.That(unflaggedError, Does.Contain("physical calibration").And.Contain("K8"));
     }
 
     [Test]

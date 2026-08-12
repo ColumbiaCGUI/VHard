@@ -36,7 +36,14 @@
       "surfaceOffsetMeters": 0.027520821935745923,
       "meshScaleMultiplier": 0.402781267,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "72"
+      "sourceHoldId": "72",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.573576436351046,
+        "w": 0.8191520442889918
+      }
     },
     {
       "coordinate": "J2",
@@ -80,7 +87,14 @@
       "surfaceOffsetMeters": 0.013744046678762202,
       "meshScaleMultiplier": 0.482812656,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "30"
+      "sourceHoldId": "30",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.9396926207859083,
+        "w": 0.3420201433256688
+      }
     },
     {
       "coordinate": "G4",
@@ -138,7 +152,14 @@
       "surfaceOffsetMeters": 0.01213476196343283,
       "meshScaleMultiplier": 0.620536027,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "118"
+      "sourceHoldId": "118",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.13052619222005157,
+        "w": 0.9914448613738104
+      }
     },
     {
       "coordinate": "D5",
@@ -189,7 +210,14 @@
       "surfaceOffsetMeters": 0.02084807194454959,
       "meshScaleMultiplier": 0.554730843,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "36"
+      "sourceHoldId": "36",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.7372773368101241,
+        "w": 0.6755902076156602
+      }
     },
     {
       "coordinate": "J5",
@@ -229,7 +257,14 @@
       "surfaceOffsetMeters": 0.021081071992618185,
       "meshScaleMultiplier": 0.722229623,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "139"
+      "sourceHoldId": "139",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.6427876096865393,
+        "w": 0.766044443118978
+      }
     },
     {
       "coordinate": "C6",
@@ -262,7 +297,14 @@
       "surfaceOffsetMeters": 0.019963794264003895,
       "meshScaleMultiplier": 0.599985034,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "115"
+      "sourceHoldId": "115",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.3826834323650898,
+        "w": 0.9238795325112867
+      }
     },
     {
       "coordinate": "F6",
@@ -291,7 +333,14 @@
       "surfaceOffsetMeters": 0.02280181336780041,
       "meshScaleMultiplier": 0.775152755,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "126"
+      "sourceHoldId": "126",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.9396926207859083,
+        "w": 0.3420201433256688
+      }
     },
     {
       "coordinate": "I6",
@@ -335,7 +384,14 @@
       "surfaceOffsetMeters": 0.010269019638178303,
       "meshScaleMultiplier": 0.33853146,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "14"
+      "sourceHoldId": "14",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.9961946980917455,
+        "w": 0.08715574274765814
+      }
     },
     {
       "coordinate": "C7",
@@ -357,7 +413,14 @@
       "surfaceOffsetMeters": 0.021006953256282993,
       "meshScaleMultiplier": 0.621559713,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "138"
+      "sourceHoldId": "138",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.6087614290087207,
+        "w": 0.7933533402912352
+      }
     },
     {
       "coordinate": "E7",
@@ -404,7 +467,14 @@
       "surfaceOffsetMeters": 0.01093174839491825,
       "meshScaleMultiplier": 0.390264004,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "20"
+      "sourceHoldId": "20",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.9396926207859083,
+        "w": 0.3420201433256688
+      }
     },
     {
       "coordinate": "H7",
@@ -415,7 +485,14 @@
       "surfaceOffsetMeters": 0.013403745962040588,
       "meshScaleMultiplier": 0.368080045,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "2"
+      "sourceHoldId": "2",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.9396926207859083,
+        "w": 0.3420201433256688
+      }
     },
     {
       "coordinate": "I7",
@@ -426,7 +503,14 @@
       "surfaceOffsetMeters": 0.022571900030467208,
       "meshScaleMultiplier": 0.523779278,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "99"
+      "sourceHoldId": "99",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "J7",
@@ -437,7 +521,14 @@
       "surfaceOffsetMeters": 0.01784628326363659,
       "meshScaleMultiplier": 0.461038203,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "105"
+      "sourceHoldId": "105",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "K7",
@@ -499,7 +590,14 @@
       "surfaceOffsetMeters": 0.019340825195756414,
       "meshScaleMultiplier": 0.551241283,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "114"
+      "sourceHoldId": "114",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0,
+        "w": 6.123233995736766e-17
+      }
     },
     {
       "coordinate": "F8",
@@ -532,7 +630,14 @@
       "surfaceOffsetMeters": 0.021814209230799263,
       "meshScaleMultiplier": 0.841662765,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "123"
+      "sourceHoldId": "123",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.9537169507482269,
+        "w": 0.30070579950427306
+      }
     },
     {
       "coordinate": "I8",
@@ -576,7 +681,14 @@
       "surfaceOffsetMeters": 0.024851026265765165,
       "meshScaleMultiplier": 0.57624167,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "125"
+      "sourceHoldId": "125",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.49999999999999994,
+        "w": 0.8660254037844387
+      }
     },
     {
       "coordinate": "B9",
@@ -587,7 +699,14 @@
       "surfaceOffsetMeters": 0.01828712215973099,
       "meshScaleMultiplier": 0.861472751,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "69"
+      "sourceHoldId": "69",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "C9",
@@ -598,7 +717,14 @@
       "surfaceOffsetMeters": 0.011882295835804845,
       "meshScaleMultiplier": 0.30637276,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "9"
+      "sourceHoldId": "9",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.6755902076156602,
+        "w": 0.7372773368101241
+      }
     },
     {
       "coordinate": "D9",
@@ -609,7 +735,14 @@
       "surfaceOffsetMeters": 0.020494224589418228,
       "meshScaleMultiplier": 0.505410647,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "44"
+      "sourceHoldId": "44",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.42261826174069944,
+        "w": 0.9063077870366499
+      }
     },
     {
       "coordinate": "E9",
@@ -642,7 +775,14 @@
       "surfaceOffsetMeters": 0.021531898353981768,
       "meshScaleMultiplier": 0.529249528,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "121"
+      "sourceHoldId": "121",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "H9",
@@ -653,7 +793,14 @@
       "surfaceOffsetMeters": 0.01736373014678217,
       "meshScaleMultiplier": 0.371068994,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "33"
+      "sourceHoldId": "33",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.9396926207859083,
+        "w": 0.3420201433256688
+      }
     },
     {
       "coordinate": "I9",
@@ -682,7 +829,14 @@
       "surfaceOffsetMeters": 0.015417701735633416,
       "meshScaleMultiplier": 0.721413135,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "53"
+      "sourceHoldId": "53",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.9396926207859083,
+        "w": 0.3420201433256688
+      }
     },
     {
       "coordinate": "K9",
@@ -693,7 +847,14 @@
       "surfaceOffsetMeters": 0.013338054488934187,
       "meshScaleMultiplier": 0.438418234,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "113"
+      "sourceHoldId": "113",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.766044443118978,
+        "w": 0.6427876096865394
+      }
     },
     {
       "coordinate": "A10",
@@ -704,7 +865,14 @@
       "surfaceOffsetMeters": 0.009920032585771309,
       "meshScaleMultiplier": 0.422103253,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "10"
+      "sourceHoldId": "10",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.9396926207859083,
+        "w": 0.3420201433256688
+      }
     },
     {
       "coordinate": "B10",
@@ -715,7 +883,14 @@
       "surfaceOffsetMeters": 0.023970000010406806,
       "meshScaleMultiplier": 0.801630551,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "140"
+      "sourceHoldId": "140",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.42261826174069944,
+        "w": 0.9063077870366499
+      }
     },
     {
       "coordinate": "C10",
@@ -726,7 +901,14 @@
       "surfaceOffsetMeters": 0.020202558686639498,
       "meshScaleMultiplier": 0.762676482,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "70"
+      "sourceHoldId": "70",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.42261826174069944,
+        "w": 0.9063077870366499
+      }
     },
     {
       "coordinate": "D10",
@@ -748,7 +930,14 @@
       "surfaceOffsetMeters": 0.018843472447541056,
       "meshScaleMultiplier": 0.658398272,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "56"
+      "sourceHoldId": "56",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "F10",
@@ -777,7 +966,14 @@
       "surfaceOffsetMeters": 0.01800499935762568,
       "meshScaleMultiplier": 0.5422061,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "137"
+      "sourceHoldId": "137",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.9914448613738104,
+        "w": 0.1305261922200517
+      }
     },
     {
       "coordinate": "H10",
@@ -788,7 +984,14 @@
       "surfaceOffsetMeters": 0.02785039897379355,
       "meshScaleMultiplier": 0.87304327,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "132"
+      "sourceHoldId": "132",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3007057995042731,
+        "w": 0.9537169507482269
+      }
     },
     {
       "coordinate": "I10",
@@ -799,7 +1002,14 @@
       "surfaceOffsetMeters": 0.013043785218905818,
       "meshScaleMultiplier": 0.590557419,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "112"
+      "sourceHoldId": "112",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.7372773368101241,
+        "w": 0.6755902076156602
+      }
     },
     {
       "coordinate": "J10",
@@ -810,7 +1020,14 @@
       "surfaceOffsetMeters": 0.012461696854340695,
       "meshScaleMultiplier": 0.545719045,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "49"
+      "sourceHoldId": "49",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3826834323650898,
+        "w": 0.9238795325112867
+      }
     },
     {
       "coordinate": "K10",
@@ -821,7 +1038,14 @@
       "surfaceOffsetMeters": 0.012001410381438466,
       "meshScaleMultiplier": 0.323185774,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "16"
+      "sourceHoldId": "16",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0,
+        "w": 6.123233995736766e-17
+      }
     },
     {
       "coordinate": "A11",
@@ -850,7 +1074,14 @@
       "surfaceOffsetMeters": 0.01687132699823206,
       "meshScaleMultiplier": 0.683585585,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "48"
+      "sourceHoldId": "48",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.3007057995042731,
+        "w": 0.9537169507482269
+      }
     },
     {
       "coordinate": "C11",
@@ -861,7 +1092,14 @@
       "surfaceOffsetMeters": 0.01351651343333076,
       "meshScaleMultiplier": 0.563333118,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "86"
+      "sourceHoldId": "86",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.7071067811865476,
+        "w": 0.7071067811865476
+      }
     },
     {
       "coordinate": "D11",
@@ -872,7 +1110,14 @@
       "surfaceOffsetMeters": 0.01500323328207267,
       "meshScaleMultiplier": 0.660384068,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "111"
+      "sourceHoldId": "111",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.9659258262890683,
+        "w": 0.25881904510252074
+      }
     },
     {
       "coordinate": "E11",
@@ -894,7 +1139,14 @@
       "surfaceOffsetMeters": 0.016335197954428848,
       "meshScaleMultiplier": 0.620535332,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "110"
+      "sourceHoldId": "110",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.7372773368101241,
+        "w": 0.6755902076156602
+      }
     },
     {
       "coordinate": "G11",
@@ -905,7 +1157,14 @@
       "surfaceOffsetMeters": 0.012079115949576048,
       "meshScaleMultiplier": 0.360342191,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "29"
+      "sourceHoldId": "29",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.6427876096865393,
+        "w": 0.766044443118978
+      }
     },
     {
       "coordinate": "H11",
@@ -916,7 +1175,14 @@
       "surfaceOffsetMeters": 0.017034609323520473,
       "meshScaleMultiplier": 0.776349917,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "64"
+      "sourceHoldId": "64",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.7071067811865476,
+        "w": 0.7071067811865476
+      }
     },
     {
       "coordinate": "I11",
@@ -949,7 +1215,14 @@
       "surfaceOffsetMeters": 0.016635176445338185,
       "meshScaleMultiplier": 0.731873496,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "75"
+      "sourceHoldId": "75",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "A12",
@@ -960,7 +1233,14 @@
       "surfaceOffsetMeters": 0.020344770659689874,
       "meshScaleMultiplier": 0.503697375,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "81"
+      "sourceHoldId": "81",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.6755902076156602,
+        "w": 0.7372773368101241
+      }
     },
     {
       "coordinate": "B12",
@@ -1022,7 +1302,14 @@
       "surfaceOffsetMeters": 0.017924549980950253,
       "meshScaleMultiplier": 0.514876273,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "46"
+      "sourceHoldId": "46",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.6755902076156602,
+        "w": 0.7372773368101241
+      }
     },
     {
       "coordinate": "G12",
@@ -1033,7 +1320,14 @@
       "surfaceOffsetMeters": 0.018462748638329224,
       "meshScaleMultiplier": 0.585639232,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "47"
+      "sourceHoldId": "47",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "H12",
@@ -1044,7 +1338,14 @@
       "surfaceOffsetMeters": 0.012495221712103863,
       "meshScaleMultiplier": 0.514212199,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "106"
+      "sourceHoldId": "106",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.9961946980917455,
+        "w": 0.08715574274765814
+      }
     },
     {
       "coordinate": "I12",
@@ -1073,7 +1374,14 @@
       "surfaceOffsetMeters": 0.012995063813928094,
       "meshScaleMultiplier": 0.55791101,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "94"
+      "sourceHoldId": "94",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3007057995042731,
+        "w": 0.9537169507482269
+      }
     },
     {
       "coordinate": "K12",
@@ -1095,7 +1403,14 @@
       "surfaceOffsetMeters": 0.013350545683886831,
       "meshScaleMultiplier": 0.319417867,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "28"
+      "sourceHoldId": "28",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.9063077870366499,
+        "w": 0.42261826174069944
+      }
     },
     {
       "coordinate": "B13",
@@ -1106,7 +1421,14 @@
       "surfaceOffsetMeters": 0.021815576021634104,
       "meshScaleMultiplier": 0.751917608,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "68"
+      "sourceHoldId": "68",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "C13",
@@ -1135,7 +1457,14 @@
       "surfaceOffsetMeters": 0.016783747291987096,
       "meshScaleMultiplier": 0.277058888,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "26"
+      "sourceHoldId": "26",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.9762960071199334,
+        "w": 0.2164396139381029
+      }
     },
     {
       "coordinate": "E13",
@@ -1204,7 +1533,14 @@
       "surfaceOffsetMeters": 0.015789996781728384,
       "meshScaleMultiplier": 0.572654816,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "55"
+      "sourceHoldId": "55",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.6427876096865393,
+        "w": 0.766044443118978
+      }
     },
     {
       "coordinate": "J13",
@@ -1215,7 +1551,14 @@
       "surfaceOffsetMeters": 0.014602805515231921,
       "meshScaleMultiplier": 0.473641268,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "95"
+      "sourceHoldId": "95",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "K13",
@@ -1226,7 +1569,14 @@
       "surfaceOffsetMeters": 0.014731679376208676,
       "meshScaleMultiplier": 0.373124497,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "38"
+      "sourceHoldId": "38",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.08715574274765817,
+        "w": 0.9961946980917455
+      }
     },
     {
       "coordinate": "A14",
@@ -1295,7 +1645,14 @@
       "surfaceOffsetMeters": 0.02296765451608686,
       "meshScaleMultiplier": 0.504534941,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "54"
+      "sourceHoldId": "54",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "G14",
@@ -1306,7 +1663,14 @@
       "surfaceOffsetMeters": 0.029400789790849015,
       "meshScaleMultiplier": 0.719880919,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "129"
+      "sourceHoldId": "129",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.7071067811865476,
+        "w": 0.7071067811865476
+      }
     },
     {
       "coordinate": "H14",
@@ -1317,7 +1681,14 @@
       "surfaceOffsetMeters": 0.014751419357239741,
       "meshScaleMultiplier": 0.419348726,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "35"
+      "sourceHoldId": "35",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "I14",
@@ -1364,7 +1735,14 @@
       "surfaceOffsetMeters": 0.021266136075860278,
       "meshScaleMultiplier": 0.6833037,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "136"
+      "sourceHoldId": "136",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3826834323650898,
+        "w": 0.9238795325112867
+      }
     },
     {
       "coordinate": "A15",
@@ -1393,7 +1771,14 @@
       "surfaceOffsetMeters": 0.01237106173250792,
       "meshScaleMultiplier": 0.416924191,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "93"
+      "sourceHoldId": "93",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "C15",
@@ -1404,7 +1789,14 @@
       "surfaceOffsetMeters": 0.013552156638096516,
       "meshScaleMultiplier": 0.563930004,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "32"
+      "sourceHoldId": "32",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.3826834323650898,
+        "w": 0.9238795325112867
+      }
     },
     {
       "coordinate": "D15",
@@ -1462,7 +1854,14 @@
       "surfaceOffsetMeters": 0.01881666953604014,
       "meshScaleMultiplier": 0.561564416,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "104"
+      "sourceHoldId": "104",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.25881904510252074,
+        "w": 0.9659258262890683
+      }
     },
     {
       "coordinate": "H15",
@@ -1473,7 +1872,14 @@
       "surfaceOffsetMeters": 0.014112973929453954,
       "meshScaleMultiplier": 0.39383108,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "21"
+      "sourceHoldId": "21",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.42261826174069944,
+        "w": 0.9063077870366499
+      }
     },
     {
       "coordinate": "I15",
@@ -1502,7 +1908,14 @@
       "surfaceOffsetMeters": 0.010834637223085898,
       "meshScaleMultiplier": 0.446405053,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "6"
+      "sourceHoldId": "6",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.3420201433256687,
+        "w": 0.9396926207859084
+      }
     },
     {
       "coordinate": "B16",
@@ -1557,7 +1970,14 @@
       "surfaceOffsetMeters": 0.023356994845911132,
       "meshScaleMultiplier": 0.553566968,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "88"
+      "sourceHoldId": "88",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.9990482215818578,
+        "w": 0.04361938736533601
+      }
     },
     {
       "coordinate": "G16",
@@ -1590,7 +2010,14 @@
       "surfaceOffsetMeters": 0.021647668794779716,
       "meshScaleMultiplier": 0.73372003,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "60"
+      "sourceHoldId": "60",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3007057995042731,
+        "w": 0.9537169507482269
+      }
     },
     {
       "coordinate": "J16",
@@ -1601,7 +2028,14 @@
       "surfaceOffsetMeters": 0.014692439649634594,
       "meshScaleMultiplier": 0.448225217,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "109"
+      "sourceHoldId": "109",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.7071067811865476,
+        "w": 0.7071067811865476
+      }
     },
     {
       "coordinate": "K16",
@@ -1623,7 +2057,14 @@
       "surfaceOffsetMeters": 0.01769157143978025,
       "meshScaleMultiplier": 0.495693809,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "43"
+      "sourceHoldId": "43",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.7071067811865476,
+        "w": 0.7071067811865476
+      }
     },
     {
       "coordinate": "G17",
@@ -1652,7 +2093,14 @@
       "surfaceOffsetMeters": 0.02316498235622395,
       "meshScaleMultiplier": 0.787681988,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "131"
+      "sourceHoldId": "131",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.9396926207859083,
+        "w": 0.3420201433256688
+      }
     },
     {
       "coordinate": "B18",
@@ -1707,7 +2155,14 @@
       "surfaceOffsetMeters": 0.02531858538734976,
       "meshScaleMultiplier": 0.574533696,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "73"
+      "sourceHoldId": "73",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.6755902076156602,
+        "w": 0.7372773368101241
+      }
     },
     {
       "coordinate": "H18",
