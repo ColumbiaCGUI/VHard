@@ -362,7 +362,7 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     "B127": 105.0,  # E14; observed board residual -105 deg
     "B109": -140.0,  # I9; observed board residual +140 deg
     "B115": -55.0,  # G17; observed board residual +55 deg
-    "B141": -140.0,  # G4; observed board residual +140 deg
+    "B141": -125.0,  # G4; adjudicated 2026-08-12d: -140 -> -125 (full-curve best 304 deg, prominence 0.186)
     "Y28": 20.0,  # H18; observed board residual -20 deg
     "Y6": 70.0,  # F6; observed board residual -70 deg
     "B138": -120.0,  # C13; observed board residual +120 deg
@@ -417,7 +417,7 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     "W52": 50.0,  # D9; official-image residual -50 deg
     "B119": -150.0,  # D11; official-image residual +150 deg
     "Y24": 155.0,  # D13; official-image residual -155 deg
-    "W51": -90.0,  # D17; official-image residual +90 deg
+    "W51": -10.0,  # D17; adjudicated 2026-08-12d: -90 -> -10 (landed angle scored 0.53 vs 0.92 at best)
     "B129": -45.0,  # E6; official-image residual +45 deg
     "B122": -180.0,  # E8; official-image residual +180 deg
     "W64": -40.0,  # E10; official-image residual +40 deg
@@ -425,7 +425,6 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     "W54": 85.0,  # F12; official-image residual -85 deg
     "W62": -40.0,  # F14; official-image residual +40 deg
     "W96": 175.0,  # F16; official-image residual -175 deg
-    "W81": -70.0,  # G2; official-image residual +70 deg
     "B134": -140.0,  # G6; official-image residual +140 deg
     "Y19": -140.0,  # G7; official-image residual +140 deg
     "B128": 40.0,  # G9; official-image residual -40 deg
@@ -437,13 +436,12 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     "W82": -85.0,  # G18; official-image residual +85 deg
     "Y1": 140.0,  # H7; official-image residual -140 deg
     "B131": 145.0,  # H8; official-image residual -145 deg
-    "Y32": 140.0,  # H9; official-image residual -140 deg
+    "Y32": 90.0,  # H9; adjudicated 2026-08-12d: +140 -> +90
     "B140": 35.0,  # H10; official-image residual -35 deg
     "W73": -90.0,  # H11; official-image residual +90 deg
     "B114": 170.0,  # H12; official-image residual -170 deg
-    "Y34": 40.0,  # H14; official-image residual -40 deg
+    "Y34": -90.0,  # H14; adjudicated 2026-08-12d: +40 -> -90
     "Y20": 50.0,  # H15; official-image residual -50 deg
-    "Y35": -95.0,  # I5; official-image residual +95 deg
     "B107": 40.0,  # I7; official-image residual -40 deg
     "B120": -95.0,  # I10; official-image residual +95 deg
     "W63": 80.0,  # I13; official-image residual -80 deg
@@ -473,6 +471,13 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     "W58": 50.0,  # J2; true-scale residual -50 deg
     "W92": -170.0,  # J6; true-scale residual +170 deg
     "W87": -90.0,  # K18; true-scale residual +90 deg
+    # 2026-08-12d adjudication of the 12 disputed spins
+    # (docs/route-selection/board-audit/reassign-2026-08-12/adjudication.md): full IoU(theta)
+    # curves at true scale. Re-landed B141/W51/Y32/Y34 above; W81 (G2) and Y35 (I5) corrections
+    # REMOVED entirely — the raw mesh frames already match the poster (I5 additionally
+    # corroborated by the 07-28 rectified gym photo at +2 deg / IoU 0.909). F16/H11/B10/D13
+    # positively confirmed within their branch; A13/B6 unfalsifiable (2-fold-symmetric
+    # silhouettes carry no spin signal); B18/W99 remains excluded for the same reason.
 }
 MESH_FRAME_CORRECTIONS = {
     # Approved by-eye W98 orientation from 1b9df47, expressed after the FBX -90-degree X basis.

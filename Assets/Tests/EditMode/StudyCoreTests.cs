@@ -208,17 +208,19 @@ public sealed class StudyCoreTests
             "Y12", "B123", "B135", "W97", "B126", "B110", "W66", "W74", "W53", "W65",
             "B105", "B149", "W83", "Y36", "B124", "B108", "B132", "B130", "Y2",
             // 2026-08-12 official-image landing of the remaining audit predictions.
-            "W81", "Y29", "B125", "Y35", "B147", "B129", "B134", "Y13",
+            "Y29", "B125", "B147", "B129", "B134", "Y13",
             "B146", "Y19", "Y1", "B107", "B113", "B122", "B131", "B133",
             "W78", "Y8", "W52", "B128", "Y32", "W61", "B121", "Y9",
             "B148", "W79", "W64", "B145", "B140", "B120", "W57", "Y15",
             "W56", "W94", "B119", "B118", "Y27", "W73", "W84", "W68",
+            // (W81 and Y35 were briefly corrected 08-12 and removed 08-12d.)
             "W54", "W55", "B114", "B102", "Y26", "W77", "Y24", "W63",
             "B103", "Y37", "W62", "B137", "Y34", "B144", "B101", "Y31",
             "B112", "Y20", "Y5", "W96", "W69", "B117", "W51", "B139",
             "W82",
             // 2026-08-12c true-scale re-instrument: first reliable spins for 7 cleared
             // flags (B18/W99 stays unmeasurable) + the two never-measured holds.
+            // 08-12d adjudication removed W81 (G2) and Y35 (I5) again — raw frames were right.
             "W58", "W80", "W95", "W60", "W92", "Y40", "Y18", "W71", "W87",
         };
         int correctedMeshes = 0;
@@ -233,7 +235,7 @@ public sealed class StudyCoreTests
                 Assert.That(expectedCorrectedMeshes.Remove(hold.scanId), Is.True, hold.coordinate);
             }
         }
-        Assert.That(correctedMeshes, Is.EqualTo(101));
+        Assert.That(correctedMeshes, Is.EqualTo(99));
         Assert.That(expectedCorrectedMeshes, Is.Empty);
 
         Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
@@ -255,7 +257,7 @@ public sealed class StudyCoreTests
             { "E14", ("B127", 90, 105f) },
             { "I9", ("B109", 135, -140f) },
             { "G17", ("B115", 0, -55f) },
-            { "G4", ("B141", 0, -140f) },
+            { "G4", ("B141", 0, -125f) },
             { "H18", ("Y28", 0, 20f) },
             { "F6", ("Y6", 90, 70f) },
             { "C13", ("B138", 315, -120f) },
@@ -279,10 +281,8 @@ public sealed class StudyCoreTests
             { "I15", ("B108", 315, -45f) },
             { "I18", ("B132", 45, -145f) },
             // 2026-08-12 official-image landing of the remaining audit predictions.
-            { "G2", ("W81", 0, -70f) },
             { "B4", ("Y29", 225, -140f) },
             { "C5", ("B125", 0, -15f) },
-            { "I5", ("Y35", 0, -95f) },
             { "B6", ("B147", 315, -80f) },
             { "E6", ("B129", 315, -45f) },
             { "G6", ("B134", 225, -140f) },
@@ -299,7 +299,7 @@ public sealed class StudyCoreTests
             { "C9", ("Y8", 270, -85f) },
             { "D9", ("W52", 45, 50f) },
             { "G9", ("B128", 45, 40f) },
-            { "H9", ("Y32", 90, 140f) },
+            { "H9", ("Y32", 90, 90f) },
             { "J9", ("W61", 135, 140f) },
             { "K9", ("B121", 0, -100f) },
             { "A10", ("Y9", 225, -140f) },
@@ -331,7 +331,7 @@ public sealed class StudyCoreTests
             { "K13", ("Y37", 0, -10f) },
             { "F14", ("W62", 315, -40f) },
             { "G14", ("B137", 90, 90f) },
-            { "H14", ("Y34", 270, 40f) },
+            { "H14", ("Y34", 270, -90f) },
             { "K14", ("B144", 45, 45f) },
             { "B15", ("B101", 0, 40f) },
             { "C15", ("Y31", 315, -45f) },
@@ -341,7 +341,7 @@ public sealed class StudyCoreTests
             { "F16", ("W96", 180, 175f) },
             { "I16", ("W69", 45, 35f) },
             { "J16", ("B117", 90, 90f) },
-            { "D17", ("W51", 0, -90f) },
+            { "D17", ("W51", 0, -10f) },
             { "A18", ("B139", 0, -140f) },
             { "G18", ("W82", 270, -85f) },
             // 2026-08-12c true-scale re-instrument.

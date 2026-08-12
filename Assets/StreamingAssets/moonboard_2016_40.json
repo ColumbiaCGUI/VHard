@@ -36,14 +36,7 @@
       "surfaceOffsetMeters": 0.027520821935745923,
       "meshScaleMultiplier": 0.402781267,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "72",
-      "hasMeshFrameCorrection": true,
-      "meshFrameCorrection": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": -0.573576436351046,
-        "w": 0.8191520442889918
-      }
+      "sourceHoldId": "72"
     },
     {
       "coordinate": "J2",
@@ -124,8 +117,8 @@
       "meshFrameCorrection": {
         "x": 0.0,
         "y": 0.0,
-        "z": -0.9396926207859083,
-        "w": 0.3420201433256688
+        "z": -0.8870108331782217,
+        "w": 0.46174861323503386
       }
     },
     {
@@ -224,14 +217,7 @@
       "surfaceOffsetMeters": 0.02084807194454959,
       "meshScaleMultiplier": 0.554730843,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "36",
-      "hasMeshFrameCorrection": true,
-      "meshFrameCorrection": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": -0.7372773368101241,
-        "w": 0.6755902076156602
-      }
+      "sourceHoldId": "36"
     },
     {
       "coordinate": "J5",
@@ -840,8 +826,8 @@
       "meshFrameCorrection": {
         "x": 0.0,
         "y": 0.0,
-        "z": 0.9396926207859083,
-        "w": 0.3420201433256688
+        "z": 0.7071067811865476,
+        "w": 0.7071067811865476
       }
     },
     {
@@ -1728,8 +1714,8 @@
       "meshFrameCorrection": {
         "x": 0.0,
         "y": 0.0,
-        "z": 0.3420201433256687,
-        "w": 0.9396926207859084
+        "z": -0.7071067811865476,
+        "w": 0.7071067811865476
       }
     },
     {
@@ -2118,8 +2104,8 @@
       "meshFrameCorrection": {
         "x": 0.0,
         "y": 0.0,
-        "z": -0.7071067811865476,
-        "w": 0.7071067811865476
+        "z": -0.08715574274765817,
+        "w": 0.9961946980917455
       }
     },
     {
