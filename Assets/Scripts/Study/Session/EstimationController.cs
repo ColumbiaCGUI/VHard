@@ -92,9 +92,10 @@ public sealed class EstimationController
                 out MoonBoardEstimationProblemDefinition[] problems,
                 out error))
         {
-            state.statusMessage = string.IsNullOrEmpty(error)
-                ? "No estimation set is yoked to the just-ended route."
-                : error;
+            state.statusMessage = "The estimation set for this block is unavailable; see the log.";
+            Debug.LogError(
+                "[StudyManager] Estimation set unavailable for " + state.lastEndedRow.route + ": " +
+                (string.IsNullOrEmpty(error) ? "no set is yoked to the just-ended route." : error));
             panel.RefreshPanelText();
             return false;
         }
@@ -114,7 +115,7 @@ public sealed class EstimationController
         {
             if (!sceneConfiguror.TryValidateRoute(problem.id, out error))
             {
-                state.statusMessage = error;
+                state.statusMessage = "An estimation problem is unavailable; see the log.";
                 Debug.LogError("[StudyManager] " + error);
                 panel.RefreshPanelText();
                 return false;

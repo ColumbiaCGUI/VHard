@@ -1,13 +1,14 @@
 using System;
 using UnityEngine;
-using UnityEngine.Rendering;
 using static GripContactConstants;
 
+/// <summary>Per-hold GPU residency for the grip pipeline: the mesh buffers the contact pass reads,
+/// the readback slots it writes, and which hands have latched this hold. It owns no visual. The
+/// graded cue is drawn by GripAffordanceOutlinePresenter from the hand scores this pipeline
+/// publishes, so the hold's own scanned appearance is never overpainted.</summary>
 internal sealed class GripHoldContactState : IDisposable
 {
     private readonly GripContactOutputSet[] outputs;
-    private readonly Renderer overlayRenderer;
-    private readonly MaterialPropertyBlock overlayProperties;
     private int latchedHandMask;
     public readonly GameObject hold;
     public readonly Mesh mesh;
@@ -50,18 +51,6 @@ internal sealed class GripHoldContactState : IDisposable
             new GripContactOutputSet(owner, this),
             new GripContactOutputSet(owner, this),
         };
-        overlayRenderer = EnsureOverlay(hold, mesh, overlayMaterial);
-        overlayProperties = new MaterialPropertyBlock();
-        if (overlayRenderer != null)
-        {
-            overlayRenderer.enabled = false;
-            overlayRenderer.GetPropertyBlock(overlayProperties);
-            overlayProperties.SetFloat("_ContactThreshold", config.contactThreshold);
-            overlayProperties.SetFloat("_ProximityThreshold", config.proximityThreshold);
-            overlayProperties.SetFloat("_GripLatched", 0f);
-            overlayProperties.SetColor("_LatchedColor", new Color(0.1f, 0.85f, 0.2f, 1f));
-            overlayRenderer.SetPropertyBlock(overlayProperties);
-        }
     }
 
     public int LatchedHandMask => latchedHandMask;
@@ -78,19 +67,19 @@ internal sealed class GripHoldContactState : IDisposable
         return null;
     }
 
+    /// <summary>Kept as the dispatcher's and the store's per-frame seam. The per-vertex contact
+    /// buffer stays bound to its output set, ready for spec 04's per-finger contact patches, but
+    /// nothing renders from it today.</summary>
     public void SetOverlayVisible(bool visible)
     {
-        RefreshOverlayVisibility();
     }
 
     public void SetContactBuffer(ComputeBuffer contactBuffer, long epoch)
     {
-        RefreshOverlayVisibility();
     }
 
     public void InvalidateContactData(long epoch = -1)
     {
-        RefreshOverlayVisibility();
     }
 
     public void SetLatchedHand(int handMask, bool latched)
@@ -101,39 +90,16 @@ internal sealed class GripHoldContactState : IDisposable
         }
 
         latchedHandMask = latched ? latchedHandMask | handMask : latchedHandMask & ~handMask;
-        if (overlayRenderer != null)
-        {
-            overlayRenderer.GetPropertyBlock(overlayProperties);
-            overlayProperties.SetFloat("_GripLatched", latchedHandMask != 0 ? 1f : 0f);
-            overlayRenderer.SetPropertyBlock(overlayProperties);
-            RefreshOverlayVisibility();
-        }
     }
 
     public void ClearLatchFeedback()
     {
         latchedHandMask = 0;
-        if (overlayRenderer != null)
-        {
-            overlayRenderer.GetPropertyBlock(overlayProperties);
-            overlayProperties.SetFloat("_GripLatched", 0f);
-            overlayRenderer.SetPropertyBlock(overlayProperties);
-            RefreshOverlayVisibility();
-        }
-    }
-
-    private void RefreshOverlayVisibility()
-    {
-        if (overlayRenderer != null)
-        {
-            overlayRenderer.enabled = latchedHandMask != 0;
-        }
     }
 
     public void Dispose()
     {
         ClearLatchFeedback();
-        InvalidateContactData();
         foreach (GripContactOutputSet output in outputs)
         {
             output.Dispose();
@@ -163,35 +129,5 @@ internal sealed class GripHoldContactState : IDisposable
             areas[c] += thirdArea;
         }
         return areas;
-    }
-
-    private static Renderer EnsureOverlay(GameObject hold, Mesh sourceMesh, Material overlayMaterial)
-    {
-        Transform overlayTransform = hold.transform.Find("Contact Patch Overlay");
-        GameObject overlay;
-        if (overlayTransform == null)
-        {
-            overlay = new GameObject("Contact Patch Overlay");
-            overlay.transform.SetParent(hold.transform, false);
-            overlay.AddComponent<MeshFilter>();
-            overlay.AddComponent<MeshRenderer>();
-        }
-        else
-        {
-            overlay = overlayTransform.gameObject;
-        }
-
-        overlay.layer = hold.layer;
-        overlay.transform.localPosition = Vector3.zero;
-        overlay.transform.localRotation = Quaternion.identity;
-        overlay.transform.localScale = Vector3.one;
-        overlay.GetComponent<MeshFilter>().sharedMesh = sourceMesh;
-        MeshRenderer renderer = overlay.GetComponent<MeshRenderer>();
-        renderer.sharedMaterial = overlayMaterial != null
-            ? overlayMaterial
-            : Resources.Load<Material>("ContactPatchOverlay");
-        renderer.shadowCastingMode = ShadowCastingMode.Off;
-        renderer.receiveShadows = false;
-        return renderer;
     }
 }

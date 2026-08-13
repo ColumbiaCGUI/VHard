@@ -29,14 +29,6 @@ public sealed class GripScoreConfig : ScriptableObject
 
     public float WeightSum => contactWeight + areaWeight + oppositionWeight + loadAlignmentWeight;
 
-    public Color EvaluateScoreColor(float score)
-    {
-        score = Mathf.Clamp01(score);
-        return score < 0.5f
-            ? Color.Lerp(lowScoreColor, mediumScoreColor, score * 2f)
-            : Color.Lerp(mediumScoreColor, highScoreColor, (score - 0.5f) * 2f);
-    }
-
     private void OnValidate()
     {
         proximityThreshold = Mathf.Max(proximityThreshold, contactThreshold);

@@ -42,6 +42,8 @@ public sealed class GhostHoldController : MonoBehaviour
     private MaterialPropertyBlock wallMarkerProperties;
     private MaterialPropertyBlock leftRayProperties;
     private MaterialPropertyBlock rightRayProperties;
+    private int leftInputDiagnosticState = -1;
+    private int rightInputDiagnosticState = -1;
 
     public GameObject CurrentGhost => currentGhost;
     public GameObject WallReferent => wallReferent;
@@ -68,6 +70,7 @@ public sealed class GhostHoldController : MonoBehaviour
         rightWasPinching = false;
         leftPinchArmed = false;
         rightPinchArmed = false;
+        ResetInputDiagnostics();
 
         if (!active)
         {
@@ -81,7 +84,13 @@ public sealed class GhostHoldController : MonoBehaviour
 
     public void SetPanelInputSuppressed(bool suppressed)
     {
+        bool changed = panelInputSuppressed != suppressed;
         panelInputSuppressed = suppressed;
+        if (changed)
+        {
+            ResetInputDiagnostics();
+            RecordInputSuppression(suppressed);
+        }
         if (suppressed)
         {
             manipulatingHand = null;
@@ -286,6 +295,13 @@ public sealed class GhostHoldController : MonoBehaviour
         Vector3 targetPoint = ray.GetPoint(maxRayDistance);
         bool hasTarget = hasRay && TryGetRayTarget(ray, out target, out targetPoint);
         UpdateRayVisual(rayVisual, hasRay, ray, hasTarget ? targetPoint : ray.GetPoint(maxRayDistance));
+        RecordInputDiagnostics(
+            handSide,
+            hand,
+            trackingConfident,
+            isPinching,
+            pinchArmed,
+            hasRay);
 
         if (pinchEnded && manipulatingHand == handSide)
         {
@@ -296,6 +312,8 @@ public sealed class GhostHoldController : MonoBehaviour
         {
             return;
         }
+
+        RecordSelectionAttempt(handSide, hasRay, hasTarget, target, ray);
 
         if (hasTarget && target == dismissAffordance)
         {
@@ -374,6 +392,128 @@ public sealed class GhostHoldController : MonoBehaviour
         grabPositionOffset = Quaternion.Inverse(handPose.rotation) *
                              (currentGhost.transform.position - handPose.position);
         grabRotationOffset = Quaternion.Inverse(handPose.rotation) * currentGhost.transform.rotation;
+    }
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void RecordInputDiagnostics(
+        Hand handSide,
+        OVRHand hand,
+        bool trackingConfident,
+        bool isPinching,
+        bool pinchArmed,
+        bool hasRay)
+    {
+        ActionRecorder recorder = sceneConfiguror?.actionRecorder;
+        if (recorder == null || !recorder.IsRecording)
+        {
+            SetInputDiagnosticState(handSide, -1);
+            return;
+        }
+
+        bool tracked = hand != null && hand.IsTracked;
+        bool highConfidence = hand != null && hand.IsDataHighConfidence;
+        bool dataValid = hand != null && hand.IsDataValid;
+        bool pointerPoseValid = hand != null && hand.IsPointerPoseValid && hand.PointerPose != null;
+        OVRInput.ControllerInHandState controllerState = hand != null
+            ? OVRInput.GetControllerIsInHandState((OVRInput.Hand)hand.GetHand())
+            : OVRInput.ControllerInHandState.NoHand;
+        int state = (tracked ? 1 : 0) |
+                    (highConfidence ? 1 << 1 : 0) |
+                    (dataValid ? 1 << 2 : 0) |
+                    (pointerPoseValid ? 1 << 3 : 0) |
+                    (hasRay ? 1 << 4 : 0) |
+                    (trackingConfident ? 1 << 5 : 0) |
+                    (isPinching ? 1 << 6 : 0) |
+                    (pinchArmed ? 1 << 7 : 0) |
+                    ((int)controllerState << 8) |
+                    (hand != null ? (int)hand.m_showState << 10 : 0);
+        int previousState = handSide == Hand.Left
+            ? leftInputDiagnosticState
+            : rightInputDiagnosticState;
+        if (state == previousState)
+        {
+            return;
+        }
+        SetInputDiagnosticState(handSide, state);
+
+        float pinchStrength = hand != null
+            ? hand.GetFingerPinchStrength(OVRHand.HandFinger.Index)
+            : 0f;
+        recorder.Record(
+            "GhostInputState",
+            handSide == Hand.Left ? "Left" : "Right",
+            null,
+            "tracked=" + tracked.ToString().ToLowerInvariant() +
+            ";highConfidence=" + highConfidence.ToString().ToLowerInvariant() +
+            ";dataValid=" + dataValid.ToString().ToLowerInvariant() +
+            ";pointerPoseValid=" + pointerPoseValid.ToString().ToLowerInvariant() +
+            ";hasRay=" + hasRay.ToString().ToLowerInvariant() +
+            ";pinching=" + isPinching.ToString().ToLowerInvariant() +
+            ";pinchArmed=" + pinchArmed.ToString().ToLowerInvariant() +
+            ";pinchStrength=" + pinchStrength.ToString(
+                "F3",
+                System.Globalization.CultureInfo.InvariantCulture) +
+            ";controllerState=" + controllerState +
+            ";showState=" + (hand != null ? hand.m_showState.ToString() : "unavailable"));
+    }
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void RecordInputSuppression(bool suppressed)
+    {
+        if (modeActive && sceneConfiguror?.actionRecorder != null)
+        {
+            sceneConfiguror.actionRecorder.Record(
+                "GhostInputSuppression",
+                "",
+                null,
+                "suppressed=" + suppressed.ToString().ToLowerInvariant());
+        }
+    }
+
+    private void SetInputDiagnosticState(Hand handSide, int state)
+    {
+        if (handSide == Hand.Left)
+        {
+            leftInputDiagnosticState = state;
+        }
+        else
+        {
+            rightInputDiagnosticState = state;
+        }
+    }
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void ResetInputDiagnostics()
+    {
+        leftInputDiagnosticState = -1;
+        rightInputDiagnosticState = -1;
+    }
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void RecordSelectionAttempt(
+        Hand handSide,
+        bool hasRay,
+        bool hasTarget,
+        GameObject target,
+        Ray ray)
+    {
+        string details = "hasRay=" + hasRay.ToString().ToLowerInvariant() +
+                         ";hasTarget=" + hasTarget.ToString().ToLowerInvariant() +
+                         ";activeRouteHold=" +
+                         (target != null && sceneConfiguror.IsActiveRouteHold(target))
+                         .ToString().ToLowerInvariant() +
+                         ";dismissTarget=" + (target == dismissAffordance).ToString().ToLowerInvariant() +
+                         ";ghostTarget=" + IsGhostHold(target).ToString().ToLowerInvariant();
+        if (hasRay)
+        {
+            details = System.FormattableString.Invariant(
+                $"{details};rayOrigin=({ray.origin.x:F4},{ray.origin.y:F4},{ray.origin.z:F4});rayDirection=({ray.direction.x:F4},{ray.direction.y:F4},{ray.direction.z:F4})");
+        }
+        sceneConfiguror?.actionRecorder?.Record(
+            "GhostSelectionAttempt",
+            handSide == Hand.Left ? "Left" : "Right",
+            target,
+            details);
     }
 
     private void UpdateManipulation()

@@ -32,6 +32,8 @@ public sealed class StudyControlPanel
     private const string ConfirmClearAlignment = "clear-alignment";
 
     private static readonly Color PanelColor = new(0.035f, 0.06f, 0.095f, 0.99f);
+    private static readonly Color PanelHoverColor = new(0.06f, 0.105f, 0.16f, 0.99f);
+    private static readonly Color PanelGrabbedColor = new(0.09f, 0.155f, 0.225f, 0.99f);
     private static readonly Color AccentColor = new(0.19f, 0.78f, 0.92f, 1f);
     private static readonly Color MutedTextColor = new(0.90f, 0.93f, 0.97f, 1f);
     private static readonly Color PointerColor = new(0.10f, 0.72f, 0.92f, 0.92f);
@@ -82,6 +84,9 @@ public sealed class StudyControlPanel
     private TextMeshPro clearAlignmentLabel;
     private TextMeshPro manualStartLabel;
     private TextMeshPro manualCompleteLabel;
+    private TextMeshPro manualPreviousRouteLabel;
+    private TextMeshPro manualNextRouteLabel;
+    private TextMeshPro routeReadoutText;
 
     private StudyPanelButton previousParticipantButton;
     private StudyPanelButton nextParticipantButton;
@@ -105,8 +110,9 @@ public sealed class StudyControlPanel
     private StudyPanelButton manualStartButton;
     private StudyPanelButton manualCompleteButton;
     private StudyPanelButton manualResetButton;
-    private StudyPanelButton panelGrabHandleVisual;
-    private Collider panelGrabHandleCollider;
+    private Renderer panelBackgroundRenderer;
+    private Collider panelGrabSurfaceCollider;
+    private Color panelSurfaceTint = PanelColor;
 
     private GameObject leftPointerRoot;
     private GameObject rightPointerRoot;
@@ -145,7 +151,7 @@ public sealed class StudyControlPanel
     private struct PanelPointerTarget
     {
         public StudyPanelButton button;
-        public bool isGrabHandle;
+        public bool isPanelSurface;
         public Vector3 hitPoint;
         public float hitDistance;
     }
@@ -227,9 +233,9 @@ public sealed class StudyControlPanel
         background.layer = uiLayer;
         background.transform.SetParent(panelRoot.transform, false);
         background.transform.localScale = new Vector3(PanelWidthMeters, PanelHeightMeters, 0.012f);
-        background.GetComponent<MeshRenderer>().sharedMaterial = panelMaterial;
-
-        BuildGrabHandle();
+        panelBackgroundRenderer = background.GetComponent<MeshRenderer>();
+        panelBackgroundRenderer.sharedMaterial = panelMaterial;
+        panelGrabSurfaceCollider = background.GetComponent<Collider>();
 
         TextMeshPro title = CreateText(
             panelRoot.transform,
@@ -278,20 +284,29 @@ public sealed class StudyControlPanel
             "MODE B",
             () => SelectManualMode(1),
             out _);
+        routeReadoutText = CreateText(
+            panelRoot.transform,
+            "Route Readout",
+            new Vector3(0f, -0.004f, -0.014f),
+            new Vector2(0.72f, 0.026f),
+            0.016f,
+            AccentColor,
+            TextAlignmentOptions.Center,
+            FontStyles.Bold);
         manualPreviousRouteButton = CreateButton(
             "Previous Route",
             new Vector3(-0.19f, -0.055f, -0.02f),
             new Vector2(0.30f, 0.06f),
-            "ROUTE PREV",
+            "NO ROUTES",
             () => ChangeManualRoute(-1),
-            out _);
+            out manualPreviousRouteLabel);
         manualNextRouteButton = CreateButton(
             "Next Route",
             new Vector3(0.19f, -0.055f, -0.02f),
             new Vector2(0.30f, 0.06f),
-            "ROUTE NEXT",
+            "NO ROUTES",
             () => ChangeManualRoute(1),
-            out _);
+            out manualNextRouteLabel);
         manualStartButton = CreateButton(
             "Start Run",
             new Vector3(-0.19f, -0.18f, -0.02f),
@@ -308,11 +323,21 @@ public sealed class StudyControlPanel
             out manualCompleteLabel);
         manualResetButton = CreateButton(
             "Reset",
-            new Vector3(0f, -0.435f, -0.02f),
+            new Vector3(0f, -0.305f, -0.02f),
             new Vector2(0.60f, 0.06f),
             "RESET",
             ResetStudyState,
             out _);
+        TextMeshPro grabHint = CreateText(
+            panelRoot.transform,
+            "Panel Grab Hint",
+            new Vector3(0f, -0.487f, -0.014f),
+            new Vector2(0.72f, 0.022f),
+            0.0095f,
+            MutedTextColor,
+            TextAlignmentOptions.Center,
+            FontStyles.Normal);
+        grabHint.text = "PINCH THE PANEL BACKGROUND TO MOVE IT";
         SetPalette(
             SessionButtonColor,
             SessionHoverColor,
@@ -332,34 +357,15 @@ public sealed class StudyControlPanel
         RefreshPanelText();
     }
 
-    private void BuildGrabHandle()
+    private void ApplyPanelSurfaceTint(Color color)
     {
-        GameObject handle = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        handle.name = "Panel Grab Handle";
-        handle.layer = uiLayer;
-        handle.transform.SetParent(panelRoot.transform, false);
-        handle.transform.localPosition = new Vector3(0f, 0.492f, -0.02f);
-        Vector2 handleSize = new(0.24f, 0.026f);
-        handle.transform.localScale = new Vector3(handleSize.x, handleSize.y, 0.018f);
-        handle.GetComponent<MeshRenderer>().sharedMaterial = buttonMaterial;
-        panelGrabHandleCollider = handle.GetComponent<Collider>();
-        panelGrabHandleVisual = handle.AddComponent<StudyPanelButton>();
-        panelGrabHandleVisual.ConfigureSurface(handleSize);
-        panelGrabHandleVisual.SetPalette(
-            UtilityButtonColor,
-            SessionHoverColor,
-            SelectedColor);
+        if (panelBackgroundRenderer == null || panelSurfaceTint == color)
+        {
+            return;
+        }
 
-        TextMeshPro label = CreateText(
-            panelRoot.transform,
-            "Panel Grab Handle Label",
-            new Vector3(0f, 0.492f, -0.0305f),
-            new Vector2(0.22f, 0.022f),
-            0.0095f,
-            MutedTextColor,
-            TextAlignmentOptions.Center,
-            FontStyles.Bold);
-        label.text = "PINCH + DRAG";
+        panelSurfaceTint = color;
+        SetRendererColor(panelBackgroundRenderer, color);
     }
 
     private void BuildTimerChip()
@@ -567,17 +573,25 @@ public sealed class StudyControlPanel
             return;
         }
 
-        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetStudyRouteNames().Count : 0;
-        if (routeCount == 0)
+        List<string> routes = GetStudyRoutes();
+        if (routes.Count == 0)
         {
             state.statusMessage = "No routes are available.";
             RefreshPanelText();
             return;
         }
 
-        state.adhocRouteIndex = (state.adhocRouteIndex + offset + routeCount) % routeCount;
-        state.statusMessage = "Route " + (state.adhocRouteIndex + 1) + " of " + routeCount + " selected.";
+        state.adhocRouteIndex = (state.adhocRouteIndex + offset + routes.Count) % routes.Count;
+        state.statusMessage = "Selected " + StudyRouteIdentity.FormatBlindLabel(
+            routes[state.adhocRouteIndex],
+            state.adhocRouteIndex,
+            routes.Count) + ".";
         RefreshPanelText();
+    }
+
+    private List<string> GetStudyRoutes()
+    {
+        return sceneConfiguror != null ? sceneConfiguror.GetStudyRouteNames() : new List<string>();
     }
 
     private void StartManualRun()
@@ -775,19 +789,6 @@ public sealed class StudyControlPanel
         RefreshPanelText();
     }
 
-    private string GetAdhocRouteName()
-    {
-        List<string> routes = sceneConfiguror != null
-            ? sceneConfiguror.GetStudyRouteNames()
-            : new List<string>();
-        if (routes.Count == 0)
-        {
-            return string.Empty;
-        }
-        state.adhocRouteIndex = Mathf.Clamp(state.adhocRouteIndex, 0, routes.Count - 1);
-        return routes[state.adhocRouteIndex];
-    }
-
     public void RefreshPanelText()
     {
         RefreshButtonStates();
@@ -812,16 +813,6 @@ public sealed class StudyControlPanel
                 .AppendLine();
         }
 
-        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetStudyRouteNames().Count : 0;
-        if (routeCount > 0)
-        {
-            text.Append("ROUTE ")
-                .Append(Mathf.Clamp(state.adhocRouteIndex, 0, routeCount - 1) + 1)
-                .Append(" / ")
-                .Append(routeCount)
-                .AppendLine();
-        }
-
         lastRoutesStatusLine = GetStudyRouteStatusLine();
         if (!lastRoutesStatusLine.StartsWith("READY", StringComparison.Ordinal))
         {
@@ -835,10 +826,10 @@ public sealed class StudyControlPanel
     {
         bool idle = !state.blockRunning && !state.IsAuxiliaryActive &&
                     !state.manualRunRecoveryBlocked;
-        int routeCount = sceneConfiguror != null ? sceneConfiguror.GetStudyRouteNames().Count : 0;
-        bool hasRoute = routeCount > 0;
+        List<string> routes = GetStudyRoutes();
+        bool hasRoute = routes.Count > 0;
         state.adhocRouteIndex = hasRoute
-            ? Mathf.Clamp(state.adhocRouteIndex, 0, routeCount - 1)
+            ? Mathf.Clamp(state.adhocRouteIndex, 0, routes.Count - 1)
             : 0;
 
         manualModeAButton?.SetInteractable(idle);
@@ -858,6 +849,44 @@ public sealed class StudyControlPanel
         {
             manualCompleteLabel.text = "COMPLETE";
         }
+        if (manualPreviousRouteLabel != null)
+        {
+            manualPreviousRouteLabel.text = StudyRouteIdentity.FormatStepLabel(
+                routes,
+                state.adhocRouteIndex,
+                -1);
+        }
+        if (manualNextRouteLabel != null)
+        {
+            manualNextRouteLabel.text = StudyRouteIdentity.FormatStepLabel(
+                routes,
+                state.adhocRouteIndex,
+                1);
+        }
+        RefreshRouteReadout(routes);
+    }
+
+    /// <summary>
+    /// Route feedback for the experimenter. The readout carries the slot and the derived code
+    /// only: the console has no way to display the MoonBoard record, so nothing it renders can
+    /// identify the climb to a participant looking at the panel.
+    /// </summary>
+    private void RefreshRouteReadout(List<string> routes)
+    {
+        if (routeReadoutText == null)
+        {
+            return;
+        }
+
+        bool running = state.blockRunning && state.activeRow != null;
+        int activeIndex = running ? routes.IndexOf(state.activeRow.route) : -1;
+        int routeIndex = activeIndex >= 0 ? activeIndex : state.adhocRouteIndex;
+        string routeId = routes.Count > 0
+            ? routes[Mathf.Clamp(routeIndex, 0, routes.Count - 1)]
+            : string.Empty;
+        string blindLabel = StudyRouteIdentity.FormatBlindLabel(routeId, routeIndex, routes.Count);
+        routeReadoutText.text = running ? "RUNNING     " + blindLabel : blindLabel;
+        routeReadoutText.color = running ? SelectedColor : AccentColor;
     }
 
     public void RefreshStatusLinesIfChanged()
@@ -1059,10 +1088,11 @@ public sealed class StudyControlPanel
             rightPointerLine,
             rightPointerReticle);
         UpdateHoveredButtons(leftTarget.button, rightTarget.button);
-        panelGrabHandleVisual?.SetHovered(
-            activePanelGrabHand == PanelGrabHand.None &&
-            (leftTarget.isGrabHandle || rightTarget.isGrabHandle));
-        panelGrabHandleVisual?.SetSelected(activePanelGrabHand != PanelGrabHand.None);
+        ApplyPanelSurfaceTint(activePanelGrabHand != PanelGrabHand.None
+            ? PanelGrabbedColor
+            : leftTarget.isPanelSurface || rightTarget.isPanelSurface
+                ? PanelHoverColor
+                : PanelColor);
 
         HandleHandInput(
             leftHand,
@@ -1113,7 +1143,7 @@ public sealed class StudyControlPanel
             return;
         }
 
-        bool panelTargeted = target.isGrabHandle || target.button != null;
+        bool panelTargeted = target.isPanelSurface || target.button != null;
         bool summonConsumed = summonGesture != null && summonGesture.UpdateSummonGesture(
             hand,
             skeleton,
@@ -1128,7 +1158,7 @@ public sealed class StudyControlPanel
             return;
         }
 
-        if (target.isGrabHandle)
+        if (target.isPanelSurface)
         {
             BeginPanelGrab(hand, handSide, target);
             return;
@@ -1174,8 +1204,8 @@ public sealed class StudyControlPanel
         PanelPointerTarget target = default;
         if (hitUi)
         {
-            target.isGrabHandle = hit.collider == panelGrabHandleCollider;
-            target.button = target.isGrabHandle
+            target.isPanelSurface = hit.collider == panelGrabSurfaceCollider;
+            target.button = target.isPanelSurface
                 ? null
                 : hit.collider.GetComponentInParent<StudyPanelButton>();
             target.hitPoint = hit.point;
@@ -1192,7 +1222,7 @@ public sealed class StudyControlPanel
             reticle.transform.position = hit.point - direction * 0.003f;
         }
 
-        Color color = target.isGrabHandle || target.button != null && target.button.Interactable
+        Color color = target.isPanelSurface || target.button != null && target.button.Interactable
             ? PointerHoverColor
             : hitUi ? PointerColor : PointerMissColor;
         SetRendererColor(line, color);
@@ -1215,7 +1245,7 @@ public sealed class StudyControlPanel
         activePanelGrabHand = handSide;
         state.panelPinned = true;
         CancelConfirmation();
-        panelGrabHandleVisual?.SetSelected(true);
+        ApplyPanelSurfaceTint(PanelGrabbedColor);
     }
 
     private void UpdatePanelGrab(OVRHand hand)
@@ -1454,7 +1484,7 @@ public sealed class StudyControlPanel
         activePanelGrabHand = PanelGrabHand.None;
         pinchArmed = false;
         panelPressableAt = Time.unscaledTime + PostDragSettleSeconds;
-        panelGrabHandleVisual?.SetSelected(false);
+        ApplyPanelSurfaceTint(PanelColor);
         state.statusMessage = "Panel moved.";
         RefreshPanelText();
     }
@@ -1464,8 +1494,7 @@ public sealed class StudyControlPanel
         activePanelGrabHand = PanelGrabHand.None;
         leftPinchArmed = false;
         rightPinchArmed = false;
-        panelGrabHandleVisual?.SetSelected(false);
-        panelGrabHandleVisual?.SetHovered(false);
+        ApplyPanelSurfaceTint(PanelColor);
     }
 
     private void UpdateHoveredButtons(StudyPanelButton leftTarget, StudyPanelButton rightTarget)
@@ -1507,7 +1536,7 @@ public sealed class StudyControlPanel
         }
         leftHoveredButton = null;
         rightHoveredButton = null;
-        panelGrabHandleVisual?.SetHovered(false);
+        ApplyPanelSurfaceTint(PanelColor);
         leftPointerRoot?.SetActive(false);
         rightPointerRoot?.SetActive(false);
     }

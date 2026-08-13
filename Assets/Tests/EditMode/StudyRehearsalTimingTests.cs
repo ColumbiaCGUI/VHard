@@ -85,7 +85,7 @@ public sealed class StudyRehearsalTimingTests
     }
 
     [Test]
-    public void RuntimePanelContainsOnlyTheSevenRequestedControls()
+    public void RuntimePanelContainsOnlyTheRequestedControls()
     {
         GameObject parentObject = new("Panel Test Parent");
         GameObject cameraObject = new("Panel Test Camera");
@@ -114,22 +114,17 @@ public sealed class StudyRehearsalTimingTests
             {
                 ("Mode A", "MODE A"),
                 ("Mode B", "MODE B"),
-                ("Previous Route", "ROUTE PREV"),
-                ("Next Route", "ROUTE NEXT"),
+                ("Previous Route", "NO ROUTES"),
+                ("Next Route", "NO ROUTES"),
                 ("Start Run", "START"),
                 ("Complete Run", "COMPLETE"),
                 ("Reset", "RESET"),
             };
             foreach ((string objectName, string label) control in controls)
             {
-                Transform button = console.Find(control.objectName);
-                Assert.That(button, Is.Not.Null, control.objectName);
-                Transform labelObject = console.Find(control.objectName + " Label");
-                Assert.That(labelObject, Is.Not.Null, control.objectName + " label");
-                Component label = labelObject.GetComponents<Component>()
-                    .Single(component => component.GetType().Name == "TextMeshPro");
+                Assert.That(console.Find(control.objectName), Is.Not.Null, control.objectName);
                 Assert.That(
-                    label.GetType().GetProperty("text")?.GetValue(label),
+                    GetPanelText(console, control.objectName + " Label"),
                     Is.EqualTo(control.label),
                     control.objectName);
             }
@@ -138,8 +133,21 @@ public sealed class StudyRehearsalTimingTests
             Assert.That(console.Find("Practice B"), Is.Null);
             Assert.That(console.Find("Align Board"), Is.Null);
             Assert.That(console.Find("Hide Panel"), Is.Null);
-            Assert.That(console.GetComponentsInChildren(buttonType, true), Has.Length.EqualTo(8),
-                "Seven controls plus the panel grab handle are expected.");
+            Assert.That(console.Find("Panel Grab Handle"), Is.Null,
+                "The panel is dragged by its background, not by a pinch-drag control.");
+            Assert.That(console.GetComponentsInChildren(buttonType, true), Has.Length.EqualTo(controls.Length),
+                "The console exposes exactly the requested controls.");
+            Transform background = console.Find("Console Background");
+            Assert.That(background, Is.Not.Null);
+            Assert.That(background.GetComponent<Collider>(), Is.Not.Null,
+                "The console background is the grab surface.");
+            Assert.That(background.GetComponent(buttonType), Is.Null,
+                "Grabbing the background must not press a control.");
+            Assert.That(GetPanelText(console, "Route Readout"), Is.EqualTo("NO ROUTES"));
+            Assert.That(console.Find("Route Identity"), Is.Null,
+                "The console cannot reveal the route's identifying record.");
+            Assert.That(console.Find("Route Identity Readout"), Is.Null,
+                "The console cannot reveal the route's identifying record.");
         }
         finally
         {
@@ -931,5 +939,14 @@ public sealed class StudyRehearsalTimingTests
         return AppDomain.CurrentDomain.GetAssemblies()
             .Select(assembly => assembly.GetType(name))
             .Single(type => type != null);
+    }
+
+    private static string GetPanelText(Transform console, string objectName)
+    {
+        Transform textObject = console.Find(objectName);
+        Assert.That(textObject, Is.Not.Null, objectName);
+        Component text = textObject.GetComponents<Component>()
+            .Single(component => component.GetType().Name == "TextMeshPro");
+        return (string)text.GetType().GetProperty("text")?.GetValue(text);
     }
 }

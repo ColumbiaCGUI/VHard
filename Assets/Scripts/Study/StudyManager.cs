@@ -128,7 +128,8 @@ public sealed class StudyManager : MonoBehaviour
         }
         if (!StudySchedule.TryValidateRoutes(parsed, state.routeCatalog, out error))
         {
-            state.statusMessage = error;
+            Debug.LogError("[StudyManager] " + error);
+            state.statusMessage = "The schedule references unavailable study content; see the log.";
             controlPanel.RefreshPanelText();
             return false;
         }
@@ -371,7 +372,8 @@ public sealed class StudyManager : MonoBehaviour
         }
         if (!MoonBoardStudyCatalog.TryParse(json, out MoonBoardStudyCatalog parsed, out string error))
         {
-            state.statusMessage = error;
+            Debug.LogError("[StudyManager] " + error);
+            state.statusMessage = "Approved study content failed validation; see the log.";
             return false;
         }
         if (boardLayout == null || !boardLayout.ApplyCatalog(parsed, out error))
@@ -381,7 +383,13 @@ public sealed class StudyManager : MonoBehaviour
         }
         if (sceneConfiguror == null || !sceneConfiguror.SetRouteCatalog(parsed, out error))
         {
-            state.statusMessage = sceneConfiguror == null ? "Scene configurator is unavailable." : error;
+            if (!string.IsNullOrEmpty(error))
+            {
+                Debug.LogError("[StudyManager] " + error);
+            }
+            state.statusMessage = sceneConfiguror == null
+                ? "Scene configurator is unavailable."
+                : "Approved study content failed validation; see the log.";
             return false;
         }
 

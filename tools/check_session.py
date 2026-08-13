@@ -69,7 +69,7 @@ def validate_session(directory: Path) -> int:
         "startUtc", "rehearsalStartUtc", "rehearsalDeadlineUtc", "resumeCount",
         "pendingStart", "pendingResumeIndex", "firstInteractionRecorded", "recordingSummaryComplete",
         "endUtc", "endedEarly", "endReason",
-        "routesJsonSha256", "gripFeedback",
+        "routesJsonSha256", "gripFeedback", "routeCuePresentation",
         "droppedCaptureFrames", "holdAggregates",
     }
     missing = required - set(manifest)
@@ -111,6 +111,14 @@ def validate_session(directory: Path) -> int:
             raise SystemExit("Manifest gripFeedback has an invalid degradation timestamp") from error
     if manifest["boardSetup"] != "MoonBoard 2016" or manifest["boardOverhangAngleDegrees"] != 40:
         raise SystemExit("Manifest does not describe MoonBoard 2016 at 40 degrees")
+    # Route roles reach the climber through the board's LEDs in A and through the twin's role
+    # rings in B and C; B and C must never differ from each other.
+    expected_cue = "PhysicalBoardLeds" if manifest["condition"] == "A" else "VirtualHalos"
+    if manifest["routeCuePresentation"] != expected_cue:
+        raise SystemExit(
+            f"Manifest routeCuePresentation is {manifest['routeCuePresentation']!r}, "
+            f"expected {expected_cue!r} for condition {manifest['condition']}"
+        )
     catalog_bytes = CATALOG_PATH.read_bytes()
     if hashlib.sha256(catalog_bytes).hexdigest() != APPROVED_CATALOG_SHA256:
         raise SystemExit("Local authoritative route catalog does not match the approved hash")

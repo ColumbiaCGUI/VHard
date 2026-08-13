@@ -12,6 +12,10 @@ public sealed class BoardAlignmentController : MonoBehaviour
 
     [SerializeField] private SceneConfiguror sceneConfiguror;
     [SerializeField] private Transform boardMotionRoot;
+    [SerializeField] private float boardBaseHeightAboveFloorMeters;
+    [SerializeField] private float boardBaseDistanceAheadOfOriginMeters =
+        BoardStandoffPolicy.DefaultBoardBaseDistanceMeters;
+    [SerializeField] private float boardCenterLateralOffsetMeters;
 
     private MoonBoardStudyCatalog catalog;
     private OVRSpatialAnchor spatialAnchor;
@@ -42,6 +46,8 @@ public sealed class BoardAlignmentController : MonoBehaviour
 
     private void Awake()
     {
+        SeatBoardBaseOnTrackingFloor();
+        SeatBoardBaseAheadOfTrackingOrigin();
         initialLocalPosition = transform.localPosition;
         initialLocalRotation = transform.localRotation;
         ResolveReferences();
@@ -343,6 +349,36 @@ public sealed class BoardAlignmentController : MonoBehaviour
         isAligned = false;
         isSpatiallyAnchored = false;
         statusMessage = "Tracking origin changed; recalibrate the board before the next block.";
+    }
+
+    // OVRManager tracks from a floor-level origin, so world y = 0 is the floor the participant
+    // is standing on, and the Moonboard child is authored with its kicker base at local y = 0.
+    // Seating this root on that plane reproduces what an A3/K3 calibration resolves to, so the
+    // uncalibrated pose no longer leaves the participant floating above the reconstructed floor.
+    private void SeatBoardBaseOnTrackingFloor()
+    {
+        Vector3 worldPosition = transform.position;
+        transform.position = new Vector3(
+            worldPosition.x,
+            boardBaseHeightAboveFloorMeters,
+            worldPosition.z);
+    }
+
+    // The same origin also fixes where the participant is standing horizontally, and neither
+    // horizontal axis was ever measured against them in the authored A3-fiducial frame. The
+    // 40-degree face is not a fixed distance away: it closes on the origin by tan(40 degrees) per
+    // metre of height above the kicker, so seating the vertical kicker plane at the policy standoff
+    // decides both how much of the board a standing participant can reach for a ground rehearsal
+    // and how much room they have under the overhang. Squaring the board's centre column onto the
+    // origin then keeps the reach that standoff buys symmetric across both hands; the offset stays
+    // tunable because the physical bay may not let the participant stand on the centre line.
+    private void SeatBoardBaseAheadOfTrackingOrigin()
+    {
+        Vector3 worldPosition = transform.position;
+        transform.position = new Vector3(
+            boardCenterLateralOffsetMeters,
+            worldPosition.y,
+            boardBaseDistanceAheadOfOriginMeters);
     }
 
     private void ResolveReferences()

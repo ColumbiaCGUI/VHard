@@ -86,7 +86,7 @@ public sealed class PracticeController
         }
         if (!sceneConfiguror.TryValidateRoute(state.estimationCatalog.practiceProblem.id, out string error))
         {
-            state.statusMessage = error;
+            state.statusMessage = "The practice problem is unavailable; see the log.";
             Debug.LogError("[StudyManager] " + error);
             panel.RefreshPanelText();
             return false;

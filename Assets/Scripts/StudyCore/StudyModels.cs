@@ -33,6 +33,7 @@ public sealed class StudySessionManifest
     public string routeCatalogSha256;
     public string boardSetup;
     public int boardOverhangAngleDegrees;
+    public string routeCuePresentation;
     public MoonBoardRouteDefinition routeDefinition;
     public BoardAlignmentSnapshot boardAlignment;
     public BoardAlignmentSnapshot boardAlignmentEnd;

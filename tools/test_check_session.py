@@ -31,6 +31,17 @@ class SessionValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "incorrectly marked endedEarly"):
                 validate_session(block)
 
+    def test_rejects_condition_b_block_without_role_rings(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            block = self._write_block(Path(temporary_directory), "completed_manual")
+            manifest_path = block / "session.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["routeCuePresentation"] = "Hidden"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "routeCuePresentation"):
+                validate_session(block)
+
     def test_rejects_app_closed_block(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             block = self._write_block(Path(temporary_directory), "app_closed")
@@ -293,6 +304,7 @@ class SessionValidationTests(unittest.TestCase):
             "endReason": end_reason,
             "routesJsonSha256": None,
             "gripFeedback": "ok",
+            "routeCuePresentation": "VirtualHalos",
             "droppedCaptureFrames": 0,
             "holdAggregates": [],
         }

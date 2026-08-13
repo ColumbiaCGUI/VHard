@@ -98,6 +98,89 @@ public sealed class InteractionFacadeTests
     }
 
     [Test]
+    public void GhostSelectionRayIgnoresInactiveHoldsAndChoosesNearestActiveHold()
+    {
+        const string scenePath = "Assets/Scenes/VHardStudy.unity";
+        Scene scene = SceneManager.GetSceneByPath(scenePath);
+        bool openedForTest = !scene.isLoaded;
+        if (openedForTest)
+        {
+            scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+        }
+
+        GameObject controllerObject = new("GhostSelectionRayTest");
+        GameObject inactiveHold = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        GameObject nearActiveHold = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        GameObject farActiveHold = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        object originalActiveHolds = null;
+        FieldInfo activeHoldsField = null;
+        Component configuror = null;
+        try
+        {
+            Type configurorType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("SceneConfiguror"))
+                .Single(type => type != null);
+            Type controllerType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("GhostHoldController"))
+                .Single(type => type != null);
+            configuror = scene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<Component>(true))
+                .Single(component => component.GetType() == configurorType);
+            activeHoldsField = configurorType.GetField("activeHoldsList");
+            FieldInfo configurorField = controllerType.GetField(
+                "sceneConfiguror",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo tryGetRayTarget = controllerType.GetMethod(
+                "TryGetRayTarget",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(activeHoldsField, Is.Not.Null);
+            Assert.That(configurorField, Is.Not.Null);
+            Assert.That(tryGetRayTarget, Is.Not.Null);
+
+            inactiveHold.name = "Inactive Hold";
+            nearActiveHold.name = "Near Active Hold";
+            farActiveHold.name = "Far Active Hold";
+            inactiveHold.transform.position = new Vector3(0f, 0f, 1f);
+            nearActiveHold.transform.position = new Vector3(0f, 0f, 2f);
+            farActiveHold.transform.position = new Vector3(0f, 0f, 4f);
+
+            originalActiveHolds = activeHoldsField.GetValue(configuror);
+            activeHoldsField.SetValue(
+                configuror,
+                new List<GameObject> { farActiveHold, nearActiveHold });
+            Component controller = controllerObject.AddComponent(controllerType);
+            configurorField.SetValue(controller, configuror);
+
+            object[] arguments = { new Ray(Vector3.zero, Vector3.forward), null, Vector3.zero };
+            Assert.That((bool)tryGetRayTarget.Invoke(controller, arguments), Is.True);
+            Assert.That(arguments[1], Is.SameAs(nearActiveHold));
+            Assert.That(
+                Vector3.Distance((Vector3)arguments[2], new Vector3(0f, 0f, 1.5f)),
+                Is.LessThan(0.00001f));
+
+            activeHoldsField.SetValue(configuror, new List<GameObject>());
+            arguments = new object[] { new Ray(Vector3.zero, Vector3.forward), null, Vector3.zero };
+            Assert.That((bool)tryGetRayTarget.Invoke(controller, arguments), Is.False);
+            Assert.That(arguments[1], Is.Null);
+        }
+        finally
+        {
+            if (activeHoldsField != null && configuror != null)
+            {
+                activeHoldsField.SetValue(configuror, originalActiveHolds);
+            }
+            UnityEngine.Object.DestroyImmediate(controllerObject);
+            UnityEngine.Object.DestroyImmediate(inactiveHold);
+            UnityEngine.Object.DestroyImmediate(nearActiveHold);
+            UnityEngine.Object.DestroyImmediate(farActiveHold);
+            if (openedForTest && scene.isLoaded)
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+    }
+
+    [Test]
     public void CpuGripAcquisitionIsExplicitlyDegradedOnlyForBAndCContexts()
     {
         Assert.That(DegradedGripContactAcquisition.ShouldUseCpu(
@@ -283,17 +366,20 @@ public sealed class InteractionFacadeTests
             cache.Remove(mesh);
             object leftHand = Enum.Parse(buildMask.GetParameters()[0].ParameterType, "Left");
 
+            GripAcquisitionCriteria criteria = new(3, false, 1, 0.55f, 0.75f, 0.02f, 0.01f);
             try
             {
                 LogAssert.Expect(
                     LogType.Error,
                     new Regex("DEGRADED CPU grip acquisition rejected"));
-                object[] firstArguments = { leftHand, hold, new float[5], 0 };
+                object[] firstArguments =
+                    { leftHand, hold, new float[5], criteria, default(GripAcquisitionMasks) };
                 Assert.That((bool)buildMask.Invoke(gripCoordinator, firstArguments), Is.False);
                 Assert.That(cache.Contains(mesh), Is.True);
                 object cached = cache[mesh];
 
-                object[] secondArguments = { leftHand, hold, new float[5], 0 };
+                object[] secondArguments =
+                    { leftHand, hold, new float[5], criteria, default(GripAcquisitionMasks) };
                 Assert.That((bool)buildMask.Invoke(gripCoordinator, secondArguments), Is.False);
                 Assert.That(cache.Contains(mesh), Is.True);
                 Assert.That(cache[mesh], Is.SameAs(cached));

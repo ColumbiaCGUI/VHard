@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -7,12 +8,141 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 public sealed class HoldVisualsController
 {
     private readonly SceneConfiguror configuror;
+    private readonly GripAffordanceOutlinePresenter gripAffordances = new();
+    private RouteRoleRingPresenter roleRings;
     private MaterialPropertyBlock holdProperties;
+    private GameObject leftLatchedHold;
+    private GameObject rightLatchedHold;
+    private bool gripAffordancesVisible = true;
     private MaterialPropertyBlock HoldProperties => holdProperties ??= new MaterialPropertyBlock();
 
     public HoldVisualsController(SceneConfiguror configuror)
     {
         this.configuror = configuror;
+    }
+
+    /// <summary>Role rings render in B and C only; Condition A, practice, alignment and the
+    /// estimation battery leave them hidden, so B and C stay symmetric by construction.</summary>
+    public void SetRoleRingsVisible(bool visible)
+    {
+        if (!visible)
+        {
+            roleRings?.SetVisible(false);
+            return;
+        }
+
+        RouteRoleRingPresenter presenter = RoleRings;
+        presenter.SetVisible(true);
+        if (presenter.RingCount == 0)
+        {
+            presenter.Rebuild(configuror.activeHoldsList);
+        }
+    }
+
+    public void ClearRoleRings()
+    {
+        roleRings?.Clear();
+    }
+
+    private RouteRoleRingPresenter RoleRings
+    {
+        get
+        {
+            if (roleRings != null)
+            {
+                return roleRings;
+            }
+
+            GameObject boardEnvironment = configuror.moonBoardEnv;
+            if (boardEnvironment == null)
+            {
+                throw new InvalidOperationException("Route role rings require the Moonboard reference.");
+            }
+            Transform mainSurface = boardEnvironment.transform.Find("Main Surface");
+            if (mainSurface == null)
+            {
+                throw new InvalidOperationException(
+                    "Route role rings require the Moonboard's Main Surface for the board plane.");
+            }
+            roleRings = new RouteRoleRingPresenter(
+                boardEnvironment.transform,
+                mainSurface,
+                configuror.GetRouteCueStyle);
+            return roleRings;
+        }
+    }
+
+    /// <summary>Records which hold each hand has latched, from the same pipeline callback that
+    /// drives grip logging, so the rim reports engagement without restating the latch rule.</summary>
+    public void SetGripLatchedHold(Hand hand, GameObject hold, bool latched)
+    {
+        if (hand == Hand.Left)
+        {
+            leftLatchedHold = latched ? hold : null;
+        }
+        else
+        {
+            rightLatchedHold = latched ? hold : null;
+        }
+    }
+
+    public void SetGripAffordancesVisible(bool visible)
+    {
+        gripAffordancesVisible = visible;
+        if (!visible)
+        {
+            gripAffordances.HideAll();
+        }
+    }
+
+    public void ClearGripAffordances()
+    {
+        leftLatchedHold = null;
+        rightLatchedHold = null;
+        gripAffordances.Clear();
+    }
+
+    /// <summary>Per-frame rim update. Identical in B (wall holds) and C (ghost copy): both read the
+    /// same per-hand contact mask, grip score and latch, so the cue cannot differ by condition.
+    /// Condition A never reaches it, running in Basic mode with the twin disabled.</summary>
+    public void UpdateGripAffordances()
+    {
+        if (!gripAffordancesVisible || configuror.IsGripFeedbackDegraded ||
+            (configuror.gameMode != GameMode.Grip && configuror.gameMode != GameMode.Ghost))
+        {
+            gripAffordances.HideAll();
+            return;
+        }
+
+        ResolveHandAffordance(Hand.Left, out GameObject leftHold, out GripAffordance leftAffordance);
+        ResolveHandAffordance(Hand.Right, out GameObject rightHold, out GripAffordance rightAffordance);
+        gripAffordances.Apply(leftHold, leftAffordance, rightHold, rightAffordance);
+    }
+
+    /// <summary>A latched hand keeps its cue on the hold it is holding; an unlatched one reports the
+    /// hold the grip pipeline measured this epoch, so the mask, the score and the outlined hold
+    /// always describe the same object.</summary>
+    private void ResolveHandAffordance(Hand hand, out GameObject hold, out GripAffordance affordance)
+    {
+        bool isLeft = hand == Hand.Left;
+        GameObject latchedHold = isLeft ? leftLatchedHold : rightLatchedHold;
+        hold = latchedHold != null
+            ? latchedHold
+            : isLeft
+                ? configuror.leftHandInteractingClimbingHold
+                : configuror.rightHandInteractingClimbingHold;
+        if (hold == null)
+        {
+            affordance = default;
+            return;
+        }
+
+        bool engaged = latchedHold == hold &&
+                       (isLeft ? configuror.leftHandIsGripping : configuror.rightHandIsGripping);
+        affordance = GripAffordancePolicy.Resolve(
+            engaged,
+            isLeft ? configuror.leftFingerContactMask : configuror.rightFingerContactMask,
+            isLeft ? configuror.leftHandGripScore : configuror.rightHandGripScore);
     }
 
     public void SetInteractionVisual(GameObject hold, bool active, float maxDistance = -1f)
@@ -111,6 +241,8 @@ public sealed class HoldVisualsController
 
             configuror.activeHoldsList.Add(holdsDictionary[holdName]);
         }
+
+        RoleRings.Rebuild(configuror.activeHoldsList);
     }
 
     public void PreviewAllHolds()
@@ -170,6 +302,8 @@ public sealed class HoldVisualsController
 
             configuror.activeHoldsList.Add(holdsDictionary[holdName]);
         }
+
+        ClearRoleRings();
     }
 
     public static XRGrabInteractable EnsureHoldInteractionComponents(GameObject hold)

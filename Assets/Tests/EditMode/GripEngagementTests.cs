@@ -10,7 +10,7 @@ public sealed class GripEngagementTests
     private const int ThreeFingerMask = 0b0_1110;
 
     [Test]
-    public void LatchedOverlayIsBinaryAndSurvivesHoverInvalidationForEitherHand()
+    public void LatchTrackingSurvivesHoverInvalidationAndNeverRecoloursTheHold()
     {
         const int leftHandMask = 1;
         const int rightHandMask = 2;
@@ -50,36 +50,39 @@ public sealed class GripEngagementTests
             Assert.That(invalidateContactData, Is.Not.Null);
             Assert.That(latchedHandMask, Is.Not.Null);
 
-            Renderer overlay = hold.transform.Find("Contact Patch Overlay")?.GetComponent<Renderer>();
-            Assert.That(overlay, Is.Not.Null);
-            Assert.That(overlay.enabled, Is.False);
+            Assert.That(
+                hold.transform.Find("Contact Patch Overlay"),
+                Is.Null,
+                "The grip pipeline must not attach a hold-recolouring overlay; the rim is drawn by " +
+                "GripAffordanceOutlinePresenter.");
+            Assert.That(
+                hold.GetComponentsInChildren<Renderer>(true).Length,
+                Is.EqualTo(1),
+                "Preparing a hold must leave the hold's own renderer as its only one.");
 
             contactBuffer = new ComputeBuffer(hold.GetComponent<MeshFilter>().sharedMesh.vertexCount, sizeof(float) * 4);
             setOverlayVisible.Invoke(state, new object[] { true });
             setContactBuffer.Invoke(state, new object[] { contactBuffer, 1L });
-            Assert.That(overlay.enabled, Is.False, "Proximity alone must not render a graded hold cue.");
 
             setLatchedHand.Invoke(state, new object[] { leftHandMask, true });
             Assert.That((int)latchedHandMask.GetValue(state), Is.EqualTo(leftHandMask));
-            Assert.That(overlay.enabled, Is.True);
-            MaterialPropertyBlock properties = new();
-            overlay.GetPropertyBlock(properties);
-            Assert.That(properties.GetFloat("_GripLatched"), Is.EqualTo(1f));
 
             setOverlayVisible.Invoke(state, new object[] { false });
             invalidateContactData.Invoke(state, new object[] { -1L });
-            Assert.That(overlay.enabled, Is.True, "Hover exit must not hide a latched hold.");
+            Assert.That(
+                (int)latchedHandMask.GetValue(state),
+                Is.EqualTo(leftHandMask),
+                "Hover exit must not release a latched hold.");
 
             setLatchedHand.Invoke(state, new object[] { rightHandMask, true });
             setLatchedHand.Invoke(state, new object[] { leftHandMask, false });
-            Assert.That((int)latchedHandMask.GetValue(state), Is.EqualTo(rightHandMask));
-            Assert.That(overlay.enabled, Is.True, "One hand releasing must preserve the other latch.");
+            Assert.That(
+                (int)latchedHandMask.GetValue(state),
+                Is.EqualTo(rightHandMask),
+                "One hand releasing must preserve the other latch.");
 
             setLatchedHand.Invoke(state, new object[] { rightHandMask, false });
             Assert.That((int)latchedHandMask.GetValue(state), Is.Zero);
-            Assert.That(overlay.enabled, Is.False);
-            overlay.GetPropertyBlock(properties);
-            Assert.That(properties.GetFloat("_GripLatched"), Is.Zero);
         }
         finally
         {

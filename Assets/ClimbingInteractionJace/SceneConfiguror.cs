@@ -243,6 +243,8 @@ public class SceneConfiguror : MonoBehaviour
             }
         }
 
+        HoldVisuals.UpdateGripAffordances();
+
         if (!Grip.LeftTrackingValid && !Grip.RightTrackingValid)
         {
             return;
@@ -481,11 +483,6 @@ public class SceneConfiguror : MonoBehaviour
         return routes.TryGetRouteDefinition(routeId, out route);
     }
 
-    public string GetRouteDisplayName(string routeId)
-    {
-        return TryGetRouteDefinition(routeId, out MoonBoardRouteDefinition route) ? route.name : routeId;
-    }
-
     public bool TryValidateRoute(string routeName, out string error)
     {
         EnsureHoldsDictionary();
@@ -567,7 +564,7 @@ public class SceneConfiguror : MonoBehaviour
         gameMode = newMode;
         SetRouteCuePresentation(newMode == GameMode.Basic
             ? baselineRouteCuePresentation
-            : RouteCuePresentation.Hidden);
+            : RouteCuePresentation.VirtualHalos);
         ApplyModeToRouteHolds();
         if (newMode == GameMode.Grip || newMode == GameMode.Ghost)
         {
@@ -647,6 +644,12 @@ public class SceneConfiguror : MonoBehaviour
     public void SetRouteCuePresentation(RouteCuePresentation presentation)
     {
         CurrentRouteCuePresentation = presentation;
+        bool showRoleRings = presentation == RouteCuePresentation.VirtualHalos;
+        HoldVisuals.SetRoleRingsVisible(showRoleRings);
+        if (!showRoleRings)
+        {
+            HoldVisuals.ClearRoleRings();
+        }
     }
 
     public void PrepareGripHold(GameObject hold)
@@ -662,6 +665,8 @@ public class SceneConfiguror : MonoBehaviour
     public void ResetManualStudyState(bool restoreBasicMode = false)
     {
         ghostHoldController?.DismissGhost();
+        HoldVisuals.ClearRoleRings();
+        HoldVisuals.ClearGripAffordances();
         SetGameMode(restoreBasicMode ? GameMode.Basic : gameMode);
         ResetMoonBoardTransform();
         SetStudyEnvironmentVisible(true);
@@ -687,11 +692,13 @@ public class SceneConfiguror : MonoBehaviour
         bool effectiveVisibility = visible && !IsGripFeedbackDegraded;
         StudyEnvironment.SetFeedbackVisible(effectiveVisibility);
         gripContactPipeline?.SetFeedbackVisible(effectiveVisibility);
+        HoldVisuals.SetGripAffordancesVisible(effectiveVisibility);
     }
 
     public void SetGripLatchFeedback(Hand hand, GameObject hold, bool latched)
     {
         gripContactPipeline?.SetLatchFeedback(hand, hold, latched);
+        HoldVisuals.SetGripLatchedHold(hand, hold, latched);
     }
 
     public void DebugInjectGripReadbackFailures(int epochCount = 1)

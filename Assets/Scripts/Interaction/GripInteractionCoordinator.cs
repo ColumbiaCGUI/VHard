@@ -23,7 +23,10 @@ public sealed class GripInteractionCoordinator
     private readonly SceneConfiguror owner;
     private OVRHand leftTrackedHand;
     private OVRHand rightTrackedHand;
-    private Hand? gripLocomotionHand;
+    private GripEngagementSettings settings;
+    private GripDiagnosticsHud diagnosticsHud;
+    private bool leftLocomotionActive;
+    private bool rightLocomotionActive;
     private GripLatchStateMachine leftGripLatch;
     private GripLatchStateMachine rightGripLatch;
     private GripLocomotionFilter leftLocomotionFilter;
@@ -42,6 +45,8 @@ public sealed class GripInteractionCoordinator
         new float[GripEngagementGate.RequiredBoneDistanceCount];
     private readonly float[] rightDegradedGripDistances =
         new float[GripEngagementGate.RequiredBoneDistanceCount];
+    private int leftLatchedFingerCount;
+    private int rightLatchedFingerCount;
     private bool leftLegacyFiveTipContact;
     private bool rightLegacyFiveTipContact;
     private bool inputSuppressed;
@@ -91,6 +96,43 @@ public sealed class GripInteractionCoordinator
             owner.gripMaximumAcceleration);
     }
 
+    /// <summary>The grip rework's tunables live on their own component rather than in the scene,
+    /// so the approved SceneConfiguror serialization is untouched and the values can still be
+    /// turned in the inspector during a pilot run.</summary>
+    private void EnsureSettings()
+    {
+        if (settings != null)
+        {
+            return;
+        }
+
+        settings = owner.GetComponent<GripEngagementSettings>();
+        if (settings == null)
+        {
+            settings = owner.gameObject.AddComponent<GripEngagementSettings>();
+        }
+        if (settings.TryDescribeClampedStrongPath(
+                owner.gripFlexionEngageThreshold,
+                owner.gripFingertipRange,
+                owner.defaultMinFingers,
+                out string reason))
+        {
+            Debug.LogError("[SceneConfiguror] Grip engagement settings were clamped: " + reason);
+        }
+    }
+
+    private void EnsureDiagnosticsHud()
+    {
+        if (diagnosticsHud != null || !settings.showDiagnosticsPanel)
+        {
+            return;
+        }
+
+        GameObject hudObject = new(GripDiagnosticsHud.RootName + " Root");
+        diagnosticsHud = hudObject.AddComponent<GripDiagnosticsHud>();
+        diagnosticsHud.Bind(owner, this, settings);
+    }
+
     /// <summary>Per-frame hand tracking refresh: validity, bone copies, and finger curls.
     /// Preserves the facade's original call order (left before right).</summary>
     public void UpdateTracking()
@@ -121,6 +163,8 @@ public sealed class GripInteractionCoordinator
     public void UpdateGripMode(bool allowLocomotion)
     {
         Initialize();
+        EnsureSettings();
+        EnsureDiagnosticsHud();
         float now = Time.unscaledTime;
         UpdateHandGripLatch(Hand.Left, now);
         UpdateHandGripLatch(Hand.Right, now);
@@ -135,38 +179,57 @@ public sealed class GripInteractionCoordinator
             return;
         }
 
-        GripLocomotionDriver driver = GripLocomotionPolicy.SelectDriver(
+        GripLocomotionPlan plan = GripLocomotionPlanner.Select(
             leftGripLatch.Phase,
             LeftTrackingValid,
             rightGripLatch.Phase,
-            RightTrackingValid);
-        if (driver == GripLocomotionDriver.None)
+            RightTrackingValid,
+            settings.allowBimanualLocomotion);
+        ApplyLocomotionPlan(plan, now);
+        if (plan.Mode == GripLocomotionMode.None)
         {
-            StopGripLocomotion();
             return;
         }
 
-        Hand drivingHand = driver == GripLocomotionDriver.Left ? Hand.Left : Hand.Right;
-        if (!owner.isGripLocomotionActive || gripLocomotionHand != drivingHand)
-        {
-            StopGripLocomotion();
-            StartGripLocomotion(drivingHand, now);
-        }
-
-        Vector3 movement;
-        if (drivingHand == Hand.Left)
+        Vector3 leftMovement = Vector3.zero;
+        Vector3 rightMovement = Vector3.zero;
+        if (plan.UsesLeft)
         {
             Vector3 wristPosition = GripLocomotionAnchor.GetWristPosition(owner.leftHandBonePositions);
-            movement = AdvanceGripLocomotion(Hand.Left, wristPosition, now);
+            leftMovement = AdvanceGripLocomotion(Hand.Left, wristPosition, now);
             owner.leftHandGripLastPosition = wristPosition;
         }
-        else
+        if (plan.UsesRight)
         {
             Vector3 wristPosition = GripLocomotionAnchor.GetWristPosition(owner.rightHandBonePositions);
-            movement = AdvanceGripLocomotion(Hand.Right, wristPosition, now);
+            rightMovement = AdvanceGripLocomotion(Hand.Right, wristPosition, now);
             owner.rightHandGripLastPosition = wristPosition;
         }
-        owner.MoveStudyEnvironment(movement);
+        owner.MoveStudyEnvironment(
+            GripLocomotionPlanner.CombineAnchorMovement(plan, leftMovement, rightMovement));
+    }
+
+    /// <summary>Starts and stops each anchor independently, so a hand joining or leaving a
+    /// two-hand grip re-anchors only itself and the hand already holding the board keeps its
+    /// filter state instead of jumping.</summary>
+    private void ApplyLocomotionPlan(in GripLocomotionPlan plan, float now)
+    {
+        if (leftLocomotionActive && !plan.UsesLeft)
+        {
+            StopHandLocomotion(Hand.Left);
+        }
+        if (rightLocomotionActive && !plan.UsesRight)
+        {
+            StopHandLocomotion(Hand.Right);
+        }
+        if (plan.UsesLeft && !leftLocomotionActive)
+        {
+            StartGripLocomotion(Hand.Left, now, plan.AnchorCount);
+        }
+        if (plan.UsesRight && !rightLocomotionActive)
+        {
+            StartGripLocomotion(Hand.Right, now, plan.AnchorCount);
+        }
     }
 
     public void SetInputSuppressed(bool suppressed)
@@ -186,22 +249,39 @@ public sealed class GripInteractionCoordinator
 
     public void StopGripLocomotion(Hand? hand = null)
     {
-        if (!owner.isGripLocomotionActive || (hand.HasValue && gripLocomotionHand != hand))
+        if (hand.HasValue)
+        {
+            StopHandLocomotion(hand.Value);
+            return;
+        }
+
+        StopHandLocomotion(Hand.Left);
+        StopHandLocomotion(Hand.Right);
+    }
+
+    private void StopHandLocomotion(Hand hand)
+    {
+        if (!(hand == Hand.Left ? leftLocomotionActive : rightLocomotionActive))
         {
             return;
         }
 
-        if (gripLocomotionHand == Hand.Left)
+        if (hand == Hand.Left)
         {
             leftLocomotionFilter?.Cancel();
+            leftLocomotionActive = false;
         }
-        else if (gripLocomotionHand == Hand.Right)
+        else
         {
             rightLocomotionFilter?.Cancel();
+            rightLocomotionActive = false;
         }
-        owner.actionRecorder?.Record("LocomotionStop", "", null, "grip locomotion stopped");
-        owner.isGripLocomotionActive = false;
-        gripLocomotionHand = null;
+        owner.isGripLocomotionActive = leftLocomotionActive || rightLocomotionActive;
+        owner.actionRecorder?.Record(
+            "LocomotionStop",
+            hand == Hand.Left ? "Left" : "Right",
+            null,
+            "grip locomotion stopped");
     }
 
     /// <summary>Resets every per-hand grip artifact; the facade owns the visual/hover parts of a
@@ -217,12 +297,15 @@ public sealed class GripInteractionCoordinator
         rightGripAcquisitionSample.Invalidate();
         leftLatchedHold = null;
         rightLatchedHold = null;
+        leftLatchedFingerCount = 0;
+        rightLatchedFingerCount = 0;
         leftLegacyFiveTipContact = false;
         rightLegacyFiveTipContact = false;
         owner.leftHandIsGripping = false;
         owner.rightHandIsGripping = false;
         owner.isGripLocomotionActive = false;
-        gripLocomotionHand = null;
+        leftLocomotionActive = false;
+        rightLocomotionActive = false;
     }
 
     /// <summary>Releases a hold (e.g. an unregistering ghost) from whichever latch holds it.</summary>
@@ -233,6 +316,7 @@ public sealed class GripInteractionCoordinator
             owner.SetGripLatchFeedback(Hand.Left, leftLatchedHold, false);
             leftGripLatch.Reset();
             leftLatchedHold = null;
+            leftLatchedFingerCount = 0;
             StopGripLocomotion(Hand.Left);
         }
         if (rightGripLatch != null && rightGripLatch.HoldId == holdId)
@@ -240,6 +324,7 @@ public sealed class GripInteractionCoordinator
             owner.SetGripLatchFeedback(Hand.Right, rightLatchedHold, false);
             rightGripLatch.Reset();
             rightLatchedHold = null;
+            rightLatchedFingerCount = 0;
             StopGripLocomotion(Hand.Right);
         }
         owner.leftHandIsGripping = leftGripLatch != null && leftGripLatch.IsEngaged;
@@ -327,16 +412,26 @@ public sealed class GripInteractionCoordinator
             : rightGripAcquisitionSample;
         GripLatchStateMachine latch = hand == Hand.Left ? leftGripLatch : rightGripLatch;
         int lowFlexedMask = GripEngagementGate.BuildFlexedMask(curls, owner.gripFlexionReleaseThreshold);
+        int minFingers = owner.GetMinFingersForHold(candidate);
+        GripAcquisitionCriteria criteria = settings.BuildCriteria(
+            minFingers,
+            owner.gripFlexionEngageThreshold,
+            owner.gripFingertipRange);
 
         if (inputSuppressed)
         {
+            ReportDiagnostics(hand, latch, GripEngagementBlock.InputSuppressed, default, criteria, 0, minFingers);
             return;
         }
 
         bool acquisitionArmed = hand == Hand.Left ? leftAcquisitionArmed : rightAcquisitionArmed;
         if (!acquisitionArmed)
         {
-            if (trackingValid && GripEngagementGate.CountNonThumbFingers(lowFlexedMask) == 0)
+            // Re-arming asks only that no finger is still flexed enough to engage. Measuring it at
+            // the release threshold instead left a hand whose resting curl sits above that
+            // threshold disarmed for the rest of the block.
+            int armingMask = GripEngagementGate.BuildFlexedMask(curls, criteria.EngageCurl);
+            if (trackingValid && GripEngagementGate.CountNonThumbFingers(armingMask) == 0)
             {
                 if (hand == Hand.Left)
                 {
@@ -347,48 +442,123 @@ public sealed class GripInteractionCoordinator
                     rightAcquisitionArmed = true;
                 }
             }
+            ReportDiagnostics(hand, latch, GripEngagementBlock.AwaitingOpenHand, default, criteria, 0, minFingers);
             return;
         }
 
-        int minFingers = owner.GetMinFingersForHold(candidate);
         int candidateHoldId = candidate != null ? candidate.GetInstanceID() : 0;
+        bool affordancesReady = owner.HoldAffordancesState == HoldAffordancesLoadState.Ready;
         bool canEvaluateAcquisition = latch.Phase == GripLatchPhase.Free &&
                                       candidate != null &&
                                       trackingValid &&
-                                      owner.HoldAffordancesState == HoldAffordancesLoadState.Ready;
+                                      affordancesReady;
         bool useDegradedCpu = DegradedGripContactAcquisition.ShouldUseCpu(
             IsDegradedAcquisitionActive,
             GetGripAcquisitionContext());
         bool acquisitionReady = false;
-        int highFlexedContactMask = 0;
+        GripAcquisitionMasks masks = default;
         if (canEvaluateAcquisition && useDegradedCpu)
         {
             acquisitionReady = TryBuildDegradedGripContactMask(
                 hand,
                 candidate,
                 curls,
-                out highFlexedContactMask);
+                criteria,
+                out masks);
         }
         else if (canEvaluateAcquisition && !owner.IsGripFeedbackDegraded && acquisitionSample.IsValid)
         {
             acquisitionReady = true;
-            highFlexedContactMask = acquisitionSample.ConsumeFlexedContactMask(
-                candidateHoldId,
-                curls,
-                owner.gripFlexionEngageThreshold,
-                owner.gripFingertipRange,
-                now);
+            masks = acquisitionSample.ConsumeMasks(candidateHoldId, curls, criteria, now);
         }
+
+        GripAcquisitionVerdict verdict = acquisitionReady
+            ? GripEngagementGate.Evaluate(criteria, masks)
+            : default;
+        int acquiredFingers = GripEngagementGate.CountNonThumbFingers(verdict.AcquiredMask);
         GripLatchTransition transition = latch.Update(
             now,
             trackingValid,
-            acquisitionReady,
-            acquisitionReady ? candidateHoldId : 0,
-            minFingers,
-            highFlexedContactMask,
+            verdict.CanAcquire,
+            verdict.CanAcquire ? candidateHoldId : 0,
+            Mathf.Max(1, acquiredFingers),
+            verdict.AcquiredMask,
             lowFlexedMask);
 
-        HandleGripLatchTransition(hand, candidate, minFingers, transition, now, trackingValid);
+        HandleGripLatchTransition(
+            hand,
+            candidate,
+            minFingers,
+            acquiredFingers,
+            transition,
+            now,
+            trackingValid);
+        ReportDiagnostics(
+            hand,
+            latch,
+            ResolveEngagementBlock(
+                latch.Phase,
+                trackingValid,
+                candidate,
+                affordancesReady,
+                acquisitionReady,
+                verdict),
+            masks,
+            criteria,
+            verdict.CountedFingers,
+            verdict.CanAcquire ? verdict.RequiredFingers : minFingers);
+    }
+
+    private static GripEngagementBlock ResolveEngagementBlock(
+        GripLatchPhase phase,
+        bool trackingValid,
+        GameObject candidate,
+        bool affordancesReady,
+        bool acquisitionReady,
+        in GripAcquisitionVerdict verdict)
+    {
+        if (phase != GripLatchPhase.Free)
+        {
+            return GripEngagementBlock.Latched;
+        }
+        if (!trackingValid)
+        {
+            return GripEngagementBlock.TrackingLost;
+        }
+        if (candidate == null)
+        {
+            return GripEngagementBlock.NoCandidateHold;
+        }
+        if (!affordancesReady)
+        {
+            return GripEngagementBlock.AffordancesUnavailable;
+        }
+        return acquisitionReady ? verdict.Block : GripEngagementBlock.NoContactSample;
+    }
+
+    private void ReportDiagnostics(
+        Hand hand,
+        GripLatchStateMachine latch,
+        GripEngagementBlock block,
+        in GripAcquisitionMasks masks,
+        in GripAcquisitionCriteria criteria,
+        int countedFingers,
+        int requiredFingers)
+    {
+        if (diagnosticsHud == null)
+        {
+            return;
+        }
+
+        int latchedFingers = hand == Hand.Left ? leftLatchedFingerCount : rightLatchedFingerCount;
+        diagnosticsHud.ReportHand(
+            hand,
+            latch.Phase,
+            block,
+            masks,
+            criteria,
+            block == GripEngagementBlock.Latched ? latchedFingers : countedFingers,
+            requiredFingers);
     }
 
     private GripAcquisitionContext GetGripAcquisitionContext()
@@ -405,9 +575,10 @@ public sealed class GripInteractionCoordinator
         Hand hand,
         GameObject hold,
         IReadOnlyList<float> curls,
-        out int contactMask)
+        in GripAcquisitionCriteria criteria,
+        out GripAcquisitionMasks masks)
     {
-        contactMask = 0;
+        masks = default;
         if (!TryGetDegradedGripGeometry(
                 hold,
                 out DegradedGripContactGeometry geometry,
@@ -434,11 +605,7 @@ public sealed class GripInteractionCoordinator
             return false;
         }
 
-        contactMask = GripEngagementGate.BuildFlexedContactMask(
-            curls,
-            distances,
-            owner.gripFlexionEngageThreshold,
-            owner.gripFingertipRange);
+        masks = GripAcquisitionMasks.Build(curls, distances, criteria);
         return true;
     }
 
@@ -461,6 +628,7 @@ public sealed class GripInteractionCoordinator
         Hand hand,
         GameObject candidate,
         int minFingers,
+        int acquiredFingers,
         GripLatchTransition transition,
         float now,
         bool trackingValid)
@@ -470,12 +638,13 @@ public sealed class GripInteractionCoordinator
         {
             latchedHold = candidate;
             SetLatchedHold(hand, latchedHold);
+            SetLatchedFingerCount(hand, acquiredFingers);
             owner.SetGripLatchFeedback(hand, latchedHold, true);
             owner.RaiseGripEngagement(
                 "GripLatched",
                 hand,
                 latchedHold,
-                "min_fingers=" + minFingers);
+                "min_fingers=" + minFingers + "; fingers=" + acquiredFingers);
         }
         else if (transition.Kind == GripLatchTransitionKind.Frozen)
         {
@@ -491,6 +660,7 @@ public sealed class GripInteractionCoordinator
                 latchedHold,
                 transition.ReleaseReason.ToRecorderValue());
             SetLatchedHold(hand, null);
+            SetLatchedFingerCount(hand, 0);
             InvalidateAcquisitionSample(hand);
         }
 
@@ -512,16 +682,23 @@ public sealed class GripInteractionCoordinator
         }
     }
 
-    private void StartGripLocomotion(Hand hand, float now)
+    private void StartGripLocomotion(Hand hand, float now, int anchorCount)
     {
         ResetGripAnchor(hand, now);
-        gripLocomotionHand = hand;
+        if (hand == Hand.Left)
+        {
+            leftLocomotionActive = true;
+        }
+        else
+        {
+            rightLocomotionActive = true;
+        }
         owner.isGripLocomotionActive = true;
         owner.actionRecorder?.Record(
             "LocomotionStart",
             hand == Hand.Left ? "Left" : "Right",
             hand == Hand.Left ? leftLatchedHold : rightLatchedHold,
-            "one-hand grip locomotion started");
+            "grip locomotion started; anchors=" + anchorCount);
     }
 
     private Vector3 AdvanceGripLocomotion(
@@ -545,7 +722,7 @@ public sealed class GripInteractionCoordinator
 
     private void CompleteGripLocomotion(Hand hand)
     {
-        if (!owner.isGripLocomotionActive || gripLocomotionHand != hand)
+        if (!(hand == Hand.Left ? leftLocomotionActive : rightLocomotionActive))
         {
             return;
         }
@@ -631,6 +808,18 @@ public sealed class GripInteractionCoordinator
         else
         {
             rightLatchedHold = hold;
+        }
+    }
+
+    private void SetLatchedFingerCount(Hand hand, int fingers)
+    {
+        if (hand == Hand.Left)
+        {
+            leftLatchedFingerCount = fingers;
+        }
+        else
+        {
+            rightLatchedFingerCount = fingers;
         }
     }
 

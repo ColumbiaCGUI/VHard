@@ -2,9 +2,9 @@ Shader "VHard/Contact Patch Overlay"
 {
     Properties
     {
-        _GripLatched ("Grip Latched", Range(0, 1)) = 0
-        _LatchedColor ("Latched Color", Color) = (0.1, 0.85, 0.2, 1)
-        _LatchedAlpha ("Latched Alpha", Range(0, 1)) = 0.82
+        _AffordanceColor ("Affordance Color", Color) = (0.1, 0.85, 0.2, 1)
+        _AffordanceAlpha ("Affordance Alpha", Range(0, 1)) = 0
+        _AffordanceRimPower ("Affordance Rim Power", Range(0.5, 8)) = 3
     }
     SubShader
     {
@@ -32,20 +32,23 @@ Shader "VHard/Contact Patch Overlay"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
-                float _GripLatched;
-                float4 _LatchedColor;
-                float _LatchedAlpha;
+                float4 _AffordanceColor;
+                float _AffordanceAlpha;
+                float _AffordanceRimPower;
             CBUFFER_END
 
             struct Attributes
             {
                 float4 positionOS : POSITION;
+                float3 normalOS : NORMAL;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
             {
                 float4 positionHCS : SV_POSITION;
+                float3 normalWS : TEXCOORD0;
+                float3 viewDirectionWS : TEXCOORD1;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -56,17 +59,21 @@ Shader "VHard/Contact Patch Overlay"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
                 float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
                 output.positionHCS = TransformWorldToHClip(positionWS);
+                output.normalWS = TransformObjectToWorldNormal(input.normalOS);
+                output.viewDirectionWS = GetWorldSpaceNormalizeViewDir(positionWS);
                 return output;
             }
 
+            // Face-on surface returns rim 0 and blends to nothing, so the hold keeps its own scanned
+            // colour and only the silhouette carries the cue. No clip/discard: the renderer is
+            // switched off when there is no affordance, and a zero-alpha blend costs a tile-based GPU
+            // less than losing early-Z for the whole pass.
             half4 Frag(Varyings input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-                if (_GripLatched <= 0.5)
-                {
-                    discard;
-                }
-                return half4(_LatchedColor.rgb, _LatchedAlpha);
+                float facing = saturate(dot(normalize(input.normalWS), normalize(input.viewDirectionWS)));
+                float rim = pow(1.0 - facing, _AffordanceRimPower);
+                return half4(_AffordanceColor.rgb, rim * _AffordanceAlpha);
             }
             ENDHLSL
         }

@@ -226,6 +226,14 @@ public sealed class StudyContentBuildValidator : IPreprocessBuildWithReport, IPo
             throw new BuildFailedException(
                 "Participant study builds must not contain LED, minimap, or route-halo objects.");
         }
+        if (sceneTransforms.Any(item =>
+                item.name == RouteRoleRingPresenter.RingRootName ||
+                item.name.StartsWith(RouteRoleRingPresenter.RingNamePrefix, StringComparison.Ordinal)))
+        {
+            throw new BuildFailedException(
+                "Route role rings are generated at runtime from the approved catalog roles; " +
+                "the saved study scene must not contain baked ring objects.");
+        }
         Light[] lights = FindComponents<Light>(scene);
         if (lights.Length != 1 || lights[0].type != LightType.Directional)
         {

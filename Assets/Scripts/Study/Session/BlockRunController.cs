@@ -121,8 +121,9 @@ public sealed class BlockRunController
         }
         if (!sceneConfiguror.TryGetRouteDefinition(row.route, out MoonBoardRouteDefinition routeDefinition))
         {
-            state.statusMessage = "Authoritative route record is unavailable: " + row.route + ".";
+            state.statusMessage = StudyRouteIdentity.FormatRouteFailureStatus(row.route);
             panel.RefreshPanelText();
+            Debug.LogError("[StudyManager] Authoritative route record is unavailable: " + row.route + ".");
             return false;
         }
         activeRouteDefinition = routeDefinition;
@@ -257,7 +258,7 @@ public sealed class BlockRunController
             : sceneConfiguror.TryValidateRoute(row.route, out routeError);
         if (!routeReady)
         {
-            state.statusMessage = routeError;
+            state.statusMessage = StudyRouteIdentity.FormatRouteFailureStatus(row.route);
             panel.RefreshPanelText();
             Debug.LogError("[StudyManager] " + routeError);
             return false;
@@ -297,6 +298,7 @@ public sealed class BlockRunController
             routeCatalogSha256 = state.routeCatalogSha256,
             boardSetup = state.routeCatalog != null ? state.routeCatalog.setupName : string.Empty,
             boardOverhangAngleDegrees = state.routeCatalog != null ? state.routeCatalog.overhangAngleDegrees : 0,
+            routeCuePresentation = string.Empty,
             routeDefinition = activeRouteDefinition,
             boardAlignment = boardAlignment != null ? boardAlignment.GetSnapshot() : null,
             boardAlignmentEnd = null,
@@ -351,6 +353,10 @@ public sealed class BlockRunController
             });
             sceneConfiguror.SetStudyEnvironmentVisible(row.condition != "A");
             sceneConfiguror.SetStudyFeedbackVisible(row.condition != "A");
+            activeManifest.routeCuePresentation = row.condition == "A"
+                ? RouteCuePresentation.PhysicalBoardLeds.ToString()
+                : sceneConfiguror.CurrentRouteCuePresentation.ToString();
+            WriteManifest();
 
             actionRecorder.BeginBlock(
                 state.activeDirectory,
