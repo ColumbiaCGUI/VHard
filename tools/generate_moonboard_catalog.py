@@ -506,6 +506,12 @@ MESH_FRAME_CORRECTIONS = {
 # (board median 5.9 mm). Only visually confirmed offsets are listed.
 BOLT_BORE_MESH_OFFSETS_METERS = {
     "W99": {"x": 0.0306, "y": -0.0328},  # B18; body belongs up-left toward A18 (Ben 2026-08-13)
+    # 2026-08-14 (Ben-approved): clean M10 through-bores, each co-located with its
+    # countersink scoop, and the poster shows each body on the predicted side of its bolt
+    # (D5 up-left, H13 down-left). Both holds' SPINS were already dual-verified 07-28 —
+    # bore displacement is invisible to every spin instrument.
+    "W97": {"x": -0.0267, "y": -0.0231},  # D5; bore 32.7 mm off-pin, body belongs up-left
+    "B149": {"x": -0.0253, "y": 0.0250},  # H13; bore 31.0 mm off-pin, body belongs down-left
 }
 
 

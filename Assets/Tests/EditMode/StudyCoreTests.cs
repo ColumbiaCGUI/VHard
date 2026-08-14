@@ -283,6 +283,15 @@ public sealed class StudyCoreTests
         Assert.That(shift.magnitude, Is.EqualTo(boreMagnitude).Within(1e-5f));
         Assert.That(shift.x, Is.LessThan(-0.02f), "body must move toward column A");
 
+        // D5 and H13 landed 2026-08-14: clean M10 through-bores with co-located
+        // countersinks; the poster shows each body on the predicted side of its bolt.
+        Assert.That(catalog.TryGetHold("D5", out MoonBoardHoldDefinition d5), Is.True);
+        Assert.That(d5.meshBoltOffsetXMeters, Is.EqualTo(-0.0267f).Within(1e-6f));
+        Assert.That(d5.meshBoltOffsetYMeters, Is.EqualTo(-0.0231f).Within(1e-6f));
+        Assert.That(catalog.TryGetHold("H13", out MoonBoardHoldDefinition h13), Is.True);
+        Assert.That(h13.meshBoltOffsetXMeters, Is.EqualTo(-0.0253f).Within(1e-6f));
+        Assert.That(h13.meshBoltOffsetYMeters, Is.EqualTo(0.025f).Within(1e-6f));
+
         // Every other hold carries a zero offset and is untouched by the new term.
         int boreOffsetHolds = 0;
         foreach (MoonBoardHoldDefinition hold in catalog.holds)
@@ -292,7 +301,7 @@ public sealed class StudyCoreTests
                 boreOffsetHolds++;
             }
         }
-        Assert.That(boreOffsetHolds, Is.EqualTo(1));
+        Assert.That(boreOffsetHolds, Is.EqualTo(3));
 
         // The seating path is fail-closed on nonsense offsets.
         b18WithoutBore.meshBoltOffsetXMeters = MoonBoardStudyCatalog.MaxBoltOffsetMeters * 2f;

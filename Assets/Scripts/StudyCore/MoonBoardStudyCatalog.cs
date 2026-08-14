@@ -7,7 +7,7 @@ using UnityEngine;
 [Serializable]
 public sealed class MoonBoardStudyCatalog
 {
-    public const string ApprovedCatalogSha256 = "2eb9a54fd85433926507e76609e2162e2a69118626dcc163672b94013711f8ae";
+    public const string ApprovedCatalogSha256 = "4ed5bd6f56887a0fbb2487be75efeae5626d684d537dc4784aa5bbc631f48329";
 
     /// <summary>Local scale at which the aggregate FBX imports each normalised hold child.</summary>
     public const float NormalizedMeshScale = 100f;

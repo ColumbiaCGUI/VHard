@@ -184,7 +184,9 @@
         "y": 0.0,
         "z": -0.42261826174069944,
         "w": 0.9063077870366499
-      }
+      },
+      "meshBoltOffsetXMeters": -0.0267,
+      "meshBoltOffsetYMeters": -0.0231
     },
     {
       "coordinate": "F5",
@@ -1550,7 +1552,9 @@
         "y": 0.0,
         "z": -0.9396926207859083,
         "w": 0.3420201433256688
-      }
+      },
+      "meshBoltOffsetXMeters": -0.0253,
+      "meshBoltOffsetYMeters": 0.025
     },
     {
       "coordinate": "I13",
