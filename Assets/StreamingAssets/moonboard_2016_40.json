@@ -956,7 +956,9 @@
         "y": 0.32288,
         "z": 0.8717703,
         "w": 0.1801709
-      }
+      },
+      "meshBoltOffsetXMeters": -0.0009,
+      "meshBoltOffsetYMeters": 0.0262
     },
     {
       "coordinate": "E10",

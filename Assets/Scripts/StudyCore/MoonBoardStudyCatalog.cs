@@ -7,7 +7,7 @@ using UnityEngine;
 [Serializable]
 public sealed class MoonBoardStudyCatalog
 {
-    public const string ApprovedCatalogSha256 = "5bc19c02771104530c708a030f8645d7b25a1edbdbd8b983eb1e84bb7a59f679";
+    public const string ApprovedCatalogSha256 = "0d10b5aa4b7629799987ad2058c80702ef9727b824da076712a123cd546fb6f7";
 
     /// <summary>Local scale at which the aggregate FBX imports each normalised hold child.</summary>
     public const float NormalizedMeshScale = 100f;
@@ -358,10 +358,15 @@ public static readonly string[] ScaleCalibrationSources =
         {
             // A hold mounts on its bolt bore, not on its mesh-frame origin: subtract the
             // baked-rotation image of the measured bore so the bore lands on the t-nut.
-            // The bore lies in the mesh's base plane (local z = 0), which the baked rotation
-            // maps onto the climbing surface, so no normal-component projection is needed.
-            seated -= GetBoardLocalRotation(hold) *
-                      new Vector3(hold.meshBoltOffsetXMeters, hold.meshBoltOffsetYMeters, 0f);
+            // Only the in-plane part may move the hold - seating depth belongs solely to
+            // surfaceOffsetMeters. For holds whose raw z = 0 plane is the mounting plane
+            // the wall-normal component is already exactly zero; for plane-corrected
+            // scans such as D10/Y33 the raw z = 0 plane is tilted against the wall, so
+            // the projection is what keeps the fitted face flush.
+            Vector3 bore = GetBoardLocalRotation(hold) *
+                           new Vector3(hold.meshBoltOffsetXMeters, hold.meshBoltOffsetYMeters, 0f);
+            Vector3 outwardNormal = GetBoardMountRotation() * Vector3.up;
+            seated -= bore - outwardNormal * Vector3.Dot(outwardNormal, bore);
         }
         return seated;
     }

@@ -295,6 +295,47 @@ public sealed class StudyCoreTests
         Assert.That(h13.meshBoltOffsetXMeters, Is.EqualTo(-0.0253f).Within(1e-6f));
         Assert.That(h13.meshBoltOffsetYMeters, Is.EqualTo(0.025f).Within(1e-6f));
 
+        // D10/Y33 landed 2026-08-14 evening after Ben saw the bore miss the wall's t-nut
+        // hole on the twin: bore re-measured in the FITTED mounting frame (the raw Zplane
+        // frame is wrong for this scan) and mapped to the raw frame along the fitted
+        // normal; removes a 23.1 mm in-plane displacement (measure_y33_bore.py).
+        Assert.That(catalog.TryGetHold("D10", out MoonBoardHoldDefinition d10), Is.True);
+        Assert.That(d10.meshBoltOffsetXMeters, Is.EqualTo(-0.0009f).Within(1e-6f));
+        Assert.That(d10.meshBoltOffsetYMeters, Is.EqualTo(0.0262f).Within(1e-6f));
+
+        // Y33's raw z = 0 plane is tilted against the wall, so the raw bore image has a
+        // wall-normal component; seating must project it out. The bore shift is purely
+        // in-plane (23.1 mm), and seating depth stays with surfaceOffsetMeters alone.
+        MoonBoardHoldDefinition d10WithoutBore = new()
+        {
+            coordinate = d10.coordinate,
+            scanId = d10.scanId,
+            rotationDegrees = d10.rotationDegrees,
+            surfaceOffsetMeters = d10.surfaceOffsetMeters,
+            meshScaleMultiplier = d10.meshScaleMultiplier,
+            scaleCalibrationSource = d10.scaleCalibrationSource,
+            hasMeshFrameCorrection = d10.hasMeshFrameCorrection,
+            meshFrameCorrection = d10.meshFrameCorrection,
+        };
+        Vector3 d10Shift = catalog.GetSeatedBoardLocalPosition(d10) -
+                           catalog.GetSeatedBoardLocalPosition(d10WithoutBore);
+        MoonBoardHoldDefinition d10Raised = new()
+        {
+            coordinate = d10.coordinate,
+            scanId = d10.scanId,
+            rotationDegrees = d10.rotationDegrees,
+            surfaceOffsetMeters = d10.surfaceOffsetMeters + 0.01f,
+            meshScaleMultiplier = d10.meshScaleMultiplier,
+            scaleCalibrationSource = d10.scaleCalibrationSource,
+            hasMeshFrameCorrection = d10.hasMeshFrameCorrection,
+            meshFrameCorrection = d10.meshFrameCorrection,
+        };
+        Vector3 outwardNormal = (catalog.GetSeatedBoardLocalPosition(d10Raised) -
+                                 catalog.GetSeatedBoardLocalPosition(d10WithoutBore)) / 0.01f;
+        Assert.That(outwardNormal.magnitude, Is.EqualTo(1f).Within(1e-3f));
+        Assert.That(Vector3.Dot(outwardNormal, d10Shift), Is.EqualTo(0f).Within(1e-5f));
+        Assert.That(d10Shift.magnitude, Is.EqualTo(0.0231f).Within(2e-4f));
+
         // Every other hold carries a zero offset and is untouched by the new term.
         int boreOffsetHolds = 0;
         foreach (MoonBoardHoldDefinition hold in catalog.holds)
@@ -304,7 +345,7 @@ public sealed class StudyCoreTests
                 boreOffsetHolds++;
             }
         }
-        Assert.That(boreOffsetHolds, Is.EqualTo(3));
+        Assert.That(boreOffsetHolds, Is.EqualTo(4));
 
         // The seating path is fail-closed on nonsense offsets.
         b18WithoutBore.meshBoltOffsetXMeters = MoonBoardStudyCatalog.MaxBoltOffsetMeters * 2f;

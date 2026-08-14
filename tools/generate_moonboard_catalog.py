@@ -527,6 +527,14 @@ BOLT_BORE_MESH_OFFSETS_METERS = {
     # bore displacement is invisible to every spin instrument.
     "W97": {"x": -0.0267, "y": -0.0231},  # D5; bore 32.7 mm off-pin, body belongs up-left
     "B149": {"x": -0.0253, "y": 0.0250},  # H13; bore 31.0 mm off-pin, body belongs down-left
+    # 2026-08-14 evening (Ben on-wall: D10's bore visibly missed the wall's t-nut hole):
+    # re-measured in the FITTED mounting frame - the 08-13 raw-frame reading was invalid
+    # because Y33's Zplane base frame is wrong for this scan. Axis = countersink-basin
+    # centroid + two dense base-adjacent circle fits (signal spread 0.95 mm), mapped to
+    # the raw frame by sliding along the fitted normal (a wall-normal translation,
+    # invisible in-plane, so exact). Removes a 23.1 mm in-plane bore displacement.
+    # Instrument + provenance: docs bolthole-2026-08-13/measure_y33_bore.py.
+    "Y33": {"x": -0.0009, "y": 0.0262},  # D10; bore 23.1 mm off-pin in the fitted frame
 }
 
 
