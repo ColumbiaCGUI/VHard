@@ -110,6 +110,9 @@ public sealed class StudyRehearsalTimingTests
                 ?.Invoke(panel, null);
             Transform console = parentObject.transform.Find("Study Experimenter Console");
             Assert.That(console, Is.Not.Null);
+            // Eight controls since the manual estimation cycle landed: the seven manual-rehearsal
+            // controls plus the estimation entry point, which is the console's only way into the
+            // estimation battery now that the scheduled path is unreachable from this panel.
             (string objectName, string label)[] controls =
             {
                 ("Mode A", "MODE A"),
@@ -118,6 +121,7 @@ public sealed class StudyRehearsalTimingTests
                 ("Next Route", "NO ROUTES"),
                 ("Start Run", "START"),
                 ("Complete Run", "COMPLETE"),
+                ("Estimate", "ESTIMATE"),
                 ("Reset", "RESET"),
             };
             foreach ((string objectName, string label) control in controls)
