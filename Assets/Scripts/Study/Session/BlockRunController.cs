@@ -454,8 +454,15 @@ public sealed class BlockRunController
         }
     }
 
+    /// <summary>
+    /// Experimenter-facing summary of recordings set aside during the last recovery scan
+    /// (stale-catalog data that can never be resumed); null when the scan set nothing aside.
+    /// </summary>
+    public string RecoveryNotice { get; private set; }
+
     public ManualRunRecoveryOutcome TryRecoverManualRun()
     {
+        RecoveryNotice = null;
         string manualRoot = Path.Combine(Application.persistentDataPath, "study", "MANUAL");
         List<string> approvedRoutes = sceneConfiguror != null
             ? sceneConfiguror.GetStudyRouteNames()
@@ -466,13 +473,25 @@ public sealed class BlockRunController
         }
 
         DateTimeOffset utcNow = DateTimeOffset.UtcNow;
-        if (!StudyRehearsalTiming.TryRecoverActiveManualRun(
-                manualRoot,
-                state.routeCatalogSha256,
-                approvedRoutes,
-                utcNow,
-                out StudyRehearsalTiming.ActiveManualRunRecovery recovery,
-                out string diagnostic))
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            manualRoot,
+            state.routeCatalogSha256,
+            approvedRoutes,
+            utcNow,
+            out StudyRehearsalTiming.ActiveManualRunRecovery recovery,
+            out string diagnostic,
+            out string staleNotice);
+        if (!string.IsNullOrWhiteSpace(staleNotice))
+        {
+            int staleCount = staleNotice.Split('\n').Length;
+            Debug.LogWarning(
+                "[BlockRunController] Set aside " + staleCount + " manual recording(s) pinned " +
+                "to a different approved catalog; they cannot be resumed and their files were " +
+                "left untouched.\n" + staleNotice);
+            RecoveryNotice = "Set aside " + staleCount +
+                             " stale manual recording(s) from older catalogs; see the Unity log.";
+        }
+        if (!found)
         {
             if (!string.IsNullOrWhiteSpace(diagnostic))
             {

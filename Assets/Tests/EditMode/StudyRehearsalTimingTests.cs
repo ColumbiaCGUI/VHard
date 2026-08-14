@@ -194,6 +194,70 @@ public sealed class StudyRehearsalTimingTests
     }
 
     [Test]
+    public void PanelPressPrefersTheDirectlyTargetedButton()
+    {
+        Assert.That(
+            StudyRehearsalTiming.ResolvePanelPress(true, false, true, 0.05f, 0.3f),
+            Is.EqualTo(StudyRehearsalTiming.PanelPressResolution.PressTargetButton));
+    }
+
+    [Test]
+    public void PanelPressFallsBackToTheRecentlyHoveredButtonWithinTheGraceWindow()
+    {
+        Assert.That(
+            StudyRehearsalTiming.ResolvePanelPress(false, true, true, 0.2f, 0.3f),
+            Is.EqualTo(StudyRehearsalTiming.PanelPressResolution.PressRecentButton));
+        Assert.That(
+            StudyRehearsalTiming.ResolvePanelPress(false, false, true, 0.2f, 0.3f),
+            Is.EqualTo(StudyRehearsalTiming.PanelPressResolution.PressRecentButton));
+    }
+
+    [Test]
+    public void PanelSurfacePinchGrabsOnlyAfterTheHoverGraceExpires()
+    {
+        Assert.That(
+            StudyRehearsalTiming.ResolvePanelPress(false, true, true, 0.31f, 0.3f),
+            Is.EqualTo(StudyRehearsalTiming.PanelPressResolution.GrabPanel));
+        Assert.That(
+            StudyRehearsalTiming.ResolvePanelPress(false, true, false, float.MaxValue, 0.3f),
+            Is.EqualTo(StudyRehearsalTiming.PanelPressResolution.GrabPanel));
+        Assert.That(
+            StudyRehearsalTiming.ResolvePanelPress(false, false, false, float.MaxValue, 0.3f),
+            Is.EqualTo(StudyRehearsalTiming.PanelPressResolution.None));
+    }
+
+    [Test]
+    public void PointerSmoothingDampsHarderWhileThePinchCloses()
+    {
+        Vector3 previous = Vector3.forward;
+        Vector3 current = Quaternion.Euler(0f, 30f, 0f) * Vector3.forward;
+
+        Vector3 relaxed = StudyRehearsalTiming.SmoothPointerDirection(
+            previous, current, 1f / 72f, 0f, 0.04f, 0.25f);
+        Vector3 pinched = StudyRehearsalTiming.SmoothPointerDirection(
+            previous, current, 1f / 72f, 1f, 0.04f, 0.25f);
+
+        float relaxedRemaining = Vector3.Angle(relaxed, current);
+        float pinchedRemaining = Vector3.Angle(pinched, current);
+        Assert.That(relaxed.magnitude, Is.EqualTo(1f).Within(0.0001f));
+        Assert.That(pinchedRemaining, Is.GreaterThan(relaxedRemaining));
+        Assert.That(relaxedRemaining, Is.GreaterThan(0f));
+    }
+
+    [Test]
+    public void PointerSmoothingAdoptsTheFirstValidDirectionImmediately()
+    {
+        Vector3 current = new(0f, 0f, 2f);
+        Assert.That(
+            StudyRehearsalTiming.SmoothPointerDirection(
+                Vector3.zero, current, 1f / 72f, 0f, 0.04f, 0.25f),
+            Is.EqualTo(Vector3.forward));
+        Assert.Throws<ArgumentException>(() =>
+            StudyRehearsalTiming.SmoothPointerDirection(
+                Vector3.forward, Vector3.zero, 1f / 72f, 0f, 0.04f, 0.25f));
+    }
+
+    [Test]
     public void ElapsedDisplayContinuesPastFormerBlockLimit()
     {
         Assert.That(StudyRehearsalTiming.FormatElapsedSeconds(0f), Is.EqualTo("00:00"));
@@ -245,7 +309,8 @@ public sealed class StudyRehearsalTimingTests
             new[] { "MB2016_21329", "MB2016_19215" },
             start.AddMinutes(2),
             out StudyRehearsalTiming.ActiveManualRunRecovery recovery,
-            out string diagnostic);
+            out string diagnostic,
+            out _);
 
         Assert.That(found, Is.True, diagnostic);
         Assert.That(recovery.Manifest.condition, Is.EqualTo("B"));
@@ -274,7 +339,8 @@ public sealed class StudyRehearsalTimingTests
             new[] { "MB2016_21329" },
             start.AddSeconds(1),
             out StudyRehearsalTiming.ActiveManualRunRecovery recovery,
-            out string diagnostic);
+            out string diagnostic,
+            out _);
 
         Assert.That(found, Is.True, diagnostic);
         Assert.That(recovery.Manifest.pendingStart, Is.True);
@@ -299,7 +365,8 @@ public sealed class StudyRehearsalTimingTests
             new[] { "MB2016_21329" },
             now,
             out _,
-            out string diagnostic);
+            out string diagnostic,
+            out _);
 
         Assert.That(found, Is.False);
         Assert.That(diagnostic, Does.Contain("future"));
@@ -330,6 +397,7 @@ public sealed class StudyRehearsalTimingTests
             "approved-hash",
             new[] { "MB2016_21329" },
             start.AddMinutes(6),
+            out _,
             out _,
             out _);
 
@@ -363,7 +431,8 @@ public sealed class StudyRehearsalTimingTests
             new[] { "MB2016_21329" },
             start.AddMinutes(1),
             out _,
-            out string diagnostic);
+            out string diagnostic,
+            out _);
 
         Assert.That(found, Is.False);
         Assert.That(diagnostic, Does.Contain("terminal state"));
@@ -409,7 +478,7 @@ public sealed class StudyRehearsalTimingTests
     }
 
     [Test]
-    public void ActiveManualRunRecoveryRejectsWrongCatalogAndUnknownRoutes()
+    public void StaleCatalogRecordingsAreSetAsideWhileUnknownRoutesStillBlock()
     {
         DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
         WriteActiveManualManifest(
@@ -433,11 +502,73 @@ public sealed class StudyRehearsalTimingTests
             new[] { "MB2016_21329" },
             start.AddMinutes(2),
             out _,
-            out string diagnostic);
+            out string diagnostic,
+            out string staleNotice);
 
         Assert.That(found, Is.False);
-        Assert.That(diagnostic, Does.Contain("catalog hash"));
-        Assert.That(diagnostic, Does.Contain("approved catalog"));
+        Assert.That(staleNotice, Does.Contain("wrong-hash"));
+        Assert.That(staleNotice, Does.Contain("catalog hash"));
+        Assert.That(diagnostic, Does.Contain("unknown-route"));
+        Assert.That(diagnostic, Does.Not.Contain("catalog hash"));
+    }
+
+    [Test]
+    public void StaleCatalogRecordingsAloneDoNotBlockRecovery()
+    {
+        DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        WriteActiveManualManifest(
+            "stale-only",
+            "retired-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            start.AddMinutes(5));
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329" },
+            start.AddMinutes(2),
+            out _,
+            out string diagnostic,
+            out string staleNotice);
+
+        Assert.That(found, Is.False);
+        Assert.That(diagnostic, Is.Empty);
+        Assert.That(staleNotice, Does.Contain("stale-only"));
+    }
+
+    [Test]
+    public void StaleCatalogRecordingsDoNotHideACurrentActiveRun()
+    {
+        DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        WriteActiveManualManifest(
+            "stale-neighbour",
+            "retired-hash",
+            "MB2016_19215",
+            "C",
+            start.AddMinutes(-30),
+            start.AddMinutes(-25));
+        WriteActiveManualManifest(
+            "current-active",
+            "approved-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            start.AddMinutes(5));
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329", "MB2016_19215" },
+            start.AddMinutes(2),
+            out StudyRehearsalTiming.ActiveManualRunRecovery recovery,
+            out string diagnostic,
+            out string staleNotice);
+
+        Assert.That(found, Is.True, diagnostic);
+        Assert.That(recovery.Manifest.route, Is.EqualTo("MB2016_21329"));
+        Assert.That(staleNotice, Does.Contain("stale-neighbour"));
     }
 
     [Test]
@@ -465,7 +596,8 @@ public sealed class StudyRehearsalTimingTests
             new[] { "MB2016_21329", "MB2016_19215" },
             start.AddMinutes(1),
             out _,
-            out string diagnostic);
+            out string diagnostic,
+            out _);
 
         Assert.That(found, Is.False);
         Assert.That(diagnostic, Does.Contain("Multiple active manual runs"));

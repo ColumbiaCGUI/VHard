@@ -97,7 +97,7 @@ public sealed class StudyManager : MonoBehaviour
         }
         string recoveryStatus = recoveryOutcome == ManualRunRecoveryOutcome.Expired
             ? state.statusMessage
-            : null;
+            : blockRun.RecoveryNotice;
 
         string scheduleText = null;
         if (useMockSchedule)

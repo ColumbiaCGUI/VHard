@@ -196,6 +196,100 @@ public static class StudyRehearsalTiming
         return true;
     }
 
+    public enum PanelPressResolution
+    {
+        None,
+        PressTargetButton,
+        PressRecentButton,
+        GrabPanel,
+    }
+
+    /// <summary>
+    /// Decides what an armed pinch does to the panel. Closing the fingers drags the aim pose a
+    /// few degrees exactly when the user is committing to a press, so a pinch that lands just
+    /// off a button still presses the button hovered moments before instead of grabbing the
+    /// panel out from under it; grabs require a surface pinch with no recent button hover.
+    /// </summary>
+    public static PanelPressResolution ResolvePanelPress(
+        bool targetsButton,
+        bool targetsPanelSurface,
+        bool hasRecentButtonHover,
+        float secondsSinceButtonHover,
+        float hoverGraceSeconds)
+    {
+        if (float.IsNaN(secondsSinceButtonHover) || secondsSinceButtonHover < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(secondsSinceButtonHover));
+        }
+        if (float.IsNaN(hoverGraceSeconds) || float.IsInfinity(hoverGraceSeconds) ||
+            hoverGraceSeconds < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(hoverGraceSeconds));
+        }
+
+        if (targetsButton)
+        {
+            return PanelPressResolution.PressTargetButton;
+        }
+        if (hasRecentButtonHover && secondsSinceButtonHover <= hoverGraceSeconds)
+        {
+            return PanelPressResolution.PressRecentButton;
+        }
+        return targetsPanelSurface ? PanelPressResolution.GrabPanel : PanelPressResolution.None;
+    }
+
+    /// <summary>
+    /// Damps the hand-ray direction the way the platform pointer does: lightly while aiming, and
+    /// progressively harder as the index pinch closes, so the act of pinching cannot kick the
+    /// cursor off its target. Returns a unit direction.
+    /// </summary>
+    public static Vector3 SmoothPointerDirection(
+        Vector3 previousDirection,
+        Vector3 currentDirection,
+        float deltaSeconds,
+        float pinchStrength,
+        float relaxedHalfLifeSeconds,
+        float pinchedHalfLifeSeconds)
+    {
+        if (!IsFinite(previousDirection) || !IsFinite(currentDirection))
+        {
+            throw new ArgumentException("Pointer directions must be finite.");
+        }
+        if (float.IsNaN(deltaSeconds) || float.IsInfinity(deltaSeconds) || deltaSeconds < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(deltaSeconds));
+        }
+        if (float.IsNaN(pinchStrength))
+        {
+            throw new ArgumentOutOfRangeException(nameof(pinchStrength));
+        }
+        if (float.IsNaN(relaxedHalfLifeSeconds) || float.IsInfinity(relaxedHalfLifeSeconds) ||
+            relaxedHalfLifeSeconds <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(relaxedHalfLifeSeconds));
+        }
+        if (float.IsNaN(pinchedHalfLifeSeconds) || float.IsInfinity(pinchedHalfLifeSeconds) ||
+            pinchedHalfLifeSeconds <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pinchedHalfLifeSeconds));
+        }
+        if (currentDirection.sqrMagnitude < 0.000001f)
+        {
+            throw new ArgumentException("Pointer direction must be non-zero.", nameof(currentDirection));
+        }
+        if (previousDirection.sqrMagnitude < 0.000001f)
+        {
+            return currentDirection.normalized;
+        }
+
+        float halfLife = Mathf.Lerp(
+            relaxedHalfLifeSeconds,
+            pinchedHalfLifeSeconds,
+            Mathf.Clamp01(pinchStrength));
+        float blend = 1f - Mathf.Pow(2f, -deltaSeconds / halfLife);
+        return Vector3.Slerp(previousDirection.normalized, currentDirection.normalized, blend);
+    }
+
     public static string FormatElapsedSeconds(float elapsedSeconds)
     {
         if (float.IsNaN(elapsedSeconds) || float.IsInfinity(elapsedSeconds) || elapsedSeconds < 0f)
@@ -244,8 +338,10 @@ public static class StudyRehearsalTiming
         IEnumerable<string> approvedRoutes,
         DateTimeOffset utcNow,
         out ActiveManualRunRecovery recovery,
-        out string diagnostic)
+        out string diagnostic,
+        out string staleNotice)
     {
+        staleNotice = string.Empty;
         if (string.IsNullOrWhiteSpace(manualRoot))
         {
             throw new ArgumentException("Manual study root is required.", nameof(manualRoot));
@@ -273,6 +369,7 @@ public static class StudyRehearsalTiming
         }
 
         List<string> diagnostics = new();
+        List<string> staleNotices = new();
         List<ActiveManualRunRecovery> candidates = new();
         string[] directories;
         try
@@ -306,10 +403,20 @@ public static class StudyRehearsalTiming
                     utcNow,
                     out DateTimeOffset rehearsalStartUtc,
                     out DateTimeOffset rehearsalDeadlineUtc,
-                    out string rejection);
+                    out string rejection,
+                    out bool staleCatalog);
             string canonicalPath = Path.Combine(directory, "session.json");
             if (!activeManifestValid)
             {
+                // A recording pinned to a different approved catalog belongs to an earlier
+                // content version: it can never be resumed here, but it also says nothing about
+                // this session's storage, so it is set aside untouched instead of blocking startup.
+                if (staleCatalog)
+                {
+                    staleNotices.Add("Set aside manual-run directory '" + directory +
+                                     "': " + rejection);
+                    continue;
+                }
                 if (string.IsNullOrEmpty(rejection) &&
                     !string.Equals(sourceManifestPath, canonicalPath, StringComparison.Ordinal))
                 {
@@ -342,6 +449,7 @@ public static class StudyRehearsalTiming
             });
         }
 
+        staleNotice = string.Join(Environment.NewLine, staleNotices);
         candidates.Sort((left, right) =>
         {
             int timeComparison = left.RehearsalStartUtc.CompareTo(right.RehearsalStartUtc);
@@ -440,10 +548,22 @@ public static class StudyRehearsalTiming
         DateTimeOffset utcNow,
         out DateTimeOffset rehearsalStartUtc,
         out DateTimeOffset rehearsalDeadlineUtc,
-        out string rejection)
+        out string rejection,
+        out bool staleCatalog)
     {
         rehearsalStartUtc = default;
         rehearsalDeadlineUtc = default;
+        // The hash decides which approved catalog the recording belongs to, so it is classified
+        // before any structural verdict: a mismatch makes every stricter check irrelevant here.
+        staleCatalog = !string.Equals(
+            manifest.routeCatalogSha256,
+            expectedCatalogSha256,
+            StringComparison.OrdinalIgnoreCase);
+        if (staleCatalog)
+        {
+            rejection = "manifest catalog hash does not match the approved catalog.";
+            return false;
+        }
         if (!manifest.adhoc || !string.Equals(manifest.participant, "UNASSIGNED", StringComparison.Ordinal) ||
             manifest.block != 0)
         {
@@ -459,14 +579,6 @@ public static class StudyRehearsalTiming
         if (!approvedRoutes.Contains(manifest.route))
         {
             rejection = "manifest route is not in the approved catalog.";
-            return false;
-        }
-        if (!string.Equals(
-                manifest.routeCatalogSha256,
-                expectedCatalogSha256,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            rejection = "manifest catalog hash does not match the approved catalog.";
             return false;
         }
         if (!TryParseRoundTripTimestamp(manifest.startUtc, out DateTimeOffset sessionStartUtc))

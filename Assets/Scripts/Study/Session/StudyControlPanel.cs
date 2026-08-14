@@ -13,6 +13,13 @@ public sealed class StudyControlPanel
 {
     private const float PanelDistanceMeters = 0.72f;
     private const float PointerLengthMeters = 1.5f;
+    // Platform-pointer feel: the aim direction is damped lightly while aiming and hard while the
+    // pinch closes, the line starts a hand-width past its synthetic origin, and a press within
+    // the hover grace window still lands on the button the pinch kicked the ray off of.
+    private const float PointerRelaxedHalfLifeSeconds = 0.04f;
+    private const float PointerPinchedHalfLifeSeconds = 0.25f;
+    private const float PointerHoverGraceSeconds = 0.3f;
+    private const float PointerProximalGapMeters = 0.12f;
     private const float ConfirmationWindowSeconds = 4f;
     private const float TextTransformScale = 0.01f;
     private const float PostDragSettleSeconds = 0.25f;
@@ -133,6 +140,12 @@ public sealed class StudyControlPanel
     private Renderer rightPointerReticle;
     private StudyPanelButton leftHoveredButton;
     private StudyPanelButton rightHoveredButton;
+    private Vector3 leftPointerSmoothedForward;
+    private Vector3 rightPointerSmoothedForward;
+    private StudyPanelButton leftRecentHoverButton;
+    private StudyPanelButton rightRecentHoverButton;
+    private float leftRecentHoverAt = float.NegativeInfinity;
+    private float rightRecentHoverAt = float.NegativeInfinity;
 
     private string lastRoutesStatusLine;
     private string lastBoardAlignmentStatus;
@@ -1143,11 +1156,13 @@ public sealed class StudyControlPanel
         ExpireConfirmationIfNeeded();
         PanelPointerTarget leftTarget = UpdatePointer(
             leftHand,
+            true,
             leftPointerRoot,
             leftPointerLine,
             leftPointerReticle);
         PanelPointerTarget rightTarget = UpdatePointer(
             rightHand,
+            false,
             rightPointerRoot,
             rightPointerLine,
             rightPointerReticle);
@@ -1222,13 +1237,29 @@ public sealed class StudyControlPanel
             return;
         }
 
-        if (target.isPanelSurface)
+        StudyPanelButton recentButton = isLeft ? leftRecentHoverButton : rightRecentHoverButton;
+        bool hasRecentHover = recentButton != null && recentButton.gameObject.activeInHierarchy;
+        float secondsSinceHover = hasRecentHover
+            ? Mathf.Max(0f, Time.unscaledTime - (isLeft ? leftRecentHoverAt : rightRecentHoverAt))
+            : float.MaxValue;
+        StudyRehearsalTiming.PanelPressResolution resolution = StudyRehearsalTiming.ResolvePanelPress(
+            target.button != null,
+            target.isPanelSurface,
+            hasRecentHover,
+            secondsSinceHover,
+            PointerHoverGraceSeconds);
+        if (resolution == StudyRehearsalTiming.PanelPressResolution.GrabPanel)
         {
             BeginPanelGrab(hand, handSide, target);
             return;
         }
 
-        StudyPanelButton button = target.button;
+        StudyPanelButton button =
+            resolution == StudyRehearsalTiming.PanelPressResolution.PressTargetButton
+                ? target.button
+                : resolution == StudyRehearsalTiming.PanelPressResolution.PressRecentButton
+                    ? recentButton
+                    : null;
         if (button == null || !button.gameObject.activeInHierarchy)
         {
             return;
@@ -1238,11 +1269,40 @@ public sealed class StudyControlPanel
         {
             lastPanelPressFrame = Time.frameCount;
             state.panelPinned = true;
+            ClearRecentHover(isLeft);
+        }
+    }
+
+    private void ResetPointerAiming(bool isLeft)
+    {
+        if (isLeft)
+        {
+            leftPointerSmoothedForward = Vector3.zero;
+        }
+        else
+        {
+            rightPointerSmoothedForward = Vector3.zero;
+        }
+        ClearRecentHover(isLeft);
+    }
+
+    private void ClearRecentHover(bool isLeft)
+    {
+        if (isLeft)
+        {
+            leftRecentHoverButton = null;
+            leftRecentHoverAt = float.NegativeInfinity;
+        }
+        else
+        {
+            rightRecentHoverButton = null;
+            rightRecentHoverAt = float.NegativeInfinity;
         }
     }
 
     private PanelPointerTarget UpdatePointer(
         OVRHand hand,
+        bool isLeft,
         GameObject pointerRoot,
         LineRenderer line,
         Renderer reticle)
@@ -1253,11 +1313,33 @@ public sealed class StudyControlPanel
         if (!pointerValid)
         {
             pointerRoot?.SetActive(false);
+            ResetPointerAiming(isLeft);
             return default;
         }
 
         Vector3 origin = hand.PointerPose.position;
-        Vector3 direction = hand.PointerPose.forward;
+        Vector3 rawDirection = hand.PointerPose.forward;
+        // Dragging wants the direction to follow the hand, so an active grab bypasses the pinch
+        // damping that would otherwise make the panel lag behind the drag.
+        bool grabbing = activePanelGrabHand == (isLeft ? PanelGrabHand.Left : PanelGrabHand.Right);
+        Vector3 direction = grabbing
+            ? rawDirection.normalized
+            : StudyRehearsalTiming.SmoothPointerDirection(
+                isLeft ? leftPointerSmoothedForward : rightPointerSmoothedForward,
+                rawDirection,
+                Time.unscaledDeltaTime,
+                hand.GetFingerPinchStrength(OVRHand.HandFinger.Index),
+                PointerRelaxedHalfLifeSeconds,
+                PointerPinchedHalfLifeSeconds);
+        if (isLeft)
+        {
+            leftPointerSmoothedForward = direction;
+        }
+        else
+        {
+            rightPointerSmoothedForward = direction;
+        }
+
         bool hitUi = Physics.Raycast(
             origin,
             direction,
@@ -1275,10 +1357,26 @@ public sealed class StudyControlPanel
             target.hitPoint = hit.point;
             target.hitDistance = hit.distance;
         }
+        if (target.button != null && target.button.Interactable)
+        {
+            if (isLeft)
+            {
+                leftRecentHoverButton = target.button;
+                leftRecentHoverAt = Time.unscaledTime;
+            }
+            else
+            {
+                rightRecentHoverButton = target.button;
+                rightRecentHoverAt = Time.unscaledTime;
+            }
+        }
         Vector3 end = hitUi ? hit.point : origin + direction * PointerLengthMeters;
+        Vector3 lineStart = origin + direction * Mathf.Min(
+            PointerProximalGapMeters,
+            Vector3.Distance(origin, end) * 0.5f);
 
         pointerRoot.SetActive(true);
-        line.SetPosition(0, origin);
+        line.SetPosition(0, lineStart);
         line.SetPosition(1, end);
         reticle.gameObject.SetActive(hitUi);
         if (hitUi)
@@ -1600,6 +1698,8 @@ public sealed class StudyControlPanel
         }
         leftHoveredButton = null;
         rightHoveredButton = null;
+        ResetPointerAiming(true);
+        ResetPointerAiming(false);
         ApplyPanelSurfaceTint(PanelColor);
         leftPointerRoot?.SetActive(false);
         rightPointerRoot?.SetActive(false);

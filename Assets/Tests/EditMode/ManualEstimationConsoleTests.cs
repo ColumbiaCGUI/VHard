@@ -136,7 +136,8 @@ public sealed class ManualEstimationConsoleTests
                     new[] { "MB2016-19215" },
                     DateTimeOffset.UtcNow,
                     out _,
-                    out string diagnostic),
+                    out string diagnostic,
+                    out _),
                 Is.False);
             Assert.That(
                 diagnostic,
