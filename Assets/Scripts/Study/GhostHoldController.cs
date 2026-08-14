@@ -1,52 +1,145 @@
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
+/// <summary>
+/// Detached ghost-hold inspection. The participant aims a stabilised hand ray at a route hold,
+/// pinches, and a proxy copy of that hold is pulled to within arm's reach where it can be turned
+/// over and gripped. Several proxies may be live at once; each keeps a tether back to the wall hold
+/// it came from and a readout of how far it has been turned from the orientation that hold actually
+/// holds on the wall.
+/// </summary>
 public sealed class GhostHoldController : MonoBehaviour
 {
     [Header("Selection")]
     [SerializeField] private float maxRayDistance = 12f;
     [SerializeField] private float spawnDistance = 0.45f;
     [SerializeField] private float spawnVerticalOffset = -0.15f;
+    [SerializeField] private float spawnSlotSeparationDegrees = 16f;
     [SerializeField] private float nearGrabPadding = 0.08f;
+
+    [Header("Pointer")]
+    [SerializeField] private float acquireHalfAngleDegrees =
+        HandRayTargeting.DefaultAcquireHalfAngleDegrees;
+    [SerializeField] private float releaseHalfAngleDegrees =
+        HandRayTargeting.DefaultReleaseHalfAngleDegrees;
+    [SerializeField] private float switchMarginDegrees =
+        HandRayTargeting.DefaultSwitchMarginDegrees;
+    [SerializeField] private float affordanceAcquireBonusDegrees = 1.5f;
+    [SerializeField] private float pointerMinimumCutoffHertz =
+        PointerOneEuroFilter.DefaultMinimumCutoffHertz;
+    [SerializeField] private float pointerSpeedCoefficient =
+        PointerOneEuroFilter.DefaultSpeedCoefficient;
+    [SerializeField] private float pointerDerivativeCutoffHertz =
+        PointerOneEuroFilter.DefaultDerivativeCutoffHertz;
+    [SerializeField] private float pinchPressStrength = PinchLatch.DefaultPressStrength;
+    [SerializeField] private float pinchReleaseStrength = PinchLatch.DefaultReleaseStrength;
+
+    [Header("Ghosts")]
+    [SerializeField] private int maximumLiveGhosts = GhostRegistryPolicy.DefaultMaximumLiveGhosts;
 
     [Header("Visuals")]
     [SerializeField] private Color rayColor = new(0.25f, 0.8f, 1f, 0.8f);
     [SerializeField] private Color markerColor = new(1f, 0.8f, 0.2f, 0.9f);
+    [SerializeField] private Color tetherColor = new(1f, 0.8f, 0.2f, 0.35f);
+    [SerializeField] private Color focusColor = new(1f, 1f, 1f, 0.75f);
     [SerializeField] private float markerWidth = 0.006f;
+    [SerializeField] private float tetherWidth = 0.0022f;
+
+    private const string DecorationRootName = "Ghost Inspection Decorations";
+    private const int WallMarkerSegments = 48;
+    private const int FocusRingSegments = 40;
+    private const int MaximumArcSegments = 36;
+    private const float ArcDegreesPerSegment = 6f;
+    private const float IndexTipBoneIndex = 10;
+    private const float PalmUpDotThreshold = 0.55f;
+    private const float TextTransformScale = 0.01f;
+
+    private sealed class GhostInstance
+    {
+        public GameObject Root;
+        public GameObject Source;
+        public string SourceCoordinate;
+        public Quaternion WallRotation;
+        public Vector3 LockedScale;
+        public float SpawnTime;
+        public int Slot;
+        public GameObject DismissAffordance;
+        public TextMeshPro DismissLabel;
+        public LineRenderer WallMarker;
+        public LineRenderer Tether;
+        public LineRenderer OrientationArc;
+        public LineRenderer OrientationTick;
+        public TextMeshPro OrientationLabel;
+        public Transform IndicatorRoot;
+    }
+
+    private sealed class HandPointer
+    {
+        public Hand Side;
+        public OVRHand Hand;
+        public OVRSkeleton Skeleton;
+        public PinchLatch Latch;
+        public PointerOneEuroFilter OriginFilter;
+        public PointerOneEuroFilter DirectionFilter;
+        public LineRenderer Ray;
+        public LineRenderer Focus;
+        public MaterialPropertyBlock RayProperties;
+        public MaterialPropertyBlock FocusProperties;
+        public GameObject HoverObject;
+        public GhostInstance Manipulated;
+        public Vector3 GrabPositionOffset;
+        public Quaternion GrabRotationOffset;
+        public int DiagnosticState = -1;
+    }
+
+    private enum CandidateKind
+    {
+        WallHold,
+        Ghost,
+        DismissGhost,
+        DismissAll,
+    }
+
+    private struct Candidate
+    {
+        public CandidateKind Kind;
+        public GameObject Object;
+        public GhostInstance Ghost;
+        public Vector3 Center;
+        public float Radius;
+        public float DistanceSqr;
+    }
 
     private SceneConfiguror sceneConfiguror;
     private Camera userCamera;
-    private OVRHand leftHand;
-    private OVRHand rightHand;
-    private OVRSkeleton leftSkeleton;
-    private OVRSkeleton rightSkeleton;
+    private HandPointer left;
+    private HandPointer right;
+    private Transform decorationRoot;
+    private TMP_FontAsset fontAsset;
+    private Material lineMaterial;
     private bool modeActive;
     private bool panelInputSuppressed;
-    private bool leftWasPinching;
-    private bool rightWasPinching;
-    private bool leftPinchArmed;
-    private bool rightPinchArmed;
-    private Hand? manipulatingHand;
-    private Vector3 grabPositionOffset;
-    private Quaternion grabRotationOffset;
-    private Vector3 lockedGhostScale;
-    private GameObject currentGhost;
-    private GameObject wallReferent;
-    private GameObject dismissAffordance;
-    private LineRenderer wallMarker;
-    private LineRenderer leftRay;
-    private LineRenderer rightRay;
-    private Material wallMarkerMaterial;
-    private Material leftRayMaterial;
-    private Material rightRayMaterial;
-    private MaterialPropertyBlock wallMarkerProperties;
-    private MaterialPropertyBlock leftRayProperties;
-    private MaterialPropertyBlock rightRayProperties;
-    private int leftInputDiagnosticState = -1;
-    private int rightInputDiagnosticState = -1;
 
-    public GameObject CurrentGhost => currentGhost;
-    public GameObject WallReferent => wallReferent;
+    private readonly List<GhostInstance> ghosts = new();
+    private readonly List<Candidate> candidates = new();
+    private readonly List<float> candidateAngles = new();
+    private readonly List<float> evictionSpawnTimes = new();
+    private readonly List<bool> evictionManipulated = new();
+    private GameObject dismissAllAffordance;
+    private TextMeshPro dismissAllLabel;
+
+    /// <summary>Most recently summoned proxy, or null. Kept for callers that predate multi-ghost
+    /// inspection and only need to know whether anything is detached.</summary>
+    public GameObject CurrentGhost => ghosts.Count > 0 ? ghosts[ghosts.Count - 1].Root : null;
+
+    /// <summary>Wall hold behind <see cref="CurrentGhost"/>.</summary>
+    public GameObject WallReferent => ghosts.Count > 0 ? ghosts[ghosts.Count - 1].Source : null;
+
+    public bool HasGhosts => ghosts.Count > 0;
+
+    public int LiveGhostCount => ghosts.Count;
 
     public void Initialize(SceneConfiguror configuror)
     {
@@ -55,31 +148,50 @@ public sealed class GhostHoldController : MonoBehaviour
             ? configuror.centerEyeAnchor.GetComponent<Camera>()
             : null;
         userCamera = userCamera != null ? userCamera : Camera.main;
-        leftSkeleton = configuror.leftHandOVRSkeleton;
-        rightSkeleton = configuror.rightHandOVRSkeleton;
-        leftHand = leftSkeleton != null ? leftSkeleton.GetComponent<OVRHand>() : null;
-        rightHand = rightSkeleton != null ? rightSkeleton.GetComponent<OVRHand>() : null;
-        EnsureRayVisuals();
+        left = BindHandPointer(left, Hand.Left, configuror.leftHandOVRSkeleton);
+        right = BindHandPointer(right, Hand.Right, configuror.rightHandOVRSkeleton);
+        EnsureDecorationRoot();
+        EnsurePointerVisuals(left);
+        EnsurePointerVisuals(right);
+    }
+
+    // Script order does not guarantee that the facade's Start runs before this component's first
+    // Update, so initialization can arrive twice; rebinding rather than rebuilding keeps that from
+    // leaving a second set of orphaned ray renderers behind.
+    private HandPointer BindHandPointer(HandPointer existing, Hand side, OVRSkeleton skeleton)
+    {
+        HandPointer pointer = existing ?? new HandPointer
+        {
+            Side = side,
+            Latch = new PinchLatch(pinchPressStrength, pinchReleaseStrength),
+            OriginFilter = new PointerOneEuroFilter(
+                pointerMinimumCutoffHertz,
+                pointerSpeedCoefficient,
+                pointerDerivativeCutoffHertz),
+            DirectionFilter = new PointerOneEuroFilter(
+                pointerMinimumCutoffHertz,
+                pointerSpeedCoefficient,
+                pointerDerivativeCutoffHertz),
+        };
+        pointer.Skeleton = skeleton;
+        pointer.Hand = skeleton != null ? skeleton.GetComponent<OVRHand>() : null;
+        return pointer;
     }
 
     public void SetModeActive(bool active)
     {
         modeActive = active;
-        manipulatingHand = null;
-        leftWasPinching = false;
-        rightWasPinching = false;
-        leftPinchArmed = false;
-        rightPinchArmed = false;
-        ResetInputDiagnostics();
+        ResetPointerState(left);
+        ResetPointerState(right);
 
         if (!active)
         {
-            DismissGhost();
+            DismissAllGhosts("modeExit");
         }
 
-        SetCurrentGhostGrabEnabled(active && !panelInputSuppressed);
-        SetRayVisible(leftRay, active && !panelInputSuppressed && IsPointerTracked(leftHand));
-        SetRayVisible(rightRay, active && !panelInputSuppressed && IsPointerTracked(rightHand));
+        ApplyGhostGrabEnabled(active && !panelInputSuppressed);
+        SetPointerVisible(left, false);
+        SetPointerVisible(right, false);
     }
 
     public void SetPanelInputSuppressed(bool suppressed)
@@ -88,32 +200,89 @@ public sealed class GhostHoldController : MonoBehaviour
         panelInputSuppressed = suppressed;
         if (changed)
         {
-            ResetInputDiagnostics();
             RecordInputSuppression(suppressed);
         }
         if (suppressed)
         {
-            manipulatingHand = null;
-            leftPinchArmed = false;
-            rightPinchArmed = false;
+            ReleaseManipulation(left);
+            ReleaseManipulation(right);
+            SetPointerVisible(left, false);
+            SetPointerVisible(right, false);
         }
 
-        SetCurrentGhostGrabEnabled(modeActive && !suppressed);
-        SetRayVisible(leftRay, modeActive && !suppressed && IsPointerTracked(leftHand));
-        SetRayVisible(rightRay, modeActive && !suppressed && IsPointerTracked(rightHand));
+        ApplyGhostGrabEnabled(modeActive && !suppressed);
     }
 
     public bool IsGhostHold(GameObject candidate)
     {
-        if (currentGhost == null || candidate == null)
+        return FindGhost(candidate) != null;
+    }
+
+    /// <summary>Root of the proxy that owns <paramref name="candidate"/>, or null.</summary>
+    public GameObject GetGhostRoot(GameObject candidate)
+    {
+        GhostInstance ghost = FindGhost(candidate);
+        return ghost?.Root;
+    }
+
+    /// <summary>Wall hold behind the proxy that owns <paramref name="candidate"/>, or null.</summary>
+    public GameObject GetWallReferent(GameObject candidate)
+    {
+        GhostInstance ghost = FindGhost(candidate);
+        return ghost?.Source;
+    }
+
+    /// <summary>Live proxy roots, oldest first.</summary>
+    public void CollectGhostRoots(List<GameObject> destination)
+    {
+        destination.Clear();
+        foreach (GhostInstance ghost in ghosts)
         {
-            return false;
+            if (ghost.Root != null)
+            {
+                destination.Add(ghost.Root);
+            }
+        }
+    }
+
+    private GhostInstance FindGhost(GameObject candidate)
+    {
+        if (candidate == null)
+        {
+            return null;
         }
 
-        return candidate == currentGhost || candidate.transform.IsChildOf(currentGhost.transform);
+        Transform candidateTransform = candidate.transform;
+        foreach (GhostInstance ghost in ghosts)
+        {
+            if (ghost.Root != null &&
+                (candidateTransform == ghost.Root.transform ||
+                 candidateTransform.IsChildOf(ghost.Root.transform)))
+            {
+                return ghost;
+            }
+        }
+        return null;
+    }
+
+    private GhostInstance FindGhostForSource(GameObject sourceHold)
+    {
+        foreach (GhostInstance ghost in ghosts)
+        {
+            if (ghost.Source == sourceHold)
+            {
+                return ghost;
+            }
+        }
+        return null;
     }
 
     public void SpawnGhost(GameObject sourceHold)
+    {
+        SpawnGhost(sourceHold, null);
+    }
+
+    public void SpawnGhost(GameObject sourceHold, Hand? summonedBy)
     {
         if (!modeActive || sourceHold == null || sceneConfiguror == null ||
             !sceneConfiguror.IsActiveRouteHold(sourceHold))
@@ -121,30 +290,52 @@ public sealed class GhostHoldController : MonoBehaviour
             return;
         }
 
-        DismissGhost();
+        // Aiming at a hold that is already detached recalls that proxy rather than duplicating it;
+        // otherwise a participant who loses one behind their shoulder can never get it back.
+        GhostInstance existing = FindGhostForSource(sourceHold);
+        if (existing != null)
+        {
+            RecallGhost(existing);
+            RecordGhostEvent("GhostRecall", existing, summonedBy, string.Empty);
+            return;
+        }
 
-        currentGhost = Instantiate(sourceHold);
-        currentGhost.name = sourceHold.name.Split('.')[0] + "#ghost";
-        currentGhost.transform.SetParent(null, true);
-        currentGhost.SetActive(true);
-        lockedGhostScale = currentGhost.transform.localScale;
-        FitSphereColliderToMesh(currentGhost);
+        int evictionIndex = SelectEvictionIndex();
+        if (evictionIndex >= 0)
+        {
+            DismissGhost(ghosts[evictionIndex], "evicted");
+        }
 
-        foreach (Collider collider in currentGhost.GetComponentsInChildren<Collider>(true))
+        GhostInstance ghost = new()
+        {
+            Source = sourceHold,
+            SourceCoordinate = GetHoldCoordinate(sourceHold),
+            WallRotation = sourceHold.transform.rotation,
+            SpawnTime = Time.unscaledTime,
+            Slot = AllocateSlot(),
+        };
+
+        ghost.Root = Instantiate(sourceHold);
+        ghost.Root.name = ghost.SourceCoordinate + "#ghost";
+        ghost.Root.transform.SetParent(null, true);
+        ghost.Root.SetActive(true);
+        ghost.LockedScale = ghost.Root.transform.localScale;
+        FitSphereColliderToMesh(ghost.Root);
+
+        foreach (Collider collider in ghost.Root.GetComponentsInChildren<Collider>(true))
         {
             collider.enabled = true;
         }
 
-        Rigidbody rigidbody = currentGhost.GetComponent<Rigidbody>();
-        if (rigidbody == null)
+        Rigidbody body = ghost.Root.GetComponent<Rigidbody>();
+        if (body == null)
         {
-            rigidbody = currentGhost.AddComponent<Rigidbody>();
+            body = ghost.Root.AddComponent<Rigidbody>();
         }
-        rigidbody.useGravity = false;
-        rigidbody.isKinematic = true;
+        body.useGravity = false;
+        body.isKinematic = true;
 
-        XRGrabInteractable grabInteractable = currentGhost.GetComponent<XRGrabInteractable>();
-        if (grabInteractable != null)
+        if (ghost.Root.TryGetComponent(out XRGrabInteractable grabInteractable))
         {
             grabInteractable.enabled = !panelInputSuppressed;
             grabInteractable.movementType = XRBaseInteractable.MovementType.Instantaneous;
@@ -153,26 +344,133 @@ public sealed class GhostHoldController : MonoBehaviour
             grabInteractable.trackScale = false;
         }
 
-        userCamera = userCamera != null ? userCamera : Camera.main;
-        Vector3 targetCenter = userCamera != null
-            ? userCamera.transform.position + userCamera.transform.forward * spawnDistance +
-              Vector3.up * spawnVerticalOffset
-            : sourceHold.transform.position + Vector3.forward * spawnDistance;
-        MoveRendererCenterTo(currentGhost, targetCenter);
+        MoveRendererCenterTo(ghost.Root, GetSpawnCenter(ghost.Slot));
 
-        wallReferent = sourceHold;
-        CreateDismissAffordance();
-        CreateWallMarker();
-        sceneConfiguror.RegisterGhostHold(currentGhost);
-        sceneConfiguror.PrepareGripHold(currentGhost);
-        sceneConfiguror.actionRecorder?.Record("GhostSpawn", "", currentGhost, sourceHold.name);
+        ghosts.Add(ghost);
+        EnsureDecorationRoot();
+        CreateGhostDecorations(ghost);
+        sceneConfiguror.RegisterGhostHold(ghost.Root);
+        sceneConfiguror.PrepareGripHold(ghost.Root);
+        RecordGhostEvent("GhostSpawn", ghost, summonedBy, sourceHold.name);
     }
 
-    private void SetCurrentGhostGrabEnabled(bool enabled)
+    private int SelectEvictionIndex()
     {
-        if (currentGhost != null && currentGhost.TryGetComponent(out XRGrabInteractable grabInteractable))
+        evictionSpawnTimes.Clear();
+        evictionManipulated.Clear();
+        foreach (GhostInstance ghost in ghosts)
         {
-            grabInteractable.enabled = enabled;
+            evictionSpawnTimes.Add(ghost.SpawnTime);
+            evictionManipulated.Add(
+                (left != null && left.Manipulated == ghost) ||
+                (right != null && right.Manipulated == ghost));
+        }
+        return GhostRegistryPolicy.SelectEvictionIndex(
+            evictionSpawnTimes,
+            evictionManipulated,
+            GhostRegistryPolicy.ClampMaximumLiveGhosts(maximumLiveGhosts));
+    }
+
+    private int AllocateSlot()
+    {
+        for (int slot = 0; ; slot++)
+        {
+            bool taken = false;
+            foreach (GhostInstance ghost in ghosts)
+            {
+                if (ghost.Slot == slot)
+                {
+                    taken = true;
+                    break;
+                }
+            }
+            if (!taken)
+            {
+                return slot;
+            }
+        }
+    }
+
+    private Vector3 GetSpawnCenter(int slot)
+    {
+        userCamera = userCamera != null ? userCamera : Camera.main;
+        if (userCamera == null)
+        {
+            return transform.position + Vector3.forward * spawnDistance;
+        }
+
+        Transform camera = userCamera.transform;
+        int magnitude = (slot + 1) / 2;
+        float yaw = (slot % 2 == 1 ? 1f : -1f) * magnitude * spawnSlotSeparationDegrees;
+        Vector3 direction = Quaternion.AngleAxis(yaw, camera.up) * camera.forward;
+        return camera.position + direction * spawnDistance + camera.up * spawnVerticalOffset;
+    }
+
+    private void RecallGhost(GhostInstance ghost)
+    {
+        ReleaseManipulationOf(ghost);
+        MoveRendererCenterTo(ghost.Root, GetSpawnCenter(ghost.Slot));
+    }
+
+    /// <summary>Dismisses every live proxy. Retained for callers that predate multi-ghost
+    /// inspection and mean "clear the detached state".</summary>
+    public void DismissGhost()
+    {
+        DismissAllGhosts("dismissAll");
+    }
+
+    public void DismissAllGhosts(string reason)
+    {
+        for (int index = ghosts.Count - 1; index >= 0; index--)
+        {
+            DismissGhost(ghosts[index], reason);
+        }
+    }
+
+    private void DismissGhost(GhostInstance ghost, string reason)
+    {
+        ReleaseManipulationOf(ghost);
+        if (left != null && left.HoverObject != null && FindGhost(left.HoverObject) == ghost)
+        {
+            left.HoverObject = null;
+        }
+        if (right != null && right.HoverObject != null && FindGhost(right.HoverObject) == ghost)
+        {
+            right.HoverObject = null;
+        }
+
+        ghosts.Remove(ghost);
+        if (sceneConfiguror != null && ghost.Root != null)
+        {
+            sceneConfiguror.UnregisterGhostHold(ghost.Root);
+            RecordGhostEvent("GhostDismiss", ghost, null, "reason=" + reason);
+        }
+
+        DestroyIfPresent(ghost.Root);
+        DestroyIfPresent(ghost.DismissAffordance);
+        DestroyIfPresent(ghost.IndicatorRoot != null ? ghost.IndicatorRoot.gameObject : null);
+        DestroyIfPresent(ghost.WallMarker != null ? ghost.WallMarker.gameObject : null);
+        DestroyIfPresent(ghost.Tether != null ? ghost.Tether.gameObject : null);
+        ghost.Root = null;
+        ghost.Source = null;
+    }
+
+    private static void DestroyIfPresent(GameObject target)
+    {
+        if (target != null)
+        {
+            Destroy(target);
+        }
+    }
+
+    private void ApplyGhostGrabEnabled(bool enabled)
+    {
+        foreach (GhostInstance ghost in ghosts)
+        {
+            if (ghost.Root != null && ghost.Root.TryGetComponent(out XRGrabInteractable grab))
+            {
+                grab.enabled = enabled;
+            }
         }
     }
 
@@ -188,35 +486,6 @@ public sealed class GhostHoldController : MonoBehaviour
         Bounds meshBounds = meshFilter.sharedMesh.bounds;
         sphere.center = meshBounds.center;
         sphere.radius = meshBounds.extents.magnitude;
-    }
-
-    public void DismissGhost()
-    {
-        manipulatingHand = null;
-
-        if (sceneConfiguror != null && currentGhost != null)
-        {
-            sceneConfiguror.UnregisterGhostHold(currentGhost);
-            sceneConfiguror.actionRecorder?.Record("GhostDismiss", "", currentGhost);
-        }
-
-        if (currentGhost != null)
-        {
-            Destroy(currentGhost);
-        }
-        if (dismissAffordance != null)
-        {
-            Destroy(dismissAffordance);
-        }
-        if (wallMarker != null)
-        {
-            Destroy(wallMarker.gameObject);
-        }
-
-        currentGhost = null;
-        dismissAffordance = null;
-        wallMarker = null;
-        wallReferent = null;
     }
 
     private void Update()
@@ -235,321 +504,416 @@ public sealed class GhostHoldController : MonoBehaviour
             return;
         }
 
+        float now = Time.unscaledTime;
+
+        // The latches still advance while the console owns input, and their presses are discarded.
+        // A pinch that was closed during suppression therefore spends its arming and cannot leak
+        // into the technique when the console closes, while a hand that stayed open keeps its
+        // arming and does not have to be opened and re-closed to select.
         if (panelInputSuppressed)
         {
-            manipulatingHand = null;
-            leftWasPinching = IsIndexPinching(leftHand);
-            rightWasPinching = IsIndexPinching(rightHand);
-            leftPinchArmed = false;
-            rightPinchArmed = false;
-            SetRayVisible(leftRay, false);
-            SetRayVisible(rightRay, false);
-            UpdateWallMarker();
-            UpdateDismissAffordance();
+            AdvanceSuppressedPointer(left, now);
+            AdvanceSuppressedPointer(right, now);
+            UpdateGhostDecorations();
             return;
         }
 
-        HandleHand(
-            Hand.Left,
-            leftHand,
-            leftSkeleton,
-            ref leftWasPinching,
-            ref leftPinchArmed,
-            leftRay);
-        HandleHand(
-            Hand.Right,
-            rightHand,
-            rightSkeleton,
-            ref rightWasPinching,
-            ref rightPinchArmed,
-            rightRay);
-        UpdateManipulation();
-        UpdateWallMarker();
-        UpdateDismissAffordance();
+        UpdatePointer(left, now);
+        UpdatePointer(right, now);
+        UpdateManipulation(left);
+        UpdateManipulation(right);
+        UpdateGhostDecorations();
 
-        if (currentGhost != null)
+        foreach (GhostInstance ghost in ghosts)
         {
-            currentGhost.transform.localScale = lockedGhostScale;
-        }
-    }
-
-    private void HandleHand(
-        Hand handSide,
-        OVRHand hand,
-        OVRSkeleton skeleton,
-        ref bool wasPinching,
-        ref bool pinchArmed,
-        LineRenderer rayVisual)
-    {
-        bool trackingConfident = hand != null && hand.IsTracked && hand.IsDataHighConfidence;
-        bool isPinching = IsIndexPinching(hand);
-        bool pinchEnded = !isPinching && wasPinching;
-        bool pinchStarted = StudyRehearsalTiming.TryConsumeArmedPinch(
-            trackingConfident,
-            isPinching,
-            ref wasPinching,
-            ref pinchArmed);
-
-        bool hasRay = TryGetPointerRay(hand, out Ray ray);
-        GameObject target = null;
-        Vector3 targetPoint = ray.GetPoint(maxRayDistance);
-        bool hasTarget = hasRay && TryGetRayTarget(ray, out target, out targetPoint);
-        UpdateRayVisual(rayVisual, hasRay, ray, hasTarget ? targetPoint : ray.GetPoint(maxRayDistance));
-        RecordInputDiagnostics(
-            handSide,
-            hand,
-            trackingConfident,
-            isPinching,
-            pinchArmed,
-            hasRay);
-
-        if (pinchEnded && manipulatingHand == handSide)
-        {
-            manipulatingHand = null;
-        }
-
-        if (!pinchStarted)
-        {
-            return;
-        }
-
-        RecordSelectionAttempt(handSide, hasRay, hasTarget, target, ray);
-
-        if (hasTarget && target == dismissAffordance)
-        {
-            DismissGhost();
-            return;
-        }
-
-        if ((hasTarget && IsGhostHold(target)) || IsNearGhost(skeleton))
-        {
-            BeginManipulation(handSide, skeleton);
-            return;
-        }
-
-        if (hasTarget)
-        {
-            GameObject selectedHold = sceneConfiguror.GetActiveRouteHold(target);
-            if (selectedHold != null)
+            if (ghost.Root != null)
             {
-                SpawnGhost(selectedHold);
+                ghost.Root.transform.localScale = ghost.LockedScale;
             }
         }
     }
 
+    private void AdvanceSuppressedPointer(HandPointer pointer, float now)
+    {
+        if (pointer == null)
+        {
+            return;
+        }
+
+        bool trackingConfident = IsTrackingConfident(pointer.Hand);
+        pointer.Latch.Update(trackingConfident, GetPinchStrength(pointer.Hand), IsReportedPinching(pointer.Hand));
+        pointer.OriginFilter.Reset();
+        pointer.DirectionFilter.Reset();
+        pointer.HoverObject = null;
+        SetPointerVisible(pointer, false);
+    }
+
+    private void UpdatePointer(HandPointer pointer, float now)
+    {
+        if (pointer == null)
+        {
+            return;
+        }
+
+        bool trackingConfident = IsTrackingConfident(pointer.Hand);
+        bool pressed = pointer.Latch.Update(
+            trackingConfident,
+            GetPinchStrength(pointer.Hand),
+            IsReportedPinching(pointer.Hand));
+        bool hasRay = TryGetStabilisedRay(pointer, now, out Vector3 origin, out Vector3 direction);
+
+        if (!hasRay)
+        {
+            pointer.HoverObject = null;
+            SetPointerVisible(pointer, false);
+            RecordInputDiagnostics(pointer, trackingConfident, false);
+            return;
+        }
+
+        bool hasHover = TryResolveRayTarget(
+            origin,
+            direction,
+            pointer.HoverObject,
+            out GameObject hoveredObject,
+            out Vector3 endPoint,
+            out Candidate hovered);
+        pointer.HoverObject = hoveredObject;
+        UpdatePointerVisuals(pointer, origin, endPoint, hasHover, hovered);
+        RecordInputDiagnostics(pointer, trackingConfident, true);
+
+        if (!pressed)
+        {
+            return;
+        }
+
+        // The palm-up summon gesture owns pinches made with the palm turned up; letting the same
+        // pinch also act on a hold would fire two unrelated actions from one gesture.
+        if (IsPalmUp(pointer.Skeleton))
+        {
+            RecordSelection(pointer, hasHover ? hovered.Object : null, "inhibited_palmUpSummon", origin, direction);
+            return;
+        }
+
+        if (!hasHover)
+        {
+            RecordSelection(pointer, null, "missed", origin, direction);
+            return;
+        }
+
+        switch (hovered.Kind)
+        {
+            case CandidateKind.DismissAll:
+                RecordSelection(pointer, null, "dismissAll", origin, direction);
+                DismissAllGhosts("dismissAll");
+                break;
+            case CandidateKind.DismissGhost:
+                RecordSelection(pointer, hovered.Ghost.Root, "dismiss", origin, direction);
+                DismissGhost(hovered.Ghost, "participant");
+                break;
+            case CandidateKind.Ghost:
+                RecordSelection(pointer, hovered.Ghost.Root, "grabGhost", origin, direction);
+                BeginManipulation(pointer, hovered.Ghost);
+                break;
+            default:
+                GameObject nearGhostTarget = FindNearGhostRoot(pointer.Skeleton);
+                if (nearGhostTarget != null)
+                {
+                    RecordSelection(pointer, nearGhostTarget, "grabGhostNear", origin, direction);
+                    BeginManipulation(pointer, FindGhost(nearGhostTarget));
+                    break;
+                }
+                GameObject selectedHold = sceneConfiguror.GetActiveRouteHold(hovered.Object);
+                if (selectedHold == null)
+                {
+                    RecordSelection(pointer, hovered.Object, "notRouteHold", origin, direction);
+                    break;
+                }
+                RecordSelection(pointer, selectedHold, "spawned", origin, direction);
+                SpawnGhost(selectedHold, pointer.Side);
+                break;
+        }
+    }
+
+    /// <summary>Which hold a ray points at, ignoring any previously held choice.</summary>
     private bool TryGetRayTarget(Ray ray, out GameObject target, out Vector3 targetPoint)
     {
-        target = null;
-        targetPoint = ray.GetPoint(maxRayDistance);
-        float nearestDistance = maxRayDistance;
+        return TryResolveRayTarget(
+            ray.origin,
+            ray.direction.normalized,
+            null,
+            out target,
+            out targetPoint,
+            out _);
+    }
 
-        if (dismissAffordance != null &&
-            dismissAffordance.TryGetComponent(out Collider dismissCollider) &&
-            dismissCollider.Raycast(ray, out RaycastHit dismissHit, maxRayDistance))
+    private bool TryResolveRayTarget(
+        Vector3 origin,
+        Vector3 direction,
+        GameObject previousTarget,
+        out GameObject target,
+        out Vector3 targetPoint,
+        out Candidate hovered)
+    {
+        BuildCandidates();
+        ScoreCandidates(origin, direction);
+        int selected = HandRayTargeting.SelectStickyTarget(
+            IndexOfCandidate(previousTarget),
+            candidateAngles,
+            acquireHalfAngleDegrees,
+            releaseHalfAngleDegrees,
+            switchMarginDegrees);
+        if (selected < 0)
         {
-            target = dismissAffordance;
-            nearestDistance = dismissHit.distance;
-            targetPoint = dismissHit.point;
+            target = null;
+            targetPoint = origin + direction * maxRayDistance;
+            hovered = default;
+            return false;
         }
 
-        ConsiderRendererBounds(currentGhost, ray, ref target, ref targetPoint, ref nearestDistance);
-        if (sceneConfiguror?.activeHoldsList != null)
+        hovered = candidates[selected];
+        target = hovered.Object;
+        // Stop at the near face rather than the centre, so the ray reads as touching the hold
+        // instead of passing through it.
+        float projection = Mathf.Max(0f, Vector3.Dot(hovered.Center - origin, direction));
+        targetPoint = origin + direction * Mathf.Max(0.02f, projection - hovered.Radius);
+        return true;
+    }
+
+    private void BuildCandidates()
+    {
+        candidates.Clear();
+        if (dismissAllAffordance != null && dismissAllAffordance.activeSelf)
         {
-            foreach (GameObject hold in sceneConfiguror.activeHoldsList)
+            candidates.Add(new Candidate
             {
-                ConsiderRendererBounds(hold, ray, ref target, ref targetPoint, ref nearestDistance);
+                Kind = CandidateKind.DismissAll,
+                Object = dismissAllAffordance,
+                Center = dismissAllAffordance.transform.position,
+                Radius = 0.045f,
+            });
+        }
+
+        foreach (GhostInstance ghost in ghosts)
+        {
+            if (ghost.DismissAffordance != null)
+            {
+                candidates.Add(new Candidate
+                {
+                    Kind = CandidateKind.DismissGhost,
+                    Object = ghost.DismissAffordance,
+                    Ghost = ghost,
+                    Center = ghost.DismissAffordance.transform.position,
+                    Radius = 0.045f,
+                });
+            }
+            if (ghost.Root != null && TryGetCombinedBounds(ghost.Root, out Bounds ghostBounds))
+            {
+                candidates.Add(new Candidate
+                {
+                    Kind = CandidateKind.Ghost,
+                    Object = ghost.Root,
+                    Ghost = ghost,
+                    Center = ghostBounds.center,
+                    Radius = GetLargestExtent(ghostBounds),
+                });
             }
         }
-        return target != null;
-    }
 
-    private static void ConsiderRendererBounds(
-        GameObject candidate,
-        Ray ray,
-        ref GameObject target,
-        ref Vector3 targetPoint,
-        ref float nearestDistance)
-    {
-        if (candidate == null || !TryGetCombinedBounds(candidate, out Bounds bounds) ||
-            !bounds.IntersectRay(ray, out float distance) || distance < 0f || distance >= nearestDistance)
+        if (sceneConfiguror?.activeHoldsList == null)
         {
             return;
         }
-
-        target = candidate;
-        nearestDistance = distance;
-        targetPoint = ray.GetPoint(distance);
-    }
-
-    private void BeginManipulation(Hand handSide, OVRSkeleton skeleton)
-    {
-        if (currentGhost == null || !TryGetHandPose(skeleton, out Pose handPose))
+        foreach (GameObject hold in sceneConfiguror.activeHoldsList)
         {
-            return;
-        }
-
-        manipulatingHand = handSide;
-        grabPositionOffset = Quaternion.Inverse(handPose.rotation) *
-                             (currentGhost.transform.position - handPose.position);
-        grabRotationOffset = Quaternion.Inverse(handPose.rotation) * currentGhost.transform.rotation;
-    }
-
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    private void RecordInputDiagnostics(
-        Hand handSide,
-        OVRHand hand,
-        bool trackingConfident,
-        bool isPinching,
-        bool pinchArmed,
-        bool hasRay)
-    {
-        ActionRecorder recorder = sceneConfiguror?.actionRecorder;
-        if (recorder == null || !recorder.IsRecording)
-        {
-            SetInputDiagnosticState(handSide, -1);
-            return;
-        }
-
-        bool tracked = hand != null && hand.IsTracked;
-        bool highConfidence = hand != null && hand.IsDataHighConfidence;
-        bool dataValid = hand != null && hand.IsDataValid;
-        bool pointerPoseValid = hand != null && hand.IsPointerPoseValid && hand.PointerPose != null;
-        OVRInput.ControllerInHandState controllerState = hand != null
-            ? OVRInput.GetControllerIsInHandState((OVRInput.Hand)hand.GetHand())
-            : OVRInput.ControllerInHandState.NoHand;
-        int state = (tracked ? 1 : 0) |
-                    (highConfidence ? 1 << 1 : 0) |
-                    (dataValid ? 1 << 2 : 0) |
-                    (pointerPoseValid ? 1 << 3 : 0) |
-                    (hasRay ? 1 << 4 : 0) |
-                    (trackingConfident ? 1 << 5 : 0) |
-                    (isPinching ? 1 << 6 : 0) |
-                    (pinchArmed ? 1 << 7 : 0) |
-                    ((int)controllerState << 8) |
-                    (hand != null ? (int)hand.m_showState << 10 : 0);
-        int previousState = handSide == Hand.Left
-            ? leftInputDiagnosticState
-            : rightInputDiagnosticState;
-        if (state == previousState)
-        {
-            return;
-        }
-        SetInputDiagnosticState(handSide, state);
-
-        float pinchStrength = hand != null
-            ? hand.GetFingerPinchStrength(OVRHand.HandFinger.Index)
-            : 0f;
-        recorder.Record(
-            "GhostInputState",
-            handSide == Hand.Left ? "Left" : "Right",
-            null,
-            "tracked=" + tracked.ToString().ToLowerInvariant() +
-            ";highConfidence=" + highConfidence.ToString().ToLowerInvariant() +
-            ";dataValid=" + dataValid.ToString().ToLowerInvariant() +
-            ";pointerPoseValid=" + pointerPoseValid.ToString().ToLowerInvariant() +
-            ";hasRay=" + hasRay.ToString().ToLowerInvariant() +
-            ";pinching=" + isPinching.ToString().ToLowerInvariant() +
-            ";pinchArmed=" + pinchArmed.ToString().ToLowerInvariant() +
-            ";pinchStrength=" + pinchStrength.ToString(
-                "F3",
-                System.Globalization.CultureInfo.InvariantCulture) +
-            ";controllerState=" + controllerState +
-            ";showState=" + (hand != null ? hand.m_showState.ToString() : "unavailable"));
-    }
-
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    private void RecordInputSuppression(bool suppressed)
-    {
-        if (modeActive && sceneConfiguror?.actionRecorder != null)
-        {
-            sceneConfiguror.actionRecorder.Record(
-                "GhostInputSuppression",
-                "",
-                null,
-                "suppressed=" + suppressed.ToString().ToLowerInvariant());
+            if (hold != null && TryGetCombinedBounds(hold, out Bounds holdBounds))
+            {
+                candidates.Add(new Candidate
+                {
+                    Kind = CandidateKind.WallHold,
+                    Object = hold,
+                    Center = holdBounds.center,
+                    Radius = GetLargestExtent(holdBounds),
+                });
+            }
         }
     }
 
-    private void SetInputDiagnosticState(Hand handSide, int state)
+    private void ScoreCandidates(Vector3 origin, Vector3 direction)
     {
-        if (handSide == Hand.Left)
+        // Nearest first, so that two holds the ray reads as equally on-axis resolve to the one in
+        // front. On a board seen from the floor the far one is usually behind it anyway.
+        for (int index = 0; index < candidates.Count; index++)
         {
-            leftInputDiagnosticState = state;
+            Candidate candidate = candidates[index];
+            candidate.DistanceSqr = (candidate.Center - origin).sqrMagnitude;
+            candidates[index] = candidate;
         }
-        else
+        candidates.Sort(NearestFirst);
+
+        candidateAngles.Clear();
+        foreach (Candidate candidate in candidates)
         {
-            rightInputDiagnosticState = state;
+            float angle = HandRayTargeting.GetAcquisitionAngleDegrees(origin, direction, candidate.Center);
+            if (angle == HandRayTargeting.NoTarget)
+            {
+                candidateAngles.Add(HandRayTargeting.NoTarget);
+                continue;
+            }
+
+            // Charge the ray only for the gap between it and the candidate's silhouette, and give
+            // the explicit affordances a head start so a dismiss target is never shadowed by the
+            // proxy it sits beside.
+            float relief = HandRayTargeting.GetAngularRadiusDegrees(origin, candidate.Center, candidate.Radius);
+            if (candidate.Kind == CandidateKind.DismissGhost || candidate.Kind == CandidateKind.DismissAll)
+            {
+                relief += affordanceAcquireBonusDegrees;
+            }
+            candidateAngles.Add(Mathf.Max(0f, angle - relief));
         }
     }
 
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    private void ResetInputDiagnostics()
+    private int IndexOfCandidate(GameObject target)
     {
-        leftInputDiagnosticState = -1;
-        rightInputDiagnosticState = -1;
+        if (target == null)
+        {
+            return -1;
+        }
+        for (int index = 0; index < candidates.Count; index++)
+        {
+            if (candidates[index].Object == target)
+            {
+                return index;
+            }
+        }
+        return -1;
     }
 
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    private void RecordSelectionAttempt(
-        Hand handSide,
-        bool hasRay,
-        bool hasTarget,
-        GameObject target,
-        Ray ray)
+    private static float GetLargestExtent(Bounds bounds)
     {
-        string details = "hasRay=" + hasRay.ToString().ToLowerInvariant() +
-                         ";hasTarget=" + hasTarget.ToString().ToLowerInvariant() +
-                         ";activeRouteHold=" +
-                         (target != null && sceneConfiguror.IsActiveRouteHold(target))
-                         .ToString().ToLowerInvariant() +
-                         ";dismissTarget=" + (target == dismissAffordance).ToString().ToLowerInvariant() +
-                         ";ghostTarget=" + IsGhostHold(target).ToString().ToLowerInvariant();
-        if (hasRay)
-        {
-            details = System.FormattableString.Invariant(
-                $"{details};rayOrigin=({ray.origin.x:F4},{ray.origin.y:F4},{ray.origin.z:F4});rayDirection=({ray.direction.x:F4},{ray.direction.y:F4},{ray.direction.z:F4})");
-        }
-        sceneConfiguror?.actionRecorder?.Record(
-            "GhostSelectionAttempt",
-            handSide == Hand.Left ? "Left" : "Right",
-            target,
-            details);
+        return Mathf.Max(bounds.extents.x, Mathf.Max(bounds.extents.y, bounds.extents.z));
     }
 
-    private void UpdateManipulation()
+    private static readonly System.Comparison<Candidate> NearestFirst =
+        (left, right) => left.DistanceSqr.CompareTo(right.DistanceSqr);
+
+    private bool TryGetStabilisedRay(
+        HandPointer pointer,
+        float now,
+        out Vector3 origin,
+        out Vector3 direction)
     {
-        if (currentGhost == null || manipulatingHand == null)
+        origin = Vector3.zero;
+        direction = Vector3.forward;
+        OVRHand hand = pointer.Hand;
+        if (hand == null || !hand.IsTracked || !hand.IsDataHighConfidence ||
+            !hand.IsPointerPoseValid || hand.PointerPose == null)
         {
-            return;
-        }
-
-        OVRSkeleton skeleton = manipulatingHand == Hand.Left ? leftSkeleton : rightSkeleton;
-        OVRHand hand = manipulatingHand == Hand.Left ? leftHand : rightHand;
-        if (!IsIndexPinching(hand) || !TryGetHandPose(skeleton, out Pose handPose))
-        {
-            manipulatingHand = null;
-            return;
-        }
-
-        currentGhost.transform.SetPositionAndRotation(
-            handPose.position + handPose.rotation * grabPositionOffset,
-            handPose.rotation * grabRotationOffset);
-    }
-
-    private bool IsNearGhost(OVRSkeleton skeleton)
-    {
-        if (currentGhost == null || skeleton == null || skeleton.Bones.Count <= 10)
-        {
+            pointer.OriginFilter.Reset();
+            pointer.DirectionFilter.Reset();
             return false;
         }
 
-        if (!TryGetCombinedBounds(currentGhost, out Bounds bounds))
+        origin = pointer.OriginFilter.Update(hand.PointerPose.position, now);
+        Vector3 filteredForward = pointer.DirectionFilter.Update(hand.PointerPose.forward, now);
+        if (filteredForward.sqrMagnitude < 1e-8f)
         {
             return false;
         }
+        direction = filteredForward.normalized;
+        return true;
+    }
 
-        bounds.Expand(nearGrabPadding * 2f);
-        return bounds.Contains(skeleton.Bones[10].Transform.position);
+    private void BeginManipulation(HandPointer pointer, GhostInstance ghost)
+    {
+        if (ghost?.Root == null || !TryGetHandPose(pointer.Skeleton, out Pose handPose))
+        {
+            return;
+        }
+        HandPointer other = pointer == left ? right : left;
+        if (other != null && other.Manipulated == ghost)
+        {
+            return;
+        }
+
+        pointer.Manipulated = ghost;
+        pointer.GrabPositionOffset = Quaternion.Inverse(handPose.rotation) *
+                                     (ghost.Root.transform.position - handPose.position);
+        pointer.GrabRotationOffset = Quaternion.Inverse(handPose.rotation) * ghost.Root.transform.rotation;
+    }
+
+    private void UpdateManipulation(HandPointer pointer)
+    {
+        if (pointer?.Manipulated == null)
+        {
+            return;
+        }
+        if (pointer.Manipulated.Root == null || !pointer.Latch.IsClosed ||
+            !TryGetHandPose(pointer.Skeleton, out Pose handPose))
+        {
+            ReleaseManipulation(pointer);
+            return;
+        }
+
+        pointer.Manipulated.Root.transform.SetPositionAndRotation(
+            handPose.position + handPose.rotation * pointer.GrabPositionOffset,
+            handPose.rotation * pointer.GrabRotationOffset);
+    }
+
+    private static void ReleaseManipulation(HandPointer pointer)
+    {
+        if (pointer != null)
+        {
+            pointer.Manipulated = null;
+        }
+    }
+
+    private void ReleaseManipulationOf(GhostInstance ghost)
+    {
+        if (left != null && left.Manipulated == ghost)
+        {
+            left.Manipulated = null;
+        }
+        if (right != null && right.Manipulated == ghost)
+        {
+            right.Manipulated = null;
+        }
+    }
+
+    private void ResetPointerState(HandPointer pointer)
+    {
+        if (pointer == null)
+        {
+            return;
+        }
+        pointer.Latch.Reset();
+        pointer.OriginFilter.Reset();
+        pointer.DirectionFilter.Reset();
+        pointer.HoverObject = null;
+        pointer.Manipulated = null;
+        pointer.DiagnosticState = -1;
+    }
+
+    private GameObject FindNearGhostRoot(OVRSkeleton skeleton)
+    {
+        if (skeleton == null || skeleton.Bones.Count <= (int)IndexTipBoneIndex)
+        {
+            return null;
+        }
+
+        Vector3 indexTip = skeleton.Bones[(int)IndexTipBoneIndex].Transform.position;
+        foreach (GhostInstance ghost in ghosts)
+        {
+            if (ghost.Root == null || !TryGetCombinedBounds(ghost.Root, out Bounds bounds))
+            {
+                continue;
+            }
+            bounds.Expand(nearGrabPadding * 2f);
+            if (bounds.Contains(indexTip))
+            {
+                return ghost.Root;
+            }
+        }
+        return null;
     }
 
     private static bool TryGetHandPose(OVRSkeleton skeleton, out Pose pose)
@@ -565,28 +929,31 @@ public sealed class GhostHoldController : MonoBehaviour
         return false;
     }
 
-    private static bool IsIndexPinching(OVRHand hand)
+    // OpenXR hand joints put +Y out the back of the hand, so the palmar direction is -up. This
+    // mirrors the console's summon detector so the two gestures cannot both claim one pinch.
+    private static bool IsPalmUp(OVRSkeleton skeleton)
     {
-        return hand != null && hand.IsTracked && hand.IsDataHighConfidence &&
-               hand.GetFingerIsPinching(OVRHand.HandFinger.Index);
-    }
-
-    private static bool IsPointerTracked(OVRHand hand)
-    {
-        return hand != null && hand.IsTracked && hand.IsDataHighConfidence &&
-               hand.IsPointerPoseValid && hand.PointerPose != null;
-    }
-
-    private static bool TryGetPointerRay(OVRHand hand, out Ray ray)
-    {
-        if (IsPointerTracked(hand))
+        if (skeleton == null || skeleton.Bones == null || skeleton.Bones.Count == 0 ||
+            skeleton.Bones[0].Transform == null)
         {
-            ray = new Ray(hand.PointerPose.position, hand.PointerPose.forward);
-            return true;
+            return false;
         }
+        return Vector3.Dot(-skeleton.Bones[0].Transform.up, Vector3.up) > PalmUpDotThreshold;
+    }
 
-        ray = default;
-        return false;
+    private static bool IsTrackingConfident(OVRHand hand)
+    {
+        return hand != null && hand.IsTracked && hand.IsDataHighConfidence;
+    }
+
+    private static bool IsReportedPinching(OVRHand hand)
+    {
+        return hand != null && hand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+    }
+
+    private static float GetPinchStrength(OVRHand hand)
+    {
+        return hand != null ? hand.GetFingerPinchStrength(OVRHand.HandFinger.Index) : 0f;
     }
 
     private static void MoveRendererCenterTo(GameObject target, Vector3 desiredCenter)
@@ -617,144 +984,385 @@ public sealed class GhostHoldController : MonoBehaviour
         return true;
     }
 
-    private void CreateDismissAffordance()
+    private static string GetHoldCoordinate(GameObject hold)
     {
-        dismissAffordance = new GameObject("Dismiss Ghost");
-        TextMesh label = dismissAffordance.AddComponent<TextMesh>();
-        label.text = "X";
-        label.anchor = TextAnchor.MiddleCenter;
-        label.alignment = TextAlignment.Center;
-        label.fontSize = 64;
-        label.characterSize = 0.0025f;
-        label.color = new Color(1f, 0.35f, 0.25f, 1f);
-        SphereCollider collider = dismissAffordance.AddComponent<SphereCollider>();
-        collider.radius = 0.045f;
-        UpdateDismissAffordance();
+        string name = hold.name.Split('.')[0];
+        int ghostMarker = name.IndexOf('#');
+        return ghostMarker >= 0 ? name.Substring(0, ghostMarker) : name;
     }
 
-    private void UpdateDismissAffordance()
+    private void EnsureDecorationRoot()
     {
-        if (dismissAffordance == null || currentGhost == null || userCamera == null ||
-            !TryGetCombinedBounds(currentGhost, out Bounds bounds))
+        if (decorationRoot != null)
+        {
+            return;
+        }
+
+        GameObject root = new(DecorationRootName)
+        {
+            hideFlags = HideFlags.DontSaveInEditor | HideFlags.DontSaveInBuild,
+        };
+        root.transform.SetParent(transform, false);
+        decorationRoot = root.transform;
+    }
+
+    private Material EnsureLineMaterial()
+    {
+        if (lineMaterial == null)
+        {
+            UnityEngine.Shader shader = UnityEngine.Shader.Find("Sprites/Default") ??
+                                        UnityEngine.Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null)
+            {
+                throw new System.InvalidOperationException(
+                    "Ghost inspection requires the Sprites/Default or URP Unlit shader.");
+            }
+            lineMaterial = new Material(shader) { name = "Ghost Inspection Line" };
+        }
+        return lineMaterial;
+    }
+
+    private TMP_FontAsset EnsureFontAsset()
+    {
+        if (fontAsset == null)
+        {
+            fontAsset = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            if (fontAsset == null)
+            {
+                throw new System.InvalidOperationException(
+                    "Ghost inspection requires the LiberationSans SDF font asset.");
+            }
+        }
+        return fontAsset;
+    }
+
+    private LineRenderer CreateLine(string objectName, int positionCount, float width, Transform parent)
+    {
+        GameObject lineObject = new(objectName)
+        {
+            layer = 0,
+            hideFlags = HideFlags.DontSaveInEditor | HideFlags.DontSaveInBuild,
+        };
+        lineObject.transform.SetParent(parent != null ? parent : decorationRoot, false);
+        LineRenderer line = lineObject.AddComponent<LineRenderer>();
+        line.positionCount = positionCount;
+        line.useWorldSpace = true;
+        line.startWidth = width;
+        line.endWidth = width;
+        line.startColor = Color.white;
+        line.endColor = Color.white;
+        line.numCornerVertices = 2;
+        line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        line.receiveShadows = false;
+        line.sharedMaterial = EnsureLineMaterial();
+        return line;
+    }
+
+    private TextMeshPro CreateLabel(string objectName, float worldFontSize, Transform parent)
+    {
+        GameObject textObject = new(objectName)
+        {
+            layer = 0,
+            hideFlags = HideFlags.DontSaveInEditor | HideFlags.DontSaveInBuild,
+        };
+        textObject.transform.SetParent(parent != null ? parent : decorationRoot, false);
+        textObject.transform.localScale = Vector3.one * TextTransformScale;
+        TextMeshPro text = textObject.AddComponent<TextMeshPro>();
+        text.font = EnsureFontAsset();
+        text.rectTransform.sizeDelta = new Vector2(0.3f, 0.1f) / TextTransformScale;
+        text.alignment = TextAlignmentOptions.Center;
+        text.fontSize = worldFontSize / TextTransformScale * 10f;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Overflow;
+        text.raycastTarget = false;
+        return text;
+    }
+
+    private void CreateGhostDecorations(GhostInstance ghost)
+    {
+        ghost.DismissAffordance = new GameObject("Ghost Dismiss")
+        {
+            layer = 0,
+            hideFlags = HideFlags.DontSaveInEditor | HideFlags.DontSaveInBuild,
+        };
+        ghost.DismissAffordance.transform.SetParent(decorationRoot, false);
+        ghost.DismissLabel = CreateLabel("Ghost Dismiss Glyph", 0.05f, ghost.DismissAffordance.transform);
+        ghost.DismissLabel.text = "×";
+        ghost.DismissLabel.color = new Color(1f, 0.45f, 0.35f, 1f);
+
+        ghost.WallMarker = CreateLine("Ghost Wall Referent", WallMarkerSegments, markerWidth, null);
+        ghost.WallMarker.loop = true;
+        ghost.Tether = CreateLine("Ghost Wall Tether", 2, tetherWidth, null);
+
+        GameObject indicatorObject = new("Ghost Orientation Indicator")
+        {
+            layer = 0,
+            hideFlags = HideFlags.DontSaveInEditor | HideFlags.DontSaveInBuild,
+        };
+        indicatorObject.transform.SetParent(decorationRoot, false);
+        ghost.IndicatorRoot = indicatorObject.transform;
+        ghost.OrientationArc = CreateLine("Ghost Orientation Arc", 2, 0.0035f, ghost.IndicatorRoot);
+        ghost.OrientationTick = CreateLine("Ghost Orientation True Mark", 2, 0.0035f, ghost.IndicatorRoot);
+        ghost.OrientationLabel = CreateLabel("Ghost Orientation Readout", 0.03f, ghost.IndicatorRoot);
+    }
+
+    private void UpdateGhostDecorations()
+    {
+        userCamera = userCamera != null ? userCamera : Camera.main;
+        if (userCamera == null)
+        {
+            return;
+        }
+
+        Transform camera = userCamera.transform;
+        foreach (GhostInstance ghost in ghosts)
+        {
+            if (ghost.Root == null)
+            {
+                continue;
+            }
+            bool hasGhostBounds = TryGetCombinedBounds(ghost.Root, out Bounds ghostBounds);
+            UpdateWallMarker(ghost, camera);
+            UpdateTether(ghost, hasGhostBounds ? ghostBounds.center : ghost.Root.transform.position);
+            if (hasGhostBounds)
+            {
+                UpdateDismissAffordance(ghost, ghostBounds, camera);
+                UpdateOrientationIndicator(ghost, ghostBounds, camera);
+            }
+        }
+        UpdateDismissAllAffordance(camera);
+    }
+
+    private void UpdateWallMarker(GhostInstance ghost, Transform camera)
+    {
+        if (ghost.WallMarker == null || ghost.Source == null ||
+            !TryGetCombinedBounds(ghost.Source, out Bounds bounds))
+        {
+            return;
+        }
+
+        float radius = GetLargestExtent(bounds) * 1.35f;
+        float pulse = 0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 4f);
+        Color color = markerColor;
+        color.a *= pulse;
+        SetLineColor(ghost.WallMarker, color);
+
+        Vector3 center = bounds.center - camera.forward * 0.006f;
+        for (int i = 0; i < ghost.WallMarker.positionCount; i++)
+        {
+            float angle = i * Mathf.PI * 2f / ghost.WallMarker.positionCount;
+            ghost.WallMarker.SetPosition(i, center +
+                (camera.right * Mathf.Cos(angle) + camera.up * Mathf.Sin(angle)) * radius);
+        }
+    }
+
+    private void UpdateTether(GhostInstance ghost, Vector3 ghostCenter)
+    {
+        if (ghost.Tether == null || ghost.Source == null)
+        {
+            return;
+        }
+
+        Vector3 wallPoint = TryGetCombinedBounds(ghost.Source, out Bounds bounds)
+            ? bounds.center
+            : ghost.Source.transform.position;
+        ghost.Tether.SetPosition(0, ghostCenter);
+        ghost.Tether.SetPosition(1, wallPoint);
+        SetLineColor(ghost.Tether, tetherColor);
+    }
+
+    private void UpdateDismissAffordance(GhostInstance ghost, Bounds bounds, Transform camera)
+    {
+        if (ghost.DismissAffordance == null)
         {
             return;
         }
 
         float sideOffset = Mathf.Max(bounds.extents.x, bounds.extents.z) + 0.07f;
         float topOffset = bounds.extents.y + 0.07f;
-        dismissAffordance.transform.position = bounds.center +
-                                               userCamera.transform.right * sideOffset +
-                                               userCamera.transform.up * topOffset;
-        dismissAffordance.transform.rotation = Quaternion.LookRotation(
-            dismissAffordance.transform.position - userCamera.transform.position,
-            userCamera.transform.up);
+        ghost.DismissAffordance.transform.position = bounds.center +
+                                                     camera.right * sideOffset +
+                                                     camera.up * topOffset;
+        ghost.DismissAffordance.transform.rotation = Quaternion.LookRotation(
+            ghost.DismissAffordance.transform.position - camera.position,
+            camera.up);
     }
 
-    private void CreateWallMarker()
+    private void UpdateOrientationIndicator(GhostInstance ghost, Bounds bounds, Transform camera)
     {
-        GameObject markerObject = new("Ghost Wall Referent");
-        wallMarker = markerObject.AddComponent<LineRenderer>();
-        wallMarker.loop = true;
-        wallMarker.useWorldSpace = true;
-        wallMarker.positionCount = 48;
-        wallMarker.startWidth = markerWidth;
-        wallMarker.endWidth = markerWidth;
-        wallMarker.startColor = Color.white;
-        wallMarker.endColor = Color.white;
-        wallMarker.numCornerVertices = 3;
-        wallMarkerMaterial ??= CreateLineMaterial("Ghost Referent Ring Material");
-        wallMarkerProperties ??= new MaterialPropertyBlock();
-        wallMarker.sharedMaterial = wallMarkerMaterial;
-        SetLineColor(wallMarker, wallMarkerProperties, markerColor);
-        UpdateWallMarker();
-    }
-
-    private void UpdateWallMarker()
-    {
-        if (wallMarker == null || wallReferent == null || userCamera == null ||
-            !TryGetCombinedBounds(wallReferent, out Bounds bounds))
+        if (ghost.IndicatorRoot == null || ghost.OrientationArc == null)
         {
             return;
         }
 
-        float radius = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z) * 1.35f;
-        float pulse = 0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 4f);
-        Color color = markerColor;
-        color.a *= pulse;
-        SetLineColor(wallMarker, wallMarkerProperties, color);
+        float deviation = GhostOrientationIndicatorPolicy.GetDeviationDegrees(
+            ghost.Root.transform.rotation,
+            GetLiveWallRotation(ghost));
+        Color color = GhostOrientationIndicatorPolicy.GetIndicatorColor(deviation);
+        float radius = GetLargestExtent(bounds) + 0.045f;
+        Vector3 center = bounds.center - camera.up * (bounds.extents.y + 0.055f);
+        ghost.IndicatorRoot.SetPositionAndRotation(center, camera.rotation);
 
-        Vector3 center = bounds.center - userCamera.transform.forward * 0.006f;
-        for (int i = 0; i < wallMarker.positionCount; i++)
+        Vector3 up = camera.up;
+        Vector3 right = camera.right;
+        float sweep = GhostOrientationIndicatorPolicy.GetArcSweepDegrees(deviation);
+        int segments = Mathf.Clamp(Mathf.CeilToInt(sweep / ArcDegreesPerSegment), 1, MaximumArcSegments);
+        ghost.OrientationArc.enabled = sweep > 0.5f;
+        if (ghost.OrientationArc.enabled)
         {
-            float angle = i * Mathf.PI * 2f / wallMarker.positionCount;
-            wallMarker.SetPosition(i, center +
-                (userCamera.transform.right * Mathf.Cos(angle) +
-                 userCamera.transform.up * Mathf.Sin(angle)) * radius);
+            ghost.OrientationArc.positionCount = segments + 1;
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = Mathf.Deg2Rad * (sweep * i / segments);
+                ghost.OrientationArc.SetPosition(
+                    i,
+                    center + (up * Mathf.Cos(angle) + right * Mathf.Sin(angle)) * radius);
+            }
+            SetLineColor(ghost.OrientationArc, color);
         }
+
+        // A short mark at the arc's origin keeps "closed" readable as "on the mark" rather than
+        // as the indicator having disappeared.
+        ghost.OrientationTick.SetPosition(0, center + up * (radius - 0.012f));
+        ghost.OrientationTick.SetPosition(1, center + up * (radius + 0.012f));
+        SetLineColor(ghost.OrientationTick, color);
+
+        ghost.OrientationLabel.transform.position = center - up * 0.035f;
+        ghost.OrientationLabel.transform.rotation = camera.rotation;
+        ghost.OrientationLabel.text = GhostOrientationIndicatorPolicy.FormatDeviationDegrees(deviation);
+        ghost.OrientationLabel.color = color;
     }
 
-    private void EnsureRayVisuals()
+    /// <summary>
+    /// The wall hold's orientation as it stands now. Board alignment and the ghost viewing standoff
+    /// both move the board after a proxy is summoned, so the deviation has to be measured against
+    /// the live hold rather than a pose captured at spawn.
+    /// </summary>
+    private static Quaternion GetLiveWallRotation(GhostInstance ghost)
     {
-        if (leftRay == null)
-        {
-            leftRayMaterial = CreateLineMaterial("Left Ghost Selection Ray Material");
-            leftRayProperties = new MaterialPropertyBlock();
-            leftRay = CreateRay("Left Ghost Selection Ray", leftRayMaterial, leftRayProperties);
-        }
-        if (rightRay == null)
-        {
-            rightRayMaterial = CreateLineMaterial("Right Ghost Selection Ray Material");
-            rightRayProperties = new MaterialPropertyBlock();
-            rightRay = CreateRay("Right Ghost Selection Ray", rightRayMaterial, rightRayProperties);
-        }
+        return ghost.Source != null ? ghost.Source.transform.rotation : ghost.WallRotation;
     }
 
-    private LineRenderer CreateRay(
-        string objectName,
-        Material material,
-        MaterialPropertyBlock properties)
+    private void UpdateDismissAllAffordance(Transform camera)
     {
-        GameObject rayObject = new(objectName);
-        rayObject.transform.SetParent(transform, false);
-        LineRenderer ray = rayObject.AddComponent<LineRenderer>();
-        ray.positionCount = 2;
-        ray.useWorldSpace = true;
-        ray.startWidth = 0.0025f;
-        ray.endWidth = 0.001f;
-        ray.startColor = Color.white;
-        ray.endColor = Color.white;
-        ray.sharedMaterial = material;
-        SetLineColor(ray, properties, rayColor);
-        ray.enabled = false;
-        return ray;
-    }
-
-    private static Material CreateLineMaterial(string materialName)
-    {
-        UnityEngine.Shader shader = UnityEngine.Shader.Find("Sprites/Default") ??
-                                    UnityEngine.Shader.Find("Universal Render Pipeline/Unlit");
-        if (shader != null)
+        bool visible = ghosts.Count >= 2;
+        if (!visible)
         {
-            return new Material(shader) { name = materialName };
+            if (dismissAllAffordance != null)
+            {
+                dismissAllAffordance.SetActive(false);
+            }
+            return;
         }
-        return null;
+
+        if (dismissAllAffordance == null)
+        {
+            EnsureDecorationRoot();
+            dismissAllAffordance = new GameObject("Ghost Dismiss All")
+            {
+                layer = 0,
+                hideFlags = HideFlags.DontSaveInEditor | HideFlags.DontSaveInBuild,
+            };
+            dismissAllAffordance.transform.SetParent(decorationRoot, false);
+            dismissAllLabel = CreateLabel("Ghost Dismiss All Glyph", 0.03f, dismissAllAffordance.transform);
+            dismissAllLabel.text = "× ALL";
+            dismissAllLabel.color = new Color(1f, 0.45f, 0.35f, 1f);
+        }
+
+        dismissAllAffordance.SetActive(true);
+        GhostInstance newest = ghosts[ghosts.Count - 1];
+        Vector3 anchor = newest.Root != null && TryGetCombinedBounds(newest.Root, out Bounds bounds)
+            ? bounds.center + camera.up * (bounds.extents.y + 0.16f)
+            : camera.position + camera.forward * spawnDistance + camera.up * 0.2f;
+        dismissAllAffordance.transform.position = anchor;
+        dismissAllAffordance.transform.rotation = Quaternion.LookRotation(anchor - camera.position, camera.up);
     }
 
-    private static void SetLineColor(
-        LineRenderer line,
-        MaterialPropertyBlock properties,
-        Color color)
+    private void EnsurePointerVisuals(HandPointer pointer)
     {
-        if (line == null || properties == null)
+        if (pointer == null || pointer.Ray != null)
         {
             return;
         }
 
+        EnsureDecorationRoot();
+        string side = pointer.Side == Hand.Left ? "Left" : "Right";
+        pointer.Ray = CreateLine(side + " Ghost Selection Ray", 2, 0.0025f, null);
+        pointer.Ray.endWidth = 0.001f;
+        pointer.RayProperties = new MaterialPropertyBlock();
+        pointer.Focus = CreateLine(side + " Ghost Pointer Focus", FocusRingSegments, 0.0022f, null);
+        pointer.Focus.loop = true;
+        pointer.FocusProperties = new MaterialPropertyBlock();
+        pointer.Ray.enabled = false;
+        pointer.Focus.enabled = false;
+    }
+
+    private void UpdatePointerVisuals(
+        HandPointer pointer,
+        Vector3 origin,
+        Vector3 endPoint,
+        bool hasHover,
+        Candidate hovered)
+    {
+        EnsurePointerVisuals(pointer);
+        pointer.Ray.enabled = true;
+        pointer.Ray.SetPosition(0, origin);
+        pointer.Ray.SetPosition(1, endPoint);
+        SetLineColor(pointer.Ray, rayColor, pointer.RayProperties);
+
+        pointer.Focus.enabled = hasHover;
+        if (!hasHover)
+        {
+            return;
+        }
+
+        // The reticle is a ring drawn around what a pinch would act on, sized to that object and
+        // turned to face the participant, so the ray's endpoint is never ambiguous between two
+        // holds that overlap from where they are standing.
+        Vector3 toViewer = (origin - hovered.Center).normalized;
+        Vector3 ringRight = Vector3.Cross(Vector3.up, toViewer);
+        if (ringRight.sqrMagnitude < 1e-6f)
+        {
+            ringRight = Vector3.right;
+        }
+        ringRight.Normalize();
+        Vector3 ringUp = Vector3.Cross(toViewer, ringRight);
+        float radius = Mathf.Max(hovered.Radius * 1.3f, 0.035f);
+        Vector3 center = hovered.Center + toViewer * (hovered.Radius + 0.004f);
+        for (int i = 0; i < pointer.Focus.positionCount; i++)
+        {
+            float angle = i * Mathf.PI * 2f / pointer.Focus.positionCount;
+            pointer.Focus.SetPosition(
+                i,
+                center + (ringRight * Mathf.Cos(angle) + ringUp * Mathf.Sin(angle)) * radius);
+        }
+        SetLineColor(pointer.Focus, focusColor, pointer.FocusProperties);
+    }
+
+    private static void SetPointerVisible(HandPointer pointer, bool visible)
+    {
+        if (pointer?.Ray != null)
+        {
+            pointer.Ray.enabled = visible;
+        }
+        if (pointer?.Focus != null)
+        {
+            pointer.Focus.enabled = visible;
+        }
+    }
+
+    private static void SetLineColor(LineRenderer line, Color color, MaterialPropertyBlock properties = null)
+    {
+        if (line == null)
+        {
+            return;
+        }
+
+        line.startColor = color;
+        line.endColor = color;
         Material material = line.sharedMaterial;
-        if (material == null)
+        if (material == null || properties == null)
         {
-            line.startColor = color;
-            line.endColor = color;
             return;
         }
 
@@ -770,46 +1378,127 @@ public sealed class GhostHoldController : MonoBehaviour
         line.SetPropertyBlock(properties);
     }
 
-    private static void UpdateRayVisual(
-        LineRenderer rayVisual,
-        bool hasRay,
-        Ray ray,
-        Vector3 endPoint)
+    private void RecordGhostEvent(string action, GhostInstance ghost, Hand? hand, string details)
     {
-        if (rayVisual == null)
+        string handToken = hand.HasValue ? (hand.Value == Hand.Left ? "Left" : "Right") : string.Empty;
+        string liveDetails = string.IsNullOrEmpty(details)
+            ? "live=" + ghosts.Count
+            : details + ";live=" + ghosts.Count;
+        sceneConfiguror?.actionRecorder?.Record(action, handToken, ghost.Root, liveDetails);
+    }
+
+    /// <summary>
+    /// Every consumed pinch, whether or not it produced a proxy. The verbose diagnostics below are
+    /// editor-only, which leaves a participant who never detaches a hold indistinguishable from a
+    /// technique that silently refused every attempt; this event closes that gap in the shipped
+    /// build without adding a per-frame stream.
+    /// </summary>
+    private void RecordSelection(
+        HandPointer pointer,
+        GameObject target,
+        string outcome,
+        Vector3 origin,
+        Vector3 direction)
+    {
+        sceneConfiguror?.actionRecorder?.Record(
+            "GhostSelection",
+            pointer.Side == Hand.Left ? "Left" : "Right",
+            target,
+            "outcome=" + outcome + ";live=" + ghosts.Count);
+        RecordSelectionAttempt(pointer, target, outcome, origin, direction);
+    }
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void RecordInputDiagnostics(HandPointer pointer, bool trackingConfident, bool hasRay)
+    {
+        ActionRecorder recorder = sceneConfiguror?.actionRecorder;
+        if (recorder == null || !recorder.IsRecording)
         {
+            pointer.DiagnosticState = -1;
             return;
         }
 
-        rayVisual.enabled = hasRay;
-        if (hasRay)
+        OVRHand hand = pointer.Hand;
+        bool tracked = hand != null && hand.IsTracked;
+        bool highConfidence = hand != null && hand.IsDataHighConfidence;
+        bool dataValid = hand != null && hand.IsDataValid;
+        bool pointerPoseValid = hand != null && hand.IsPointerPoseValid && hand.PointerPose != null;
+        OVRInput.ControllerInHandState controllerState = hand != null
+            ? OVRInput.GetControllerIsInHandState((OVRInput.Hand)hand.GetHand())
+            : OVRInput.ControllerInHandState.NoHand;
+        bool palmUp = IsPalmUp(pointer.Skeleton);
+        int state = (tracked ? 1 : 0) |
+                    (highConfidence ? 1 << 1 : 0) |
+                    (dataValid ? 1 << 2 : 0) |
+                    (pointerPoseValid ? 1 << 3 : 0) |
+                    (hasRay ? 1 << 4 : 0) |
+                    (trackingConfident ? 1 << 5 : 0) |
+                    (pointer.Latch.IsClosed ? 1 << 6 : 0) |
+                    (pointer.Latch.IsArmed ? 1 << 7 : 0) |
+                    (palmUp ? 1 << 8 : 0) |
+                    (pointer.HoverObject != null ? 1 << 9 : 0) |
+                    ((int)controllerState << 10) |
+                    (hand != null ? (int)hand.m_showState << 12 : 0);
+        if (state == pointer.DiagnosticState)
         {
-            rayVisual.SetPosition(0, ray.origin);
-            rayVisual.SetPosition(1, endPoint);
+            return;
+        }
+        pointer.DiagnosticState = state;
+
+        recorder.Record(
+            "GhostInputState",
+            pointer.Side == Hand.Left ? "Left" : "Right",
+            null,
+            "tracked=" + tracked.ToString().ToLowerInvariant() +
+            ";highConfidence=" + highConfidence.ToString().ToLowerInvariant() +
+            ";dataValid=" + dataValid.ToString().ToLowerInvariant() +
+            ";pointerPoseValid=" + pointerPoseValid.ToString().ToLowerInvariant() +
+            ";hasRay=" + hasRay.ToString().ToLowerInvariant() +
+            ";pinching=" + pointer.Latch.IsClosed.ToString().ToLowerInvariant() +
+            ";pinchArmed=" + pointer.Latch.IsArmed.ToString().ToLowerInvariant() +
+            ";palmUp=" + palmUp.ToString().ToLowerInvariant() +
+            ";hovering=" + (pointer.HoverObject != null).ToString().ToLowerInvariant() +
+            ";pinchStrength=" + GetPinchStrength(pointer.Hand).ToString(
+                "F3",
+                System.Globalization.CultureInfo.InvariantCulture) +
+            ";controllerState=" + controllerState +
+            ";showState=" + (hand != null ? hand.m_showState.ToString() : "unavailable"));
+    }
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void RecordInputSuppression(bool suppressed)
+    {
+        if (modeActive && sceneConfiguror?.actionRecorder != null)
+        {
+            sceneConfiguror.actionRecorder.Record(
+                "GhostInputSuppression",
+                "",
+                null,
+                "suppressed=" + suppressed.ToString().ToLowerInvariant());
         }
     }
 
-    private static void SetRayVisible(LineRenderer ray, bool visible)
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void RecordSelectionAttempt(
+        HandPointer pointer,
+        GameObject target,
+        string outcome,
+        Vector3 origin,
+        Vector3 direction)
     {
-        if (ray != null)
-        {
-            ray.enabled = visible;
-        }
+        sceneConfiguror?.actionRecorder?.Record(
+            "GhostSelectionAttempt",
+            pointer.Side == Hand.Left ? "Left" : "Right",
+            target,
+            System.FormattableString.Invariant(
+                $"outcome={outcome};live={ghosts.Count};rayOrigin=({origin.x:F4},{origin.y:F4},{origin.z:F4});rayDirection=({direction.x:F4},{direction.y:F4},{direction.z:F4})"));
     }
 
     private void OnDestroy()
     {
-        if (wallMarkerMaterial != null)
+        if (lineMaterial != null)
         {
-            Destroy(wallMarkerMaterial);
-        }
-        if (leftRayMaterial != null)
-        {
-            Destroy(leftRayMaterial);
-        }
-        if (rightRayMaterial != null)
-        {
-            Destroy(rightRayMaterial);
+            Destroy(lineMaterial);
         }
     }
 }

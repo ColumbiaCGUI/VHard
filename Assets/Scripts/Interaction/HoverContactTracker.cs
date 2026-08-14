@@ -77,9 +77,14 @@ public sealed class HoverContactTracker
         {
             return null;
         }
-        if (configuror.IsGhostHold(candidate))
+        // Several proxies can be detached at once, so a hovered ghost child has to resolve to the
+        // proxy it actually belongs to; the most recently summoned one is not it.
+        GameObject ghostRoot = configuror.ghostHoldController != null
+            ? configuror.ghostHoldController.GetGhostRoot(candidate)
+            : null;
+        if (ghostRoot != null)
         {
-            return configuror.ghostHoldController.CurrentGhost;
+            return ghostRoot;
         }
 
         GameObject activeHold = configuror.GetActiveRouteHold(candidate);

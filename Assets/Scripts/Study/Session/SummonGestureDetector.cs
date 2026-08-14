@@ -72,13 +72,15 @@ public sealed class SummonGestureDetector
                 return false;
             }
             summonDwellStart = now;
-            panel.SetGameplayInputSuppressed(true);
         }
 
+        // Suppress gameplay input only once the dwell completes: suppression means
+        // "the panel is open or about to open", never "a palm happens to be tilted".
         if (!summonReadyForPinch &&
             now - summonDwellStart >= Mathf.Max(0f, summonDwellSeconds()))
         {
             summonReadyForPinch = true;
+            panel.SetGameplayInputSuppressed(true);
         }
 
         if (summonReadyForPinch && pinchStarted)

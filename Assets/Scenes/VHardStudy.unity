@@ -15379,6 +15379,7 @@ MonoBehaviour:
   gameMode: 0
   currentRouteName: MB2016-19215
   ghostHoldController: {fileID: 0}
+  ghostViewingExtraStandoffMeters: 1.8
   interactionColorMaxDistanceOverride: 0.02
   disableInactiveHolds: 1
   inactiveHoldAlpha: 0.05

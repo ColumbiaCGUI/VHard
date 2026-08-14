@@ -81,6 +81,20 @@ public class SceneConfiguror : MonoBehaviour
     public string currentRouteName = string.Empty;
     public GhostHoldController ghostHoldController;
 
+    [Header("Ghost Viewing Standoff")]
+    // Detached inspection never touches the wall, so the reach standoff that Condition B needs
+    // leaves the top of a 40-degree board hanging behind the participant's head where it can be
+    // neither seen nor pointed at. Condition C therefore takes the board further away for as long
+    // as it is the active technique; see GhostViewingStandoffPolicy for the derivation.
+    [SerializeField] private float ghostViewingExtraStandoffMeters =
+        GhostViewingStandoffPolicy.DefaultExtraStandoffMeters;
+
+    private const float GhostStandoffDriftToleranceSqrMeters = 0.0001f;
+    private readonly List<GameObject> ghostGripTargets = new();
+    private Vector3 ghostStandoffBaselinePosition;
+    private Vector3 appliedGhostStandoffDelta;
+    private bool ghostStandoffApplied;
+
     public RouteDefinition ActiveRouteDefinition { get; internal set; }
     public RoutesLoadState RoutesJsonLoadState => routes.RoutesJsonLoadState;
     public string RoutesLoadFailureReason => routes.RoutesLoadFailureReason;
@@ -237,7 +251,7 @@ public class SceneConfiguror : MonoBehaviour
                 UpdateGripMode();
             }
             else if (gameMode == GameMode.Ghost && ghostHoldController != null &&
-                     ghostHoldController.CurrentGhost != null)
+                     ghostHoldController.HasGhosts)
             {
                 UpdateGripMode(false);
             }
@@ -560,6 +574,14 @@ public class SceneConfiguror : MonoBehaviour
         {
             ghostHoldController.SetModeActive(false);
         }
+        if (newMode == GameMode.Ghost)
+        {
+            ApplyGhostViewingStandoff();
+        }
+        else
+        {
+            RemoveGhostViewingStandoff();
+        }
         ResetInteractionState();
         gameMode = newMode;
         SetRouteCuePresentation(newMode == GameMode.Basic
@@ -662,6 +684,71 @@ public class SceneConfiguror : MonoBehaviour
         StudyEnvironment.ResetMoonBoardTransform();
     }
 
+    /// <summary>Parent of the board that fiducial calibration and the runtime seating both write.</summary>
+    internal Transform BoardAlignmentRoot =>
+        moonBoardEnv != null ? moonBoardEnv.transform.parent : null;
+
+    // The standoff is layered onto the alignment root rather than onto the board itself. Those are
+    // two independent layers: ResetMoonBoardTransform restores the board's local pose and so leaves
+    // this offset intact across a block reset, while fiducial calibration writes the alignment
+    // root absolutely - and always after BeginCalibration has dropped the mode back to Basic, which
+    // removes the offset first. Re-entering the technique then re-derives it from the calibrated
+    // pose, so an aligned board always wins.
+    private void ApplyGhostViewingStandoff()
+    {
+        Transform alignmentRoot = BoardAlignmentRoot;
+        if (ghostStandoffApplied || alignmentRoot == null)
+        {
+            return;
+        }
+
+        float extraStandoff =
+            GhostViewingStandoffPolicy.ClampExtraStandoffMeters(ghostViewingExtraStandoffMeters);
+        if (extraStandoff <= 0f)
+        {
+            return;
+        }
+
+        Vector3 delta =
+            GhostViewingStandoffPolicy.GetRetreatDirection(alignmentRoot.rotation) * extraStandoff;
+        ghostStandoffBaselinePosition = alignmentRoot.position;
+        appliedGhostStandoffDelta = delta;
+        alignmentRoot.position = ghostStandoffBaselinePosition + delta;
+        ghostStandoffApplied = true;
+    }
+
+    private void RemoveGhostViewingStandoff()
+    {
+        if (!ghostStandoffApplied)
+        {
+            return;
+        }
+
+        Transform alignmentRoot = BoardAlignmentRoot;
+        ghostStandoffApplied = false;
+        if (alignmentRoot == null)
+        {
+            return;
+        }
+
+        // Anything that repositioned the alignment root while the offset was live - clearing an
+        // alignment, localizing a spatial anchor - has already resolved the board where it belongs.
+        // Subtracting a stale offset from that pose would push the board a further 1.8 m off, so
+        // say so loudly and leave the resolved pose alone.
+        Vector3 expectedPosition = ghostStandoffBaselinePosition + appliedGhostStandoffDelta;
+        if ((alignmentRoot.position - expectedPosition).sqrMagnitude >
+            GhostStandoffDriftToleranceSqrMeters)
+        {
+            Debug.LogWarning(
+                "[SceneConfiguror] Board alignment moved while the ghost viewing standoff was applied " +
+                "(expected " + expectedPosition.ToString("F4") + ", found " +
+                alignmentRoot.position.ToString("F4") +
+                "); keeping the resolved pose instead of subtracting a stale offset.");
+            return;
+        }
+        alignmentRoot.position = ghostStandoffBaselinePosition;
+    }
+
     public void ResetManualStudyState(bool restoreBasicMode = false)
     {
         ghostHoldController?.DismissGhost();
@@ -724,9 +811,10 @@ public class SceneConfiguror : MonoBehaviour
 
     public Transform GetGripNormalReference(GameObject hold)
     {
-        return IsGhostHold(hold) && ghostHoldController.WallReferent != null
-            ? ghostHoldController.WallReferent.transform
-            : hold.transform;
+        GameObject wallReferent = ghostHoldController != null
+            ? ghostHoldController.GetWallReferent(hold)
+            : null;
+        return wallReferent != null ? wallReferent.transform : hold.transform;
     }
 
     public bool IsActiveRouteHold(GameObject candidate)
@@ -937,9 +1025,10 @@ public class SceneConfiguror : MonoBehaviour
             return defaultMinFingers;
         }
 
-        GameObject sourceHold = IsGhostHold(hold) && ghostHoldController.WallReferent != null
-            ? ghostHoldController.WallReferent
-            : hold;
+        GameObject wallReferent = ghostHoldController != null
+            ? ghostHoldController.GetWallReferent(hold)
+            : null;
+        GameObject sourceHold = wallReferent != null ? wallReferent : hold;
         string coordinate = sourceHold.name.Split('.')[0];
         int ghostMarker = coordinate.IndexOf('#');
         if (ghostMarker >= 0)
@@ -1024,9 +1113,10 @@ public class SceneConfiguror : MonoBehaviour
             gripContactPipeline.Prepare(activeHoldsList);
         }
         else if (gameMode == GameMode.Ghost && ghostHoldController != null &&
-                 ghostHoldController.CurrentGhost != null)
+                 ghostHoldController.HasGhosts)
         {
-            gripContactPipeline.Prepare(ghostHoldController.CurrentGhost);
+            ghostHoldController.CollectGhostRoots(ghostGripTargets);
+            gripContactPipeline.Prepare(ghostGripTargets);
         }
     }
 
