@@ -52,7 +52,11 @@ class HoldScaleCalibrationTests(unittest.TestCase):
                 actual[hold["scanId"]] = hold["meshFrameCorrection"]
         self.assertEqual(actual, gen.MESH_FRAME_CORRECTIONS)
         self.assertNotIn("Y30", actual)
-        self.assertNotIn("Y33", actual)
+        # Y33/D10 was "never correct it" while the wrong-mesh verdict stood alone; Ben
+        # hand-oriented the displayed mesh on the twin 2026-08-14 (interim until the
+        # rescan), landed as a full-quaternion correction, so its presence is now required.
+        self.assertIn("Y33", actual)
+        self.assertNotEqual(actual["Y33"].get("x", 0.0), 0.0)
 
     def test_catalog_hash_pins_match_the_shipped_bytes(self):
         digest = hashlib.sha256(CATALOG.read_bytes()).hexdigest()

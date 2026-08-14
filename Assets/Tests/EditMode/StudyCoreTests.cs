@@ -226,6 +226,9 @@ public sealed class StudyCoreTests
             // it unmeasurable (bore/window axis vs the official image + Ben's live call);
             // W91 is Ben's direct slight-clockwise call from the same headset session.
             "W99", "W91",
+            // 2026-08-14: Ben hand-oriented D10's (wrong-geometry, rescan-pending) mesh on
+            // the twin; landed as a full-quaternion correction like W98's.
+            "Y33",
         };
         int correctedMeshes = 0;
         foreach (MoonBoardHoldDefinition hold in catalog.holds)
@@ -239,7 +242,7 @@ public sealed class StudyCoreTests
                 Assert.That(expectedCorrectedMeshes.Remove(hold.scanId), Is.True, hold.coordinate);
             }
         }
-        Assert.That(correctedMeshes, Is.EqualTo(101));
+        Assert.That(correctedMeshes, Is.EqualTo(102));
         Assert.That(expectedCorrectedMeshes, Is.Empty);
 
         Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
@@ -415,8 +418,9 @@ public sealed class StudyCoreTests
             { "F15", ("Y18", 0, -155f) },
             { "B16", ("W71", 315, -40f) },
             { "K18", ("W87", 270, -90f) },
-            // 2026-08-13 bolt-hole audit (Ben live on the twin + bore geometry vs poster).
-            { "B18", ("W99", 135, 55f) },
+            // 2026-08-13 bolt-hole audit; B18's spin re-set by Ben's hand placement on the
+            // twin against the real wall 2026-08-14 (the poster-derived +55 was 28 deg off).
+            { "B18", ("W99", 135, 27f) },
             { "E18", ("W91", 0, 15f) },
         };
         Quaternion boardMount = Quaternion.Euler(catalog.SurfaceTiltDegrees, 0f, 180f);
@@ -462,9 +466,17 @@ public sealed class StudyCoreTests
         Assert.That(catalog.TryGetHold("K8", out MoonBoardHoldDefinition k8), Is.True);
         Assert.That(k8.scanId, Is.EqualTo("Y30"));
         Assert.That(k8.hasMeshFrameCorrection, Is.False);
+        // D10's correction is Ben's 2026-08-14 hand orientation of the wrong-geometry mesh
+        // (rescan pending) — a full quaternion about a tilted axis, not a board-normal yaw,
+        // because Y33's mesh base frame does not match the physical hold.
         Assert.That(catalog.TryGetHold("D10", out MoonBoardHoldDefinition d10), Is.True);
         Assert.That(d10.scanId, Is.EqualTo("Y33"));
-        Assert.That(d10.hasMeshFrameCorrection, Is.False);
+        Assert.That(d10.hasMeshFrameCorrection, Is.True);
+        Assert.That(d10.meshFrameCorrection.TryGetQuaternion(out Quaternion d10Correction), Is.True);
+        Assert.That(
+            Vector3.Angle(d10Correction * Vector3.forward, Vector3.forward),
+            Is.GreaterThan(10f),
+            "D10's correction must stay a genuine tilt; a pure yaw here means it regressed");
     }
 
     [Test]

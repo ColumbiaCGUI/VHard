@@ -946,10 +946,17 @@
       "holdset": "Original School Holds",
       "holdNumber": "33",
       "rotationDegrees": 315,
-      "surfaceOffsetMeters": 0.039508453423311655,
+      "surfaceOffsetMeters": 0.027079999999267308,
       "meshScaleMultiplier": 0.418324422,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "34"
+      "sourceHoldId": "34",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": -0.3214085,
+        "y": 0.32288,
+        "z": 0.8717703,
+        "w": 0.1801709
+      }
     },
     {
       "coordinate": "E10",
@@ -2154,7 +2161,7 @@
       "holdset": "Hold Set A",
       "holdNumber": "99",
       "rotationDegrees": 135,
-      "surfaceOffsetMeters": 0.025872121925303755,
+      "surfaceOffsetMeters": 0.02465000001377786,
       "meshScaleMultiplier": 1.063472638,
       "scaleCalibrationSource": "metric-scan",
       "sourceHoldId": "91",
@@ -2162,8 +2169,8 @@
       "meshFrameCorrection": {
         "x": 0.0,
         "y": 0.0,
-        "z": 0.4617486132350339,
-        "w": 0.8870108331782217
+        "z": 0.2334453638559054,
+        "w": 0.9723699203976766
       },
       "meshBoltOffsetXMeters": 0.0306,
       "meshBoltOffsetYMeters": -0.0328

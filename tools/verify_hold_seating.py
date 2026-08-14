@@ -39,6 +39,18 @@ MESH = ROOT / "Assets/Resources/New_Decimated_Holds.fbx"
 # this gate was written for was 33.7%; decimation noise on the worst hold is ~2.6%.
 TOLERANCE = 0.05
 
+# Half-Z-depth is the DEFAULT seating model; these scans deviate from it deliberately.
+# 2026-08-14: their true mounting faces were fitted as planes on the shipped meshes
+# (B18/W99 rms 0.39 mm; D10/Y33 rms 0.58 mm -- Y33's flat face sits DIAGONALLY in its
+# mesh frame, so half-Z-depth floated the hold 12.4 mm off the wall). Values are the
+# fitted face-plane distance from the mesh origin, in normalised units, and must match
+# SURFACE_OFFSETS_METERS in generate_moonboard_catalog.py. Any further deviation from
+# half-depth must be declared here or this gate fails, exactly as designed.
+PLANE_SEATED_OFFSETS_NORMALISED = {
+    "W99": 0.0231787816,  # B18
+    "Y33": 0.0647344467,  # D10
+}
+
 
 def has_materialized_mesh(path: Path | None = None) -> bool:
     """True only when path starts with the binary FBX header, not an LFS pointer."""
@@ -91,7 +103,10 @@ def check(verbose: bool = False, catalog: dict | None = None, meshes: dict | Non
                 % (hold["coordinate"], scan_id, depth_mm)
             )
             continue
-        expected = (depth_mm / 2000.0) * hold["meshScaleMultiplier"]
+        if scan_id in PLANE_SEATED_OFFSETS_NORMALISED:
+            expected = PLANE_SEATED_OFFSETS_NORMALISED[scan_id] * hold["meshScaleMultiplier"]
+        else:
+            expected = (depth_mm / 2000.0) * hold["meshScaleMultiplier"]
         actual = hold["surfaceOffsetMeters"]
         if not math.isfinite(expected) or expected <= 0.0 or not math.isfinite(actual):
             failures.append(

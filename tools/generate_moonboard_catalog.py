@@ -92,7 +92,10 @@ SURFACE_OFFSETS_METERS = {
     "Y9": 0.0235014360,  # A10
     "B148": 0.0299015550,  # B10
     "W79": 0.0264890280,  # C10
-    "Y33": 0.0944445300,  # D10
+    # D10: re-measured 2026-08-14 from the mesh's own fitted mounting plane (rms 0.58 mm)
+    # after Ben's on-wall reorientation — the old half-depth value came from the same bad
+    # base frame as the orientation and left the hold floating 12.4 mm off the wall.
+    "Y33": 0.0647344467,  # D10 (was 0.0944445300 half-depth)
     "W64": 0.0286201730,  # E10
     "W65": 0.0202353450,  # F10
     "B145": 0.0332069288,  # G10
@@ -168,7 +171,9 @@ SURFACE_OFFSETS_METERS = {
     "W51": 0.0356905233,  # D17
     "B115": 0.0297150813,  # G17
     "B139": 0.0294090543,  # A18
-    "W99": 0.0243279620,  # B18
+    # B18: re-measured 2026-08-14 from the fitted mounting plane (rms 0.39 mm, 16k inliers);
+    # the half-depth value floated the face 1.2 mm off the wall.
+    "W99": 0.0231787816,  # B18 (was 0.0243279620 half-depth)
     "Y39": 0.0325464416,  # C18
     "B136": 0.0409974415,  # D18
     "W91": 0.0470000840,  # E18
@@ -485,12 +490,22 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     # deg = correction +52.8, landed at catalog 5-deg practice. Confirmed by Ben live on
     # the twin ("closer to A18, pointing 45 degrees to the top left"). W91 is Ben's
     # direct call from the same session ("slightly rotated to the right" = clockwise).
-    "W99": 55.0,  # B18; bore/window geometry vs official image + Ben 2026-08-13
+    # 2026-08-14 Ben hand-set B18 on the twin against the real wall: +27 (the
+    # poster-artwork-derived +55 was 28 deg off — artwork feature geometry is not a
+    # reliable spin reference; Ben's on-wall eyeball supersedes it).
+    "W99": 27.0,  # B18; Ben hand-placed 2026-08-14 (was 55.0 from poster artwork)
     "W91": 15.0,  # E18; Ben eyeball 2026-08-13, slight clockwise
 }
 MESH_FRAME_CORRECTIONS = {
     # Approved by-eye W98 orientation from 1b9df47, expressed after the FBX -90-degree X basis.
     "W98": {"x": 0.0, "y": -0.92387953, "z": 0.0, "w": 0.38268343},
+    # D10 (Ben 2026-08-14): Y33's Zplane-derived base frame is WRONG for this mesh — the
+    # genuine flat mounting face (fitted plane, rms 0.58 mm) sits diagonally in the mesh
+    # frame at normal (0.677, -0.447, -0.585), which is why every axis-aligned audit read
+    # "no flat side". This correction = Ben's on-wall hand orientation refined by the
+    # plane fit so the face is EXACTLY flush (his placement was 5.0 deg off); his spin
+    # is preserved (minimal-rotation fix about the face-normal error axis).
+    "Y33": {"x": -0.3214085, "y": 0.3228800, "z": 0.8717703, "w": 0.1801709},
     **{
         scan_id: z_axis_correction(degrees)
         for scan_id, degrees in MESH_FRAME_YAW_CORRECTIONS_DEGREES.items()
