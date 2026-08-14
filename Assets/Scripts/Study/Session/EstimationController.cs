@@ -6,14 +6,11 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// Runs the grade-estimation battery (spec 05). The scheduled path recovers the just-ended block,
-/// shows its yoked problem set once, and restores the scheduled board display afterwards. The
-/// manual path walks the whole battery from the experimenter console, which has no participant,
-/// block or yoked set to work from.
+/// Runs the post-block grade-estimation battery (spec 05): recovers the just-ended block,
+/// shows its yoked problem set once, and restores the scheduled board display afterwards.
 /// </summary>
 public sealed class EstimationController
 {
-    private const string ManualEstimationMarker = "manual";
     private readonly StudySessionState state;
     private readonly SceneConfiguror sceneConfiguror;
     private readonly ActionRecorder actionRecorder;
@@ -23,8 +20,6 @@ public sealed class EstimationController
     private readonly Action ensureEstimationCatalogLoadedForRuntime;
 
     private readonly HashSet<string> startedEstimationBlocks = new(StringComparer.Ordinal);
-
-    private bool manualEstimationActive;
 
     public EstimationController(
         StudySessionState state,
@@ -146,107 +141,6 @@ public sealed class EstimationController
         return true;
     }
 
-    /// <summary>
-    /// Starts the estimation battery from the experimenter console. Manual runs are ad hoc, so
-    /// there is no ended block to recover, no participant to rotate within a set and no set to
-    /// yoke: the cycle walks all approved estimation problems in catalog order. The practice
-    /// problem is familiarization content and stays out of it. Recordings land beside the other
-    /// manual runs so the per-participant scheduled-estimation guard never sees them.
-    /// </summary>
-    public bool StartManualEstimation()
-    {
-        ensureEstimationCatalogLoadedForRuntime();
-        if (state.blockRunning || state.practiceActive || state.estimationActive)
-        {
-            state.statusMessage = "End the current sequence before starting estimation.";
-            panel.RefreshPanelText();
-            return false;
-        }
-        if (state.estimationCatalog == null || state.estimationCatalog.problems == null ||
-            state.estimationCatalog.problems.Length == 0)
-        {
-            state.statusMessage = "Estimation content is unavailable.";
-            panel.RefreshPanelText();
-            return false;
-        }
-        if (sceneConfiguror == null || actionRecorder == null)
-        {
-            state.statusMessage = "Estimation runtime references are unavailable.";
-            panel.RefreshPanelText();
-            return false;
-        }
-        if (boardAlignment != null && boardAlignment.IsBusy)
-        {
-            state.statusMessage = "Wait for board calibration or spatial-anchor loading to finish.";
-            panel.RefreshPanelText();
-            return false;
-        }
-
-        MoonBoardEstimationProblemDefinition[] problems =
-            (MoonBoardEstimationProblemDefinition[])state.estimationCatalog.problems.Clone();
-        foreach (MoonBoardEstimationProblemDefinition problem in problems)
-        {
-            if (!sceneConfiguror.TryValidateRoute(problem.id, out string error))
-            {
-                state.statusMessage = "An estimation problem is unavailable; see the log.";
-                Debug.LogError("[StudyManager] " + error);
-                panel.RefreshPanelText();
-                return false;
-            }
-        }
-
-        string directory = BlockRunController.GetUnusedDirectory(Path.Combine(
-            Application.persistentDataPath,
-            "study",
-            "MANUAL",
-            "estimation_" + DateTimeOffset.UtcNow.UtcDateTime.ToString(
-                "yyyyMMdd_HHmmss_fff",
-                CultureInfo.InvariantCulture)));
-        actionRecorder.BeginBlock(directory, null);
-        state.activeEstimationSet = null;
-        state.activeEstimationProblems = problems;
-        state.activeEstimationOrdinal = 0;
-        state.estimationActive = true;
-        state.panelPinned = true;
-        manualEstimationActive = true;
-        actionRecorder.Record(
-            "EstimationStarted",
-            ManualEstimationMarker,
-            null,
-            "problems=" + problems.Length.ToString(CultureInfo.InvariantCulture));
-        ShowEstimationProblem();
-        panel.ShowPanel();
-        return true;
-    }
-
-    /// <summary>Console label for the control that starts the cycle and then advances it.</summary>
-    public string GetAdvanceLabel()
-    {
-        return state.estimationActive
-            ? ManualEstimationPolicy.FormatAdvanceLabel(
-                state.activeEstimationOrdinal,
-                state.activeEstimationProblems.Length)
-            : ManualEstimationPolicy.StartLabel;
-    }
-
-    /// <summary>Console readout for the problem currently on the board, empty when none is.</summary>
-    public string GetProgressReadout()
-    {
-        if (!state.estimationActive || state.activeEstimationProblems.Length == 0)
-        {
-            return string.Empty;
-        }
-
-        int ordinal = Mathf.Clamp(
-            state.activeEstimationOrdinal,
-            0,
-            state.activeEstimationProblems.Length - 1);
-        return ManualEstimationPolicy.FormatProgressReadout(
-            state.activeEstimationProblems[ordinal].id,
-            ordinal,
-            state.activeEstimationProblems.Length);
-    }
-
     public void NextEstimation()
     {
         if (!state.estimationActive)
@@ -280,64 +174,22 @@ public sealed class EstimationController
         panel.RefreshPanelText();
     }
 
-    /// <summary>
-    /// Ends whichever estimation cycle is showing. The console calls this before a rehearsal run
-    /// or a reset, so it has to close the recording rather than leave the manual cycle open.
-    /// </summary>
-    public void EndEstimation()
+    private void EndEstimation()
     {
-        if (!state.estimationActive)
-        {
-            return;
-        }
-
-        bool manual = manualEstimationActive;
-        int completedSet = state.activeEstimationSet != null ? state.activeEstimationSet.setIndex : 0;
         actionRecorder.Record(
             "EstimationEnded",
-            manual
-                ? ManualEstimationMarker
-                : completedSet.ToString(CultureInfo.InvariantCulture));
+            state.activeEstimationSet.setIndex.ToString(CultureInfo.InvariantCulture));
         actionRecorder.EndBlock();
+        int completedSet = state.activeEstimationSet.setIndex;
         state.estimationActive = false;
-        manualEstimationActive = false;
         state.activeEstimationSet = null;
         state.activeEstimationProblems = Array.Empty<MoonBoardEstimationProblemDefinition>();
         state.activeEstimationOrdinal = 0;
-        if (manual)
-        {
-            RestoreManualDisplay();
-            state.statusMessage = "Estimation cycle ended.";
-        }
-        else
-        {
-            RestoreScheduledDisplay(state.lastEndedRow);
-            state.statusMessage = "Estimation set " + completedSet.ToString(CultureInfo.InvariantCulture) +
-                                  " completed.";
-        }
+        RestoreScheduledDisplay(state.lastEndedRow);
+        state.statusMessage = "Estimation set " + completedSet.ToString(CultureInfo.InvariantCulture) +
+                              " completed.";
         panel.ShowPanel();
         panel.RefreshPanelText();
-    }
-
-    /// <summary>Returns the board to the route the console has selected, the manual counterpart of
-    /// restoring the scheduled display.</summary>
-    private void RestoreManualDisplay()
-    {
-        if (sceneConfiguror == null)
-        {
-            return;
-        }
-        sceneConfiguror.SetGameMode(GameMode.Basic);
-        sceneConfiguror.ResetMoonBoardTransform();
-        sceneConfiguror.SetStudyEnvironmentVisible(true);
-        sceneConfiguror.SetStudyFeedbackVisible(true);
-
-        List<string> routes = sceneConfiguror.GetStudyRouteNames();
-        if (routes.Count > 0)
-        {
-            sceneConfiguror.SetUpRouteByName(
-                routes[Mathf.Clamp(state.adhocRouteIndex, 0, routes.Count - 1)]);
-        }
     }
 
     public void RestoreScheduledDisplay(StudyScheduleRow preferredRow)

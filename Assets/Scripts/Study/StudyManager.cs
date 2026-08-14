@@ -67,17 +67,6 @@ public sealed class StudyManager : MonoBehaviour
             yield return null;
         }
 
-        // The estimation battery loads before manual-run recovery: recovery resuming a run returns
-        // from Start, and on device the lazy file-path loader cannot reach StreamingAssets inside
-        // the APK, so a later load attempt would fail permanently.
-        string estimationText = null;
-        yield return LoadStreamingAssetText(
-            "moonboard_2016_40_estimation.json",
-            text => estimationText = text,
-            false);
-        estimationCatalogLoadAttempted = true;
-        LoadEstimationCatalogText(estimationText);
-
         ManualRunRecoveryOutcome recoveryOutcome;
         try
         {
@@ -98,6 +87,14 @@ public sealed class StudyManager : MonoBehaviour
         string recoveryStatus = recoveryOutcome == ManualRunRecoveryOutcome.Expired
             ? state.statusMessage
             : null;
+
+        string estimationText = null;
+        yield return LoadStreamingAssetText(
+            "moonboard_2016_40_estimation.json",
+            text => estimationText = text,
+            false);
+        estimationCatalogLoadAttempted = true;
+        LoadEstimationCatalogText(estimationText);
 
         string scheduleText = null;
         if (useMockSchedule)
@@ -196,19 +193,9 @@ public sealed class StudyManager : MonoBehaviour
         return estimation.StartEstimation();
     }
 
-    public bool StartManualEstimation()
-    {
-        return estimation.StartManualEstimation();
-    }
-
     public void NextEstimation()
     {
         estimation.NextEstimation();
-    }
-
-    public void EndEstimation()
-    {
-        estimation.EndEstimation();
     }
 
     public void ShowPanel()

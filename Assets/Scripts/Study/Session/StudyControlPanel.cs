@@ -97,7 +97,6 @@ public sealed class StudyControlPanel
     private TextMeshPro manualCompleteLabel;
     private TextMeshPro manualPreviousRouteLabel;
     private TextMeshPro manualNextRouteLabel;
-    private TextMeshPro estimationLabel;
     private TextMeshPro routeReadoutText;
 
     private StudyPanelButton previousParticipantButton;
@@ -111,7 +110,8 @@ public sealed class StudyControlPanel
     private StudyPanelButton adhocConditionButton;
     private StudyPanelButton adhocRouteButton;
     private StudyPanelButton adhocStartButton;
-    private StudyPanelButton estimationButton;
+    private StudyPanelButton estimationStartButton;
+    private StudyPanelButton estimationNextButton;
     private StudyPanelButton alignBoardButton;
     private StudyPanelButton clearAlignmentButton;
     private StudyPanelButton manualModeAButton;
@@ -332,16 +332,9 @@ public sealed class StudyControlPanel
             "COMPLETE",
             CompleteManualRun,
             out manualCompleteLabel);
-        estimationButton = CreateButton(
-            "Estimate",
-            new Vector3(0f, -0.29f, -0.02f),
-            new Vector2(0.60f, 0.06f),
-            ManualEstimationPolicy.StartLabel,
-            HandleEstimation,
-            out estimationLabel);
         manualResetButton = CreateButton(
             "Reset",
-            new Vector3(0f, -0.41f, -0.02f),
+            new Vector3(0f, -0.305f, -0.02f),
             new Vector2(0.60f, 0.06f),
             "RESET",
             ResetStudyState,
@@ -365,7 +358,6 @@ public sealed class StudyControlPanel
             manualCompleteButton);
         manualPreviousRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
         manualNextRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
-        estimationButton.SetPalette(PracticeButtonColor, PracticeHoverColor, SelectedColor);
         manualResetButton.SetPalette(UtilityButtonColor, UtilityHoverColor, SelectedColor);
         manualCompleteButton.SetDanger(true);
 
@@ -573,12 +565,10 @@ public sealed class StudyControlPanel
         return material;
     }
 
-    // Mode selection is inert while the estimation cycle is showing - it only arms which mode the
-    // next START enters - so it stays available there and is refused only during a run or practice.
     private void SelectManualMode(int modeIndex)
     {
         CancelConfirmation();
-        if (state.blockRunning || state.practiceActive)
+        if (state.blockRunning || state.IsAuxiliaryActive)
         {
             return;
         }
@@ -624,30 +614,7 @@ public sealed class StudyControlPanel
     private void StartManualRun()
     {
         CancelConfirmation();
-        // A rehearsal run takes over the board, so starting one closes the estimation cycle instead
-        // of being refused by it: the experimenter would otherwise have to end the cycle blind.
-        EndEstimationIfShowing();
         blockRun.StartManualRun();
-    }
-
-    private void HandleEstimation()
-    {
-        CancelConfirmation();
-        if (state.estimationActive)
-        {
-            estimation.NextEstimation();
-            return;
-        }
-
-        estimation.StartManualEstimation();
-    }
-
-    private void EndEstimationIfShowing()
-    {
-        if (state.estimationActive)
-        {
-            estimation.EndEstimation();
-        }
     }
 
     private void CompleteManualRun()
@@ -661,9 +628,6 @@ public sealed class StudyControlPanel
     private void ResetStudyState()
     {
         CancelConfirmation();
-        // Reset is the console's way out of any state, so it closes an open estimation recording
-        // rather than leaving the cycle active with no board content behind it.
-        EndEstimationIfShowing();
         if (sceneConfiguror == null)
         {
             throw new InvalidOperationException("The study environment is unavailable.");
@@ -819,6 +783,18 @@ public sealed class StudyControlPanel
             () => blockRun.StartManualRun());
     }
 
+    private void HandleEstimationStart()
+    {
+        CancelConfirmation();
+        estimation.StartEstimation();
+    }
+
+    private void HandleEstimationNext()
+    {
+        CancelConfirmation();
+        estimation.NextEstimation();
+    }
+
     private void RecenterPanel()
     {
         CancelPanelGrab();
@@ -847,10 +823,6 @@ public sealed class StudyControlPanel
                 .Append(StudyRehearsalTiming.FormatRemainingSeconds(blockRun.RemainingSeconds))
                 .AppendLine();
         }
-        else if (state.estimationActive)
-        {
-            text.Append("ESTIMATING").AppendLine();
-        }
         else
         {
             text.Append("READY  |  MODE ")
@@ -877,27 +849,15 @@ public sealed class StudyControlPanel
             ? Mathf.Clamp(state.adhocRouteIndex, 0, routes.Count - 1)
             : 0;
 
-        bool estimating = state.estimationActive;
-        bool modeSelectable = !state.blockRunning && !state.practiceActive &&
-                              !state.manualRunRecoveryBlocked;
-
-        manualModeAButton?.SetInteractable(modeSelectable);
-        manualModeBButton?.SetInteractable(modeSelectable);
+        manualModeAButton?.SetInteractable(idle);
+        manualModeBButton?.SetInteractable(idle);
         manualModeAButton?.SetSelected(state.adhocConditionIndex == 0);
         manualModeBButton?.SetSelected(state.adhocConditionIndex == 1);
         manualPreviousRouteButton?.SetInteractable(idle && hasRoute);
         manualNextRouteButton?.SetInteractable(idle && hasRoute);
-        manualStartButton?.SetInteractable(modeSelectable && hasRoute);
+        manualStartButton?.SetInteractable(idle && hasRoute);
         manualCompleteButton?.SetInteractable(state.blockRunning);
-        estimationButton?.SetInteractable(estimating || idle);
-        estimationButton?.SetSelected(estimating);
         manualResetButton?.SetInteractable(sceneConfiguror != null);
-        if (estimationLabel != null)
-        {
-            estimationLabel.text = estimating && estimation != null
-                ? estimation.GetAdvanceLabel()
-                : ManualEstimationPolicy.StartLabel;
-        }
         if (manualStartLabel != null)
         {
             manualStartLabel.text = "START";
@@ -926,19 +886,12 @@ public sealed class StudyControlPanel
     /// <summary>
     /// Route feedback for the experimenter. The readout carries the slot and the derived code
     /// only: the console has no way to display the MoonBoard record, so nothing it renders can
-    /// identify the climb to a participant looking at the panel. While the estimation cycle is
-    /// showing, the readout follows the board and names the problem by its code alone.
+    /// identify the climb to a participant looking at the panel.
     /// </summary>
     private void RefreshRouteReadout(List<string> routes)
     {
         if (routeReadoutText == null)
         {
-            return;
-        }
-        if (state.estimationActive && estimation != null)
-        {
-            routeReadoutText.text = estimation.GetProgressReadout();
-            routeReadoutText.color = SelectedColor;
             return;
         }
 
