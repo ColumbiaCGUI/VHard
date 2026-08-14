@@ -14,7 +14,7 @@ public sealed class GhostViewingStandoffTests
         (float topHeight, float topLocalZ) = GetRowPose(18);
         (float bottomHeight, float bottomLocalZ) = GetRowPose(1);
 
-        // The 40-degree face has overhung 2.13 m by row 18, so at the 1.50 m reach standoff the
+        // The 40-degree face has overhung 2.13 m by row 18, so at the 1.35 m reach standoff the
         // top of the board is behind the eye and cannot be looked at, let alone pointed at. This
         // is the whole reason detached inspection needs a standoff of its own.
         Assert.That(
@@ -45,10 +45,17 @@ public sealed class GhostViewingStandoffTests
             GhostViewingStandoffPolicy.StandingEyeHeightMeters,
             GhostViewingStandoffPolicy.ComfortableVerticalFieldOfViewDegrees);
 
-        // The shipped constant is that derivation rounded to the decimetre, and rounding outward
-        // may only ever help, so the grid it produces must still fit the comfortable angle.
-        Assert.That(derived, Is.EqualTo(1.78f).Within(0.02f));
+        // The shipped constant is that derivation carried outward, and rounding outward may only
+        // ever help, so the grid it produces must still fit the comfortable angle.
+        Assert.That(derived, Is.EqualTo(1.93f).Within(0.02f));
         Assert.That(GhostViewingStandoffPolicy.DefaultExtraStandoffMeters, Is.GreaterThanOrEqualTo(derived));
+
+        // Detached inspection is derived on an absolute distance, so the extra has to absorb every
+        // change to the shared reach standoff rather than ride along with it.
+        Assert.That(
+            BoardStandoffPolicy.DefaultBoardBaseDistanceMeters +
+            GhostViewingStandoffPolicy.DefaultExtraStandoffMeters,
+            Is.EqualTo(3.3f).Within(0.005f));
 
         float shippedAngle = GhostViewingStandoffPolicy.GetSubtendedVerticalAngleDegrees(
             BoardStandoffPolicy.DefaultBoardBaseDistanceMeters +
@@ -128,6 +135,10 @@ public sealed class GhostViewingStandoffTests
             GhostViewingStandoffPolicy.ClampExtraStandoffMeters(99f),
             Is.EqualTo(GhostViewingStandoffPolicy.MaximumExtraStandoffMeters));
         Assert.That(GhostViewingStandoffPolicy.ClampExtraStandoffMeters(1.2f), Is.EqualTo(1.2f));
+        Assert.That(
+            GhostViewingStandoffPolicy.ClampExtraStandoffMeters(
+                GhostViewingStandoffPolicy.DefaultExtraStandoffMeters),
+            Is.EqualTo(GhostViewingStandoffPolicy.DefaultExtraStandoffMeters));
         Assert.Throws<ArgumentException>(
             () => GhostViewingStandoffPolicy.ClampExtraStandoffMeters(float.NaN));
     }

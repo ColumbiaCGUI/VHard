@@ -2153,7 +2153,16 @@
       "surfaceOffsetMeters": 0.025872121925303755,
       "meshScaleMultiplier": 1.063472638,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "91"
+      "sourceHoldId": "91",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.4617486132350339,
+        "w": 0.8870108331782217
+      },
+      "meshBoltOffsetXMeters": 0.0306,
+      "meshBoltOffsetYMeters": -0.0328
     },
     {
       "coordinate": "C18",
@@ -2186,7 +2195,14 @@
       "surfaceOffsetMeters": 0.029891214002499757,
       "meshScaleMultiplier": 0.63598214,
       "scaleCalibrationSource": "metric-scan",
-      "sourceHoldId": "83"
+      "sourceHoldId": "83",
+      "hasMeshFrameCorrection": true,
+      "meshFrameCorrection": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.13052619222005157,
+        "w": 0.9914448613738104
+      }
     },
     {
       "coordinate": "G18",

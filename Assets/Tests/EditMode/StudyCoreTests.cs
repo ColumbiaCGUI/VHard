@@ -219,9 +219,13 @@ public sealed class StudyCoreTests
             "B112", "Y20", "Y5", "W96", "W69", "B117", "W51", "B139",
             "W82",
             // 2026-08-12c true-scale re-instrument: first reliable spins for 7 cleared
-            // flags (B18/W99 stays unmeasurable) + the two never-measured holds.
+            // flags + the two never-measured holds.
             // 08-12d adjudication removed W81 (G2) and Y35 (I5) again — raw frames were right.
             "W58", "W80", "W95", "W60", "W92", "Y40", "Y18", "W71", "W87",
+            // 2026-08-13 bolt-hole audit: W99's bore breaks the 2-fold symmetry that kept
+            // it unmeasurable (bore/window axis vs the official image + Ben's live call);
+            // W91 is Ben's direct slight-clockwise call from the same headset session.
+            "W99", "W91",
         };
         int correctedMeshes = 0;
         foreach (MoonBoardHoldDefinition hold in catalog.holds)
@@ -235,7 +239,7 @@ public sealed class StudyCoreTests
                 Assert.That(expectedCorrectedMeshes.Remove(hold.scanId), Is.True, hold.coordinate);
             }
         }
-        Assert.That(correctedMeshes, Is.EqualTo(99));
+        Assert.That(correctedMeshes, Is.EqualTo(101));
         Assert.That(expectedCorrectedMeshes, Is.Empty);
 
         Assert.That(catalog.TryGetHold("A15", out MoonBoardHoldDefinition a15), Is.True);
@@ -246,6 +250,54 @@ public sealed class StudyCoreTests
             Is.LessThan(0.00001f));
         Assert.That(Quaternion.Angle(catalog.GetBoardLocalRotation(a15), expectedRotation),
             Is.LessThan(0.001f));
+    }
+
+    [Test]
+    public void CatalogSeatsBoltBoreOffsetHoldsOnTheirBore()
+    {
+        MoonBoardStudyCatalog catalog = LoadCatalog();
+
+        // B18/W99 is the only calibrated bore offset: the hold mounts on its bolt bore
+        // (measured 30.6 mm, -32.8 mm in the mesh frame), so its seated position moves by
+        // the baked-rotation image of that vector — magnitude preserved, and on the board
+        // the body must move toward A (negative x), per the official setup image and Ben's
+        // 2026-08-13 call.
+        Assert.That(catalog.TryGetHold("B18", out MoonBoardHoldDefinition b18), Is.True);
+        Assert.That(b18.meshBoltOffsetXMeters, Is.EqualTo(0.0306f).Within(1e-6f));
+        Assert.That(b18.meshBoltOffsetYMeters, Is.EqualTo(-0.0328f).Within(1e-6f));
+
+        MoonBoardHoldDefinition b18WithoutBore = new()
+        {
+            coordinate = b18.coordinate,
+            scanId = b18.scanId,
+            rotationDegrees = b18.rotationDegrees,
+            surfaceOffsetMeters = b18.surfaceOffsetMeters,
+            meshScaleMultiplier = b18.meshScaleMultiplier,
+            scaleCalibrationSource = b18.scaleCalibrationSource,
+            hasMeshFrameCorrection = b18.hasMeshFrameCorrection,
+            meshFrameCorrection = b18.meshFrameCorrection,
+        };
+        Vector3 pinned = catalog.GetSeatedBoardLocalPosition(b18WithoutBore);
+        Vector3 shift = catalog.GetSeatedBoardLocalPosition(b18) - pinned;
+        float boreMagnitude = Mathf.Sqrt(0.0306f * 0.0306f + 0.0328f * 0.0328f);
+        Assert.That(shift.magnitude, Is.EqualTo(boreMagnitude).Within(1e-5f));
+        Assert.That(shift.x, Is.LessThan(-0.02f), "body must move toward column A");
+
+        // Every other hold carries a zero offset and is untouched by the new term.
+        int boreOffsetHolds = 0;
+        foreach (MoonBoardHoldDefinition hold in catalog.holds)
+        {
+            if (hold.meshBoltOffsetXMeters != 0f || hold.meshBoltOffsetYMeters != 0f)
+            {
+                boreOffsetHolds++;
+            }
+        }
+        Assert.That(boreOffsetHolds, Is.EqualTo(1));
+
+        // The seating path is fail-closed on nonsense offsets.
+        b18WithoutBore.meshBoltOffsetXMeters = MoonBoardStudyCatalog.MaxBoltOffsetMeters * 2f;
+        Assert.Throws<System.ArgumentException>(
+            () => catalog.GetSeatedBoardLocalPosition(b18WithoutBore));
     }
 
     [Test]
@@ -354,6 +406,9 @@ public sealed class StudyCoreTests
             { "F15", ("Y18", 0, -155f) },
             { "B16", ("W71", 315, -40f) },
             { "K18", ("W87", 270, -90f) },
+            // 2026-08-13 bolt-hole audit (Ben live on the twin + bore geometry vs poster).
+            { "B18", ("W99", 135, 55f) },
+            { "E18", ("W91", 0, 15f) },
         };
         Quaternion boardMount = Quaternion.Euler(catalog.SurfaceTiltDegrees, 0f, 180f);
         Vector3 climbingSideNormal = boardMount * Vector3.up;

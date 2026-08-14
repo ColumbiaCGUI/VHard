@@ -24,6 +24,17 @@ public sealed class StudyControlPanel
     private const float PanelBottomMeters = -0.51f;
     private const float PanelTopWithTimerMeters = 0.62f;
     private const int PanelClampSearchIterations = 10;
+    // The console's unlit shader is ZTest Always with the ShaderLab default ZWrite On, which is what
+    // keeps it readable over the board. Meta's hand material sits at the Transparent queue (3000) and
+    // opens with a ZWrite-only depth pass, so the console has to be queued ahead of it: the console
+    // stamps its own depth first, then the hand depth-tests against it and occludes the console
+    // per pixel wherever a finger is nearer. Anything queued after 3000 draws over the hand instead.
+    private const int PanelBackgroundQueue = 2900;
+    private const int PanelButtonQueue = 2950;
+    private const int PanelTextQueue = 2975;
+    // The pointer ray stays above the hand: it leaves the hand it is cast from, and a targeting ray
+    // that disappears into the palm cannot be aimed.
+    private const int PanelPointerQueue = 4100;
     private const string ConfirmStartBlock = "start-block";
     private const string ConfirmCompleteBlock = "complete-block";
     private const string ConfirmStartPractice = "start-practice";
@@ -218,11 +229,11 @@ public sealed class StudyControlPanel
         textMaterial = new Material(fontAsset.material)
         {
             shader = textShader,
-            renderQueue = 4000,
+            renderQueue = PanelTextQueue,
         };
-        panelMaterial.renderQueue = 3000;
-        buttonMaterial.renderQueue = 3050;
-        pointerMaterial.renderQueue = 4100;
+        panelMaterial.renderQueue = PanelBackgroundQueue;
+        buttonMaterial.renderQueue = PanelButtonQueue;
+        pointerMaterial.renderQueue = PanelPointerQueue;
 
         panelRoot = new GameObject("Study Experimenter Console");
         panelRoot.layer = uiLayer;
@@ -540,6 +551,12 @@ public sealed class StudyControlPanel
         if (material.HasProperty("_ZTest"))
         {
             material.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always);
+        }
+        // Buttons ignore world depth but must still stamp their own, or the hand queued behind them
+        // has nothing to depth-test against and paints straight through the console.
+        if (material.HasProperty("_ZWrite"))
+        {
+            material.SetFloat("_ZWrite", 1f);
         }
         if (material.HasProperty("_Color"))
         {

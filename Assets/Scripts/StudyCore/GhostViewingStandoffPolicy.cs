@@ -14,7 +14,7 @@ using UnityEngine;
 /// <para>
 /// Those two requirements are not merely different, they conflict. A 40-degree face travels
 /// tan(40) horizontally per metre it rises, so by row 18 it has closed 2.13 m on the participant.
-/// At the reach standoff of 1.50 m that puts the top rows roughly 0.6 m <em>behind</em> the eye:
+/// At the reach standoff of 1.35 m that puts the top rows roughly 0.8 m <em>behind</em> the eye:
 /// they cannot be looked at, let alone pointed at, without turning around. This policy solves for
 /// the distance at which the whole grid instead subtends a comfortable vertical angle, and the
 /// ghost technique adds the difference on top of whatever pose board alignment resolved.
@@ -36,16 +36,23 @@ public static class GhostViewingStandoffPolicy
     /// <summary>
     /// <see cref="GetExtraStandoffMeters"/> evaluated on the approved MoonBoard 2016 geometry
     /// (rows 1-18 of the 40-degree main surface, a standing eye, 70 degrees of comfortable
-    /// vertical angle), rounded to the decimetre. The solved viewing distance is 3.28 m against
-    /// the 1.50 m reach standoff. Rounding up to 1.80 m of extra standoff costs about a degree of
-    /// subtended angle and buys a round, hand-checkable number.
+    /// vertical angle), rounded outward. The solved viewing distance is 3.28 m, which against the
+    /// 1.35 m reach standoff leaves 1.93 m; carrying that out to 1.95 m stands the board at a
+    /// round, hand-checkable 3.30 m absolute and costs about two thirds of a degree of subtended
+    /// angle (69.3 rather than 70.0).
+    /// <para>
+    /// What this technique is derived on is the absolute distance, not the increment, so the two
+    /// constants are coupled: a change to
+    /// <see cref="BoardStandoffPolicy.DefaultBoardBaseDistanceMeters"/> has to be absorbed here to
+    /// keep the board at 3.30 m rather than moving detached inspection with it.
+    /// </para>
     /// <para>
     /// The pointing cost of the extra distance is bounded: the farthest hold ends up about 3.35 m
     /// away, where the 0.20 m grid pitch still separates neighbouring holds by 3.4 degrees, which
     /// is wider than a stabilised hand ray wanders.
     /// </para>
     /// </summary>
-    public const float DefaultExtraStandoffMeters = 1.8f;
+    public const float DefaultExtraStandoffMeters = 1.95f;
 
     /// <summary>Widest extra standoff the ghost technique may be configured to take.</summary>
     public const float MaximumExtraStandoffMeters = 4f;

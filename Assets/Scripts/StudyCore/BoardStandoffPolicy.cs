@@ -15,16 +15,24 @@ public static class BoardStandoffPolicy
     /// <summary>Crown height of a tall standing adult; the highest point the face has to clear.</summary>
     public const float StandingHeightMeters = 1.9f;
 
-    /// <summary>Horizontal gap kept between that crown and the overhanging face.</summary>
-    public const float StandingHeadClearanceMeters = 0.22f;
+    /// <summary>
+    /// Horizontal gap kept between that crown and the overhanging face. Deliberately thin: the
+    /// in-context technique is rehearsed in contact with the wall, so the participant starts within
+    /// arm's reach of it rather than a comfortable step back.
+    /// </summary>
+    public const float StandingHeadClearanceMeters = 0.066f;
 
     /// <summary>
     /// <see cref="GetBoardBaseDistanceMeters"/> evaluated on the approved MoonBoard 2016 geometry
-    /// (40 degrees above a 0.37 m kicker), rounded to the centimetre. This is the closest the board
-    /// can stand before the face starts cutting through a tall participant, and 40 degrees is steep
-    /// enough that the bottom grid rows stay beyond a standing reach at every admissible standoff.
+    /// (40 degrees above a 0.37 m kicker), rounded to the centimetre:
+    /// 0.066 + tan(40) x (1.9 - 0.37) = 1.35 m. Standing this close is what puts the rehearsal band
+    /// inside a standing reach, and the head clearance is what pays for it: the face crosses the
+    /// tracking origin at 1.98 m of height rather than the 2.16 m a 1.50 m standoff bought, so a
+    /// participant taller than that starts a step behind the origin instead of on it. 40 degrees is
+    /// steep enough that the bottom grid rows stay beyond a standing reach at every admissible
+    /// standoff.
     /// </summary>
-    public const float DefaultBoardBaseDistanceMeters = 1.5f;
+    public const float DefaultBoardBaseDistanceMeters = 1.35f;
 
     /// <summary>
     /// Standoff that leaves <paramref name="headClearanceMeters"/> of horizontal room between the

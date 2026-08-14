@@ -126,14 +126,28 @@ public sealed class BoardFloorSeatingTests
             catalog.overhangAngleDegrees,
             catalog.geometry.kickerHeightMeters,
             BoardStandoffPolicy.StandingHeightMeters);
-        Assert.That(crownGap, Is.GreaterThan(0.2f));
+        // The reach standoff clears a 1.9 m crown by 0.066 m and by nothing more than that:
+        // starting inside arm's reach of the wall is the point of the in-context technique, and
+        // this thin gap is the whole of what it costs.
+        Assert.That(crownGap, Is.GreaterThan(0f));
+        Assert.That(
+            crownGap,
+            Is.EqualTo(BoardStandoffPolicy.StandingHeadClearanceMeters).Within(0.005f));
+
+        // The standoff carries the height at which the face crosses the tracking origin with it:
+        // 1.98 m now, down from the 2.16 m a 1.50 m standoff bought, so a participant taller than
+        // that starts a step behind the origin rather than exactly on it.
+        float faceCrossingHeightMeters = catalog.geometry.kickerHeightMeters +
+            BoardStandoffPolicy.DefaultBoardBaseDistanceMeters /
+            Mathf.Tan(catalog.overhangAngleDegrees * Mathf.Deg2Rad);
+        Assert.That(faceCrossingHeightMeters, Is.EqualTo(1.979f).Within(0.005f));
         Assert.That(
             BoardStandoffPolicy.GetFaceDistanceMeters(
                 BoardStandoffPolicy.DefaultBoardBaseDistanceMeters,
                 catalog.overhangAngleDegrees,
                 catalog.geometry.kickerHeightMeters,
-                2f),
-            Is.GreaterThan(0f));
+                faceCrossingHeightMeters),
+            Is.EqualTo(0f).Within(0.001f));
         Assert.That(
             BoardStandoffPolicy.GetFaceDistanceMeters(
                 BoardStandoffPolicy.DefaultBoardBaseDistanceMeters,

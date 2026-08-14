@@ -7,13 +7,15 @@ using UnityEngine;
 [Serializable]
 public sealed class MoonBoardStudyCatalog
 {
-    public const string ApprovedCatalogSha256 = "3556c462492fb2da88fa5ca531ea3dcc25dd5caeb3ed0c4d649e2fdf7921eaf1";
+    public const string ApprovedCatalogSha256 = "2eb9a54fd85433926507e76609e2162e2a69118626dcc163672b94013711f8ae";
 
     /// <summary>Local scale at which the aggregate FBX imports each normalised hold child.</summary>
     public const float NormalizedMeshScale = 100f;
 
     public const float MinScaleMultiplier = 0.15f;
     public const float MaxScaleMultiplier = 1.5f;
+    // A bore further than this from the mesh origin would mean the scan itself is wrong.
+    public const float MaxBoltOffsetMeters = 0.1f;
 
     /// <summary>
 /// "metric-scan" = depth read off the base-plane-aligned scan, exact: that depth axis reproduces
@@ -142,7 +144,11 @@ public static readonly string[] ScaleCalibrationSources =
                  (hold.meshFrameCorrection == null ||
                   !hold.meshFrameCorrection.TryGetQuaternion(out _))) ||
                 (!hold.hasMeshFrameCorrection &&
-                 hold.meshFrameCorrection != null && !hold.meshFrameCorrection.IsZero))
+                 hold.meshFrameCorrection != null && !hold.meshFrameCorrection.IsZero) ||
+                !IsFinite(hold.meshBoltOffsetXMeters) ||
+                !IsFinite(hold.meshBoltOffsetYMeters) ||
+                Mathf.Abs(hold.meshBoltOffsetXMeters) > MaxBoltOffsetMeters ||
+                Mathf.Abs(hold.meshBoltOffsetYMeters) > MaxBoltOffsetMeters)
             {
                 error = "MoonBoard catalog contains an invalid physical calibration: " + hold.coordinate + ".";
                 return false;
@@ -340,8 +346,24 @@ public static readonly string[] ScaleCalibrationSources =
         {
             throw new ArgumentException("Invalid MoonBoard hold calibration.", nameof(hold));
         }
-        return GetBoardLocalPosition(hold.coordinate) +
-               GetBoardMountRotation() * Vector3.up * hold.surfaceOffsetMeters;
+        if (!IsFinite(hold.meshBoltOffsetXMeters) || !IsFinite(hold.meshBoltOffsetYMeters) ||
+            Mathf.Abs(hold.meshBoltOffsetXMeters) > MaxBoltOffsetMeters ||
+            Mathf.Abs(hold.meshBoltOffsetYMeters) > MaxBoltOffsetMeters)
+        {
+            throw new ArgumentException("Invalid MoonBoard bolt-offset calibration.", nameof(hold));
+        }
+        Vector3 seated = GetBoardLocalPosition(hold.coordinate) +
+                         GetBoardMountRotation() * Vector3.up * hold.surfaceOffsetMeters;
+        if (hold.meshBoltOffsetXMeters != 0f || hold.meshBoltOffsetYMeters != 0f)
+        {
+            // A hold mounts on its bolt bore, not on its mesh-frame origin: subtract the
+            // baked-rotation image of the measured bore so the bore lands on the t-nut.
+            // The bore lies in the mesh's base plane (local z = 0), which the baked rotation
+            // maps onto the climbing surface, so no normal-component projection is needed.
+            seated -= GetBoardLocalRotation(hold) *
+                      new Vector3(hold.meshBoltOffsetXMeters, hold.meshBoltOffsetYMeters, 0f);
+        }
+        return seated;
     }
 
     /// <summary>
@@ -553,6 +575,10 @@ public sealed class MoonBoardHoldDefinition
     public string sourceHoldId;
     public bool hasMeshFrameCorrection;
     public MoonBoardQuaternionDefinition meshFrameCorrection;
+    // Bolt-bore centre in the mesh-local frame at physical scale (metres). Zero when the
+    // bore already sits on the mesh-frame origin to within scan-centering noise.
+    public float meshBoltOffsetXMeters;
+    public float meshBoltOffsetYMeters;
 }
 
 [Serializable]

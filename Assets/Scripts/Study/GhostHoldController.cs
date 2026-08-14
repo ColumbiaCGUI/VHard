@@ -52,6 +52,7 @@ public sealed class GhostHoldController : MonoBehaviour
     private const int FocusRingSegments = 40;
     private const int MaximumArcSegments = 36;
     private const float ArcDegreesPerSegment = 6f;
+    private const float ManipulationPoseRecordIntervalSeconds = 0.15f;
     private const float IndexTipBoneIndex = 10;
     private const float PalmUpDotThreshold = 0.55f;
     private const float TextTransformScale = 0.01f;
@@ -91,6 +92,7 @@ public sealed class GhostHoldController : MonoBehaviour
         public GhostInstance Manipulated;
         public Vector3 GrabPositionOffset;
         public Quaternion GrabRotationOffset;
+        public float NextPoseRecordTime;
         public int DiagnosticState = -1;
     }
 
@@ -839,6 +841,7 @@ public sealed class GhostHoldController : MonoBehaviour
         pointer.GrabPositionOffset = Quaternion.Inverse(handPose.rotation) *
                                      (ghost.Root.transform.position - handPose.position);
         pointer.GrabRotationOffset = Quaternion.Inverse(handPose.rotation) * ghost.Root.transform.rotation;
+        pointer.NextPoseRecordTime = 0f;
     }
 
     private void UpdateManipulation(HandPointer pointer)
@@ -857,26 +860,60 @@ public sealed class GhostHoldController : MonoBehaviour
         pointer.Manipulated.Root.transform.SetPositionAndRotation(
             handPose.position + handPose.rotation * pointer.GrabPositionOffset,
             handPose.rotation * pointer.GrabRotationOffset);
+        RecordManipulatedPose(pointer, released: false);
     }
 
-    private static void ReleaseManipulation(HandPointer pointer)
+    private void ReleaseManipulation(HandPointer pointer)
     {
-        if (pointer != null)
+        if (pointer == null)
         {
-            pointer.Manipulated = null;
+            return;
         }
+        RecordManipulatedPose(pointer, released: true);
+        pointer.Manipulated = null;
     }
 
     private void ReleaseManipulationOf(GhostInstance ghost)
     {
         if (left != null && left.Manipulated == ghost)
         {
-            left.Manipulated = null;
+            ReleaseManipulation(left);
         }
         if (right != null && right.Manipulated == ghost)
         {
-            right.Manipulated = null;
+            ReleaseManipulation(right);
         }
+    }
+
+    /// <summary>
+    /// The frame capture has no columns for proxy transforms, so manipulation is the one
+    /// study-relevant motion the recording could not reconstruct; these rows close that gap.
+    /// Throttled while tracking, and always emitted on release so every manipulation ends
+    /// with its final pose and orientation deviation.
+    /// </summary>
+    private void RecordManipulatedPose(HandPointer pointer, bool released)
+    {
+        GhostInstance ghost = pointer.Manipulated;
+        if (ghost?.Root == null || ghost.Source == null)
+        {
+            return;
+        }
+        float now = Time.unscaledTime;
+        if (!released && now < pointer.NextPoseRecordTime)
+        {
+            return;
+        }
+        pointer.NextPoseRecordTime = now + ManipulationPoseRecordIntervalSeconds;
+
+        Vector3 position = ghost.Root.transform.position;
+        Quaternion rotation = ghost.Root.transform.rotation;
+        float deviationDegrees = Quaternion.Angle(rotation, ghost.Source.transform.rotation);
+        sceneConfiguror?.actionRecorder?.Record(
+            "GhostPose",
+            pointer.Side == Hand.Left ? "Left" : "Right",
+            ghost.Root,
+            System.FormattableString.Invariant(
+                $"phase={(released ? "release" : "track")};pos=({position.x:F4},{position.y:F4},{position.z:F4});rot=({rotation.x:F4},{rotation.y:F4},{rotation.z:F4},{rotation.w:F4});deviationDeg={deviationDegrees:F1};live={ghosts.Count}"));
     }
 
     private void ResetPointerState(HandPointer pointer)

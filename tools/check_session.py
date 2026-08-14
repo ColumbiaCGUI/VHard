@@ -15,7 +15,7 @@ MANUAL_DIRECTORY_PATTERN = re.compile(
     r"[0-9]{8}_[0-9]{6}_[0-9]{3}_[BC]_[A-Z0-9_]+(?:_retry[0-9]+)?$"
 )
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "Assets/StreamingAssets/moonboard_2016_40.json"
-APPROVED_CATALOG_SHA256 = "3556c462492fb2da88fa5ca531ea3dcc25dd5caeb3ed0c4d649e2fdf7921eaf1"
+APPROVED_CATALOG_SHA256 = "2eb9a54fd85433926507e76609e2162e2a69118626dcc163672b94013711f8ae"
 MAX_ALIGNMENT_DRIFT_METERS = 0.02
 MAX_ALIGNMENT_DRIFT_DEGREES = 2.0
 COMPLETE_END_REASONS = {"completed_manual", "completed_early", "timer_expired"}

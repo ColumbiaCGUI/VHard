@@ -478,6 +478,15 @@ MESH_FRAME_YAW_CORRECTIONS_DEGREES = {
     # corroborated by the 07-28 rectified gym photo at +2 deg / IoU 0.909). F16/H11/B10/D13
     # positively confirmed within their branch; A13/B6 unfalsifiable (2-fold-symmetric
     # silhouettes carry no spin signal); B18/W99 remains excluded for the same reason.
+    # 2026-08-13 bolt-hole audit (docs/route-selection/board-audit/bolthole-2026-08-13):
+    # W99's bolt BORE breaks the 2-fold silhouette symmetry that made it unmeasurable —
+    # the official image shows the bore lower-right of the finger window (window-to-bore
+    # axis 122 deg), while the baked mesh had it at 175 deg; needed board rotation -52.8
+    # deg = correction +52.8, landed at catalog 5-deg practice. Confirmed by Ben live on
+    # the twin ("closer to A18, pointing 45 degrees to the top left"). W91 is Ben's
+    # direct call from the same session ("slightly rotated to the right" = clockwise).
+    "W99": 55.0,  # B18; bore/window geometry vs official image + Ben 2026-08-13
+    "W91": 15.0,  # E18; Ben eyeball 2026-08-13, slight clockwise
 }
 MESH_FRAME_CORRECTIONS = {
     # Approved by-eye W98 orientation from 1b9df47, expressed after the FBX -90-degree X basis.
@@ -486,6 +495,17 @@ MESH_FRAME_CORRECTIONS = {
         scan_id: z_axis_correction(degrees)
         for scan_id, degrees in MESH_FRAME_YAW_CORRECTIONS_DEGREES.items()
     },
+}
+
+# Bolt-bore centres measured in the mesh-local frame at PHYSICAL scale (metres), from the
+# 2026-08-13 bolt-hole audit of the shipped meshes (docs/route-selection/board-audit/
+# bolthole-2026-08-13). A hold mounts on its bolt bore, not on its mesh-frame origin: the
+# layout subtracts the baked-rotation image of this offset so the bore lands on the t-nut.
+# The instrument's gold control (K8/Y30) reads its bore 1.8 mm from the pin point, so
+# unlisted holds are already pinned correctly to within the scan-centering noise
+# (board median 5.9 mm). Only visually confirmed offsets are listed.
+BOLT_BORE_MESH_OFFSETS_METERS = {
+    "W99": {"x": 0.0306, "y": -0.0328},  # B18; body belongs up-left toward A18 (Ben 2026-08-13)
 }
 
 
@@ -553,6 +573,10 @@ def build_catalog(source_root: Path, project_root: Path) -> dict:
             if scan_id in MESH_FRAME_CORRECTIONS:
                 hold["hasMeshFrameCorrection"] = True
                 hold["meshFrameCorrection"] = MESH_FRAME_CORRECTIONS[scan_id]
+            if scan_id in BOLT_BORE_MESH_OFFSETS_METERS:
+                offset = BOLT_BORE_MESH_OFFSETS_METERS[scan_id]
+                hold["meshBoltOffsetXMeters"] = offset["x"]
+                hold["meshBoltOffsetYMeters"] = offset["y"]
             holds.append(hold)
     holds.sort(key=lambda hold: coordinate_key(hold["coordinate"]))
     if len(holds) != 140:
@@ -582,6 +606,8 @@ def build_catalog(source_root: Path, project_root: Path) -> dict:
             )
     if not MESH_FRAME_CORRECTIONS.keys() <= scan_ids:
         raise ValueError("Mesh-frame correction references an unknown physical scan")
+    if not BOLT_BORE_MESH_OFFSETS_METERS.keys() <= scan_ids:
+        raise ValueError("Bolt-bore offset references an unknown physical scan")
 
     routes = []
     for source_id in ROUTE_SOURCE_IDS:
