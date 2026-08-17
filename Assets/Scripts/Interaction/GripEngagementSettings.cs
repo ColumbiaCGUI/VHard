@@ -38,10 +38,11 @@ public sealed class GripEngagementSettings : MonoBehaviour
     [Tooltip("Seconds between text rebuilds. The panel follows the head every frame regardless.")]
     [Min(0.02f)] public float diagnosticsRefreshSeconds = 0.1f;
     [Tooltip("Panel placement in the head's yaw frame: metres forward, metres down, degrees of " +
-             "upward tilt. Parked below the eye line so it never covers the board.")]
+             "tilt (0 = vertical, positive leans the top toward the viewer, negative away). " +
+             "Parked below the eye line so it never covers the board.")]
     [Min(0.2f)] public float diagnosticsForwardMeters = 0.62f;
     public float diagnosticsDownMeters = 0.34f;
-    [Range(0f, 80f)] public float diagnosticsTiltDegrees = 32f;
+    [Range(-45f, 80f)] public float diagnosticsTiltDegrees = 0f;
     [Tooltip("Seconds for the panel to catch up with the head. Zero locks it rigidly.")]
     [Min(0f)] public float diagnosticsFollowSeconds = 0.12f;
 
