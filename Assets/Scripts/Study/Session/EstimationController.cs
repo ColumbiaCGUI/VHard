@@ -138,9 +138,10 @@ public sealed class EstimationController
         startedEstimationBlocks.Add(blockKey);
         actionRecorder.Record(
             "EstimationStarted",
-            set.setIndex.ToString(CultureInfo.InvariantCulture),
+            "",
             null,
-            state.lastEndedRow.block.ToString(CultureInfo.InvariantCulture));
+            "set=" + set.setIndex.ToString(CultureInfo.InvariantCulture) +
+            ";block=" + state.lastEndedRow.block.ToString(CultureInfo.InvariantCulture));
         ShowEstimationProblem();
         panel.ShowPanel();
         return true;
@@ -212,9 +213,10 @@ public sealed class EstimationController
         manualEstimationActive = true;
         actionRecorder.Record(
             "EstimationStarted",
-            ManualEstimationMarker,
+            "",
             null,
-            "problems=" + problems.Length.ToString(CultureInfo.InvariantCulture));
+            "source=" + ManualEstimationMarker +
+            ";problems=" + problems.Length.ToString(CultureInfo.InvariantCulture));
         ShowEstimationProblem();
         panel.ShowPanel();
         return true;
@@ -275,9 +277,10 @@ public sealed class EstimationController
         sceneConfiguror.SetRouteCuePresentation(RouteCuePresentation.Hidden);
         actionRecorder.Record(
             "EstimationShown",
-            problem.apiId.ToString(CultureInfo.InvariantCulture),
+            "",
             null,
-            (state.activeEstimationOrdinal + 1).ToString(CultureInfo.InvariantCulture));
+            "apiId=" + problem.apiId.ToString(CultureInfo.InvariantCulture) +
+            ";ordinal=" + (state.activeEstimationOrdinal + 1).ToString(CultureInfo.InvariantCulture));
         panel.RefreshPanelText();
     }
 
@@ -296,9 +299,11 @@ public sealed class EstimationController
         int completedSet = state.activeEstimationSet != null ? state.activeEstimationSet.setIndex : 0;
         actionRecorder.Record(
             "EstimationEnded",
+            "",
+            null,
             manual
-                ? ManualEstimationMarker
-                : completedSet.ToString(CultureInfo.InvariantCulture));
+                ? "source=" + ManualEstimationMarker
+                : "set=" + completedSet.ToString(CultureInfo.InvariantCulture));
         actionRecorder.EndBlock();
         state.estimationActive = false;
         manualEstimationActive = false;

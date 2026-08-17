@@ -44,9 +44,12 @@ class CaptureRecoveryTests(unittest.TestCase):
                 "hold": "D15",
                 "LConf": "1",
                 "RConf": "1",
-                "touchedHold": "D15",
-                "gripFlag": "0",
-                "perFingerContactMask": "0",
+                "LHold": "D15",
+                "LGripFlag": "0",
+                "LFingerMask": "0",
+                "RHold": "",
+                "RGripFlag": "0",
+                "RFingerMask": "0",
             })
             header = ",".join(EXPECTED_COLUMNS)
             values = ",".join(row[column] for column in EXPECTED_COLUMNS)
@@ -55,7 +58,7 @@ class CaptureRecoveryTests(unittest.TestCase):
             rows = validate_capture_rows(path)
 
             self.assertEqual(len(rows), 1)
-            self.assertEqual(len(rows[0]), 384)
+            self.assertEqual(len(rows[0]), 388)
 
     def test_rejects_wrong_float_precision(self):
         with tempfile.TemporaryDirectory() as directory:

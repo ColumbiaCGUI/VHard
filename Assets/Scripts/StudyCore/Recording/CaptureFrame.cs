@@ -20,10 +20,14 @@ public sealed class CaptureFrame
     public readonly Vector3[] rightPositions = new Vector3[BoneCount];
     public readonly Quaternion[] rightRotations = CreateIdentityRotations();
     public int rightConfidence;
-    public string touchedHold = string.Empty;
-    public int gripFlag;
-    public int perFingerContactMask = -1;
-    public float gripScore = -1f;
+    public string leftHold = string.Empty;
+    public int leftGripFlag;
+    public int leftFingerMask = -1;
+    public float leftGripScore = -1f;
+    public string rightHold = string.Empty;
+    public int rightGripFlag;
+    public int rightFingerMask = -1;
+    public float rightGripScore = -1f;
 
     public void CopyFrom(CaptureFrame source)
     {
@@ -47,10 +51,14 @@ public sealed class CaptureFrame
         Array.Copy(source.rightPositions, rightPositions, BoneCount);
         Array.Copy(source.rightRotations, rightRotations, BoneCount);
         rightConfidence = source.rightConfidence;
-        touchedHold = source.touchedHold;
-        gripFlag = source.gripFlag;
-        perFingerContactMask = source.perFingerContactMask;
-        gripScore = source.gripScore;
+        leftHold = source.leftHold;
+        leftGripFlag = source.leftGripFlag;
+        leftFingerMask = source.leftFingerMask;
+        leftGripScore = source.leftGripScore;
+        rightHold = source.rightHold;
+        rightGripFlag = source.rightGripFlag;
+        rightFingerMask = source.rightFingerMask;
+        rightGripScore = source.rightGripScore;
     }
 
     private static Quaternion[] CreateIdentityRotations()

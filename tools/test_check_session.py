@@ -328,8 +328,12 @@ class SessionValidationTests(unittest.TestCase):
                 "route": "MB2016-19215",
                 "LConf": "1",
                 "RConf": "1",
-                "gripFlag": "0",
-                "perFingerContactMask": "0",
+                "LHold": "",
+                "LGripFlag": "0",
+                "LFingerMask": "0",
+                "RHold": "",
+                "RGripFlag": "0",
+                "RFingerMask": "0",
             })
             writer.writerow(row)
         (block / "capture.csv.gz").write_bytes(gzip.compress(output.getvalue().encode()))

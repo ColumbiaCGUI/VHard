@@ -6,8 +6,9 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Runtime-built experimenter console for selecting a VR mode and route, controlling a timed
-/// run, resetting the room, and hiding or moving the panel with hand-ray interaction.
+/// Runtime-built experimenter console for selecting a VR mode and route, controlling a
+/// manually completed run, resetting the room, and hiding or moving the panel with hand-ray
+/// interaction.
 /// </summary>
 public sealed class StudyControlPanel
 {
@@ -29,7 +30,7 @@ public sealed class StudyControlPanel
     private const float MinimumPanelDepthMeters = 0.55f;
     private const float MaximumPanelDepthMeters = 1.5f;
     private const float PanelBottomMeters = -0.51f;
-    private const float PanelTopWithTimerMeters = 0.62f;
+    private const float PanelTopMeters = 0.51f;
     private const int PanelClampSearchIterations = 10;
     // The console's unlit shader is ZTest Always with the ShaderLab default ZWrite On, which is what
     // keeps it readable over the board. Meta's hand material sits at the Transparent queue (3000) and
@@ -81,9 +82,7 @@ public sealed class StudyControlPanel
     private EstimationController estimation;
 
     private GameObject panelRoot;
-    private GameObject timerChipRoot;
     private TextMeshPro panelText;
-    private TextMeshPro timerText;
     private Material panelMaterial;
     private Material buttonMaterial;
     private Material pointerMaterial;
@@ -104,7 +103,6 @@ public sealed class StudyControlPanel
     private TextMeshPro manualCompleteLabel;
     private TextMeshPro manualPreviousRouteLabel;
     private TextMeshPro manualNextRouteLabel;
-    private TextMeshPro estimationLabel;
     private TextMeshPro routeReadoutText;
 
     private StudyPanelButton previousParticipantButton;
@@ -118,7 +116,6 @@ public sealed class StudyControlPanel
     private StudyPanelButton adhocConditionButton;
     private StudyPanelButton adhocRouteButton;
     private StudyPanelButton adhocStartButton;
-    private StudyPanelButton estimationButton;
     private StudyPanelButton alignBoardButton;
     private StudyPanelButton clearAlignmentButton;
     private StudyPanelButton manualModeAButton;
@@ -158,9 +155,7 @@ public sealed class StudyControlPanel
     private bool rightWasPinching;
     private bool leftPinchArmed;
     private bool rightPinchArmed;
-    private int lastBlockRemainingSecond = -1;
     private int lastPracticeElapsedSecond = -1;
-    private bool timerWaitingTextShown;
     private PanelGrabHand activePanelGrabHand;
     private float panelGrabRayDistance;
     private Vector3 panelGrabWorldOffset;
@@ -280,7 +275,7 @@ public sealed class StudyControlPanel
             AccentColor,
             TextAlignmentOptions.Center,
             FontStyles.Bold);
-        subtitle.text = "MANUAL START  |  5 MINUTE RUN";
+        subtitle.text = "MANUAL START  |  MANUAL COMPLETE";
 
         panelText = CreateText(
             panelRoot.transform,
@@ -345,16 +340,9 @@ public sealed class StudyControlPanel
             "COMPLETE",
             CompleteManualRun,
             out manualCompleteLabel);
-        estimationButton = CreateButton(
-            "Estimate",
-            new Vector3(0f, -0.29f, -0.02f),
-            new Vector2(0.60f, 0.06f),
-            ManualEstimationPolicy.StartLabel,
-            HandleEstimation,
-            out estimationLabel);
         manualResetButton = CreateButton(
             "Reset",
-            new Vector3(0f, -0.41f, -0.02f),
+            new Vector3(0f, -0.29f, -0.02f),
             new Vector2(0.60f, 0.06f),
             "RESET",
             ResetStudyState,
@@ -378,11 +366,9 @@ public sealed class StudyControlPanel
             manualCompleteButton);
         manualPreviousRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
         manualNextRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
-        estimationButton.SetPalette(PracticeButtonColor, PracticeHoverColor, SelectedColor);
         manualResetButton.SetPalette(UtilityButtonColor, UtilityHoverColor, SelectedColor);
         manualCompleteButton.SetDanger(true);
 
-        BuildTimerChip();
         BuildPointer("Left Panel Pointer", out leftPointerRoot, out leftPointerLine, out leftPointerReticle);
         BuildPointer("Right Panel Pointer", out rightPointerRoot, out rightPointerLine, out rightPointerReticle);
         PositionPanelInFrontOfUser();
@@ -398,32 +384,6 @@ public sealed class StudyControlPanel
 
         panelSurfaceTint = color;
         SetRendererColor(panelBackgroundRenderer, color);
-    }
-
-    private void BuildTimerChip()
-    {
-        timerChipRoot = new GameObject("Study Countdown Chip");
-        timerChipRoot.layer = uiLayer;
-        timerChipRoot.transform.SetParent(panelParent, false);
-
-        GameObject chipBackground = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        chipBackground.name = "Countdown Chip Background";
-        chipBackground.layer = uiLayer;
-        chipBackground.transform.SetParent(timerChipRoot.transform, false);
-        Vector2 chipSize = new(0.28f, 0.09f);
-        chipBackground.transform.localScale = new Vector3(chipSize.x, chipSize.y, 0.018f);
-        chipBackground.GetComponent<MeshRenderer>().sharedMaterial = buttonMaterial;
-        DestroyUnityObject(chipBackground.GetComponent<Collider>());
-        timerText = CreateText(
-            timerChipRoot.transform,
-            "Countdown Chip Label",
-            new Vector3(0f, 0f, -0.011f),
-            new Vector2(0.26f, 0.08f),
-            0.016f,
-            Color.white,
-            TextAlignmentOptions.Center,
-            FontStyles.Bold);
-        SetTimerChipVisible(false);
     }
 
     private void BuildPointer(
@@ -643,18 +603,6 @@ public sealed class StudyControlPanel
         blockRun.StartManualRun();
     }
 
-    private void HandleEstimation()
-    {
-        CancelConfirmation();
-        if (state.estimationActive)
-        {
-            estimation.NextEstimation();
-            return;
-        }
-
-        estimation.StartManualEstimation();
-    }
-
     private void EndEstimationIfShowing()
     {
         if (state.estimationActive)
@@ -686,12 +634,11 @@ public sealed class StudyControlPanel
             "EnvironmentReset",
             "",
             null,
-            "manual_reset");
+            "reason=manual_reset");
         sceneConfiguror.ResetManualStudyState();
         CancelPanelGrab();
         ResetPointerAndHover();
         PositionPanelInFrontOfUser();
-        PositionTimerChip();
         state.panelPinned = true;
         panelPressableAt = Time.unscaledTime + Mathf.Max(0f, panelSettleSeconds());
         leftWasPinching = false;
@@ -837,7 +784,6 @@ public sealed class StudyControlPanel
         CancelPanelGrab();
         CancelConfirmation();
         PositionPanelInFrontOfUser();
-        PositionTimerChip();
         state.panelPinned = true;
         state.statusMessage = "Panel recentered.";
         RefreshPanelText();
@@ -856,8 +802,6 @@ public sealed class StudyControlPanel
         {
             text.Append("RUNNING MODE ")
                 .Append(state.activeRow.condition == "B" ? "A" : "B")
-                .Append("  |  ")
-                .Append(StudyRehearsalTiming.FormatRemainingSeconds(blockRun.RemainingSeconds))
                 .AppendLine();
         }
         else if (state.estimationActive)
@@ -890,7 +834,6 @@ public sealed class StudyControlPanel
             ? Mathf.Clamp(state.adhocRouteIndex, 0, routes.Count - 1)
             : 0;
 
-        bool estimating = state.estimationActive;
         bool modeSelectable = !state.blockRunning && !state.practiceActive &&
                               !state.manualRunRecoveryBlocked;
 
@@ -902,15 +845,7 @@ public sealed class StudyControlPanel
         manualNextRouteButton?.SetInteractable(idle && hasRoute);
         manualStartButton?.SetInteractable(modeSelectable && hasRoute);
         manualCompleteButton?.SetInteractable(state.blockRunning);
-        estimationButton?.SetInteractable(estimating || idle);
-        estimationButton?.SetSelected(estimating);
         manualResetButton?.SetInteractable(sceneConfiguror != null);
-        if (estimationLabel != null)
-        {
-            estimationLabel.text = estimating && estimation != null
-                ? estimation.GetAdvanceLabel()
-                : ManualEstimationPolicy.StartLabel;
-        }
         if (manualStartLabel != null)
         {
             manualStartLabel.text = "START";
@@ -980,47 +915,6 @@ public sealed class StudyControlPanel
         }
     }
 
-    public void UpdateBlockRemainingText(float remainingSeconds)
-    {
-        if (timerText == null || state.activeRow == null)
-        {
-            return;
-        }
-
-        int remainingSecond = Mathf.CeilToInt(remainingSeconds);
-        if (remainingSecond == lastBlockRemainingSecond && !timerWaitingTextShown)
-        {
-            return;
-        }
-
-        lastBlockRemainingSecond = remainingSecond;
-        timerWaitingTextShown = false;
-        timerText.text = "REMAINING\n" +
-                         StudyRehearsalTiming.FormatRemainingSeconds(remainingSeconds);
-        if (panelRoot != null && panelRoot.activeSelf)
-        {
-            RefreshPanelText();
-        }
-    }
-
-    public void UpdateTimerWaitingText()
-    {
-        if (timerText == null || state.activeRow == null || timerWaitingTextShown)
-        {
-            return;
-        }
-
-        timerWaitingTextShown = true;
-        timerText.text = "WAITING\n" + StudyRehearsalTiming.FormatRemainingSeconds(
-            BlockRunController.RehearsalDurationSeconds);
-    }
-
-    public void ResetBlockTimerDisplay()
-    {
-        lastBlockRemainingSecond = -1;
-        timerWaitingTextShown = false;
-    }
-
     public void UpdatePracticeElapsedText(float elapsedSeconds)
     {
         int elapsedSecond = Mathf.FloorToInt(elapsedSeconds);
@@ -1048,8 +942,6 @@ public sealed class StudyControlPanel
         rightWasPinching = false;
         leftPinchArmed = false;
         rightPinchArmed = false;
-        SetTimerChipVisible(ShouldShowTimerChip());
-        PositionTimerChip();
         RefreshPanelText();
     }
 
@@ -1092,32 +984,6 @@ public sealed class StudyControlPanel
             cameraTransform.up);
     }
 
-    public void PositionTimerChip()
-    {
-        if (timerChipRoot == null || userCamera == null)
-        {
-            return;
-        }
-
-        Transform cameraTransform = userCamera.transform;
-        if (panelRoot != null && panelRoot.activeSelf)
-        {
-            timerChipRoot.transform.position = panelRoot.transform.position +
-                                               panelRoot.transform.up * 0.575f -
-                                               panelRoot.transform.forward * 0.01f;
-            timerChipRoot.transform.rotation = panelRoot.transform.rotation;
-        }
-        else
-        {
-            timerChipRoot.transform.position = cameraTransform.position +
-                                               cameraTransform.forward * PanelDistanceMeters +
-                                               cameraTransform.up * 0.575f;
-            timerChipRoot.transform.rotation = Quaternion.LookRotation(
-                timerChipRoot.transform.position - cameraTransform.position,
-                cameraTransform.up);
-        }
-    }
-
     public void SetPanelVisible(bool visible)
     {
         panelRoot?.SetActive(visible);
@@ -1128,23 +994,12 @@ public sealed class StudyControlPanel
             CancelConfirmation();
             ResetPointerAndHover();
             summonGesture?.ResetSummonDwell();
-            SetTimerChipVisible(ShouldShowTimerChip());
         }
     }
 
     public void SetGameplayInputSuppressed(bool suppressed)
     {
         sceneConfiguror?.SetPanelInputSuppressed(suppressed);
-    }
-
-    public void SetTimerChipVisible(bool visible)
-    {
-        timerChipRoot?.SetActive(visible);
-    }
-
-    private bool ShouldShowTimerChip()
-    {
-        return state.blockRunning && state.activeRow != null;
     }
 
     public void HandlePanelInput(
@@ -1427,7 +1282,6 @@ public sealed class StudyControlPanel
         {
             panelRoot.transform.rotation = GetPanelFacingRotation(panelRoot.transform.position);
         }
-        PositionTimerChip();
     }
 
     private Vector3 ClampPanelPositionToViewport(Vector3 position)
@@ -1604,7 +1458,7 @@ public sealed class StudyControlPanel
             position,
             rotation,
             -PanelWidthMeters * 0.5f,
-            PanelTopWithTimerMeters,
+            PanelTopMeters,
             eye,
             ref minimumX,
             ref maximumX,
@@ -1614,7 +1468,7 @@ public sealed class StudyControlPanel
             position,
             rotation,
             PanelWidthMeters * 0.5f,
-            PanelTopWithTimerMeters,
+            PanelTopMeters,
             eye,
             ref minimumX,
             ref maximumX,

@@ -39,7 +39,8 @@ public static class RecordingCsvSerializer
         AppendBoneHeader(header, 'L');
         header.Append("LConf,");
         AppendBoneHeader(header, 'R');
-        header.Append("RConf,touchedHold,gripFlag,perFingerContactMask,gripScore");
+        header.Append("RConf,LHold,LGripFlag,LFingerMask,LGripScore,");
+        header.Append("RHold,RGripFlag,RFingerMask,RGripScore");
         return header.ToString();
     }
 
@@ -76,10 +77,14 @@ public static class RecordingCsvSerializer
             AppendQuaternion(output, frame.rightRotations[i]);
         }
         output.Append(frame.rightConfidence).Append(',');
-        AppendEscaped(output, frame.touchedHold);
-        output.Append(frame.gripFlag).Append(',')
-            .Append(frame.perFingerContactMask).Append(',');
-        AppendFloat(output, frame.gripScore, false);
+        AppendEscaped(output, frame.leftHold);
+        output.Append(frame.leftGripFlag).Append(',')
+            .Append(frame.leftFingerMask).Append(',');
+        AppendFloat(output, frame.leftGripScore);
+        AppendEscaped(output, frame.rightHold);
+        output.Append(frame.rightGripFlag).Append(',')
+            .Append(frame.rightFingerMask).Append(',');
+        AppendFloat(output, frame.rightGripScore, false);
         output.AppendLine();
     }
 

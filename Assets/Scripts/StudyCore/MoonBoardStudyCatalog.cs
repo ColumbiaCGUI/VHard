@@ -61,6 +61,7 @@ public static readonly string[] ScaleCalibrationSources =
     public MoonBoardHoldDefinition[] holds = Array.Empty<MoonBoardHoldDefinition>();
     public MoonBoardRouteDefinition[] routes = Array.Empty<MoonBoardRouteDefinition>();
     [NonSerialized] private Dictionary<string, MoonBoardRouteDefinition> supplementalRoutes;
+    [NonSerialized] private List<string> supplementalRouteIds;
 
     public static bool TryParse(string json, out MoonBoardStudyCatalog catalog, out string error)
     {
@@ -228,11 +229,17 @@ public static readonly string[] ScaleCalibrationSources =
         return supplementalRoutes != null && supplementalRoutes.TryGetValue(routeId, out route);
     }
 
+    /// <summary>Supplemental route ids in their catalog order (estimation problems, then the
+    /// practice problem); empty until supplemental content is loaded.</summary>
+    public IReadOnlyList<string> SupplementalRouteIds =>
+        supplementalRouteIds ?? (IReadOnlyList<string>)Array.Empty<string>();
+
     public bool TrySetSupplementalRoutes(
         IReadOnlyList<MoonBoardRouteDefinition> supplemental,
         out string error)
     {
         supplementalRoutes = null;
+        supplementalRouteIds = null;
         if (supplemental == null || supplemental.Count == 0)
         {
             error = "MoonBoard supplemental routes are empty.";
@@ -251,6 +258,7 @@ public static readonly string[] ScaleCalibrationSources =
         }
 
         Dictionary<string, MoonBoardRouteDefinition> parsed = new(StringComparer.Ordinal);
+        List<string> parsedIds = new(supplemental.Count);
         foreach (MoonBoardRouteDefinition candidate in supplemental)
         {
             if (candidate == null || candidate.lockedForStudy || string.IsNullOrWhiteSpace(candidate.id) ||
@@ -271,9 +279,11 @@ public static readonly string[] ScaleCalibrationSources =
                 }
             }
             parsed.Add(candidate.id, candidate);
+            parsedIds.Add(candidate.id);
         }
 
         supplementalRoutes = parsed;
+        supplementalRouteIds = parsedIds;
         error = string.Empty;
         return true;
     }
@@ -281,6 +291,7 @@ public static readonly string[] ScaleCalibrationSources =
     public void ClearSupplementalRoutes()
     {
         supplementalRoutes = null;
+        supplementalRouteIds = null;
     }
 
     public bool TryGetHold(string coordinate, out MoonBoardHoldDefinition hold)

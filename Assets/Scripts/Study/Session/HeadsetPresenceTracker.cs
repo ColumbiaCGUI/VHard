@@ -95,7 +95,8 @@ public sealed class HeadsetPresenceTracker
 
         blockHeadsetWearActive = true;
         blockHeadsetWearSegmentStartRealtime = wearStartedAt;
-        string details = "block=" + state.activeRow.block.ToString(CultureInfo.InvariantCulture) +
+        string details = "condition=" + state.activeRow.condition +
+                         ";block=" + state.activeRow.block.ToString(CultureInfo.InvariantCulture) +
                          ";source=" + source;
         if (!blockHeadsetDonnedRecorded)
         {
@@ -103,10 +104,10 @@ public sealed class HeadsetPresenceTracker
             donningStartRealtime = StudyRehearsalTiming.ResolveDonningStartRealtime(
                 donningStartedAt,
                 wearStartedAt);
-            actionRecorder.Record("HeadsetDonned", state.activeRow.condition, null, details);
+            actionRecorder.Record("HeadsetDonned", "", null, details);
             return;
         }
-        actionRecorder.Record("HeadsetRedonned", state.activeRow.condition, null, details);
+        actionRecorder.Record("HeadsetRedonned", "", null, details);
     }
 
     private void EndBlockHeadsetWear(float removedAt)
@@ -122,9 +123,10 @@ public sealed class HeadsetPresenceTracker
         blockHeadsetWearActive = false;
         actionRecorder.Record(
             "HeadsetRemoved",
-            state.activeRow.condition,
+            "",
             null,
-            "segmentSeconds=" + segmentSeconds.ToString("F3", CultureInfo.InvariantCulture) +
+            "condition=" + state.activeRow.condition +
+            ";segmentSeconds=" + segmentSeconds.ToString("F3", CultureInfo.InvariantCulture) +
             ";wearSeconds=" + blockHeadsetWearSeconds.ToString("F3", CultureInfo.InvariantCulture));
     }
 
@@ -144,9 +146,10 @@ public sealed class HeadsetPresenceTracker
         }
         actionRecorder.Record(
             "HeadsetWearSummary",
-            state.activeRow.condition,
+            "",
             null,
-            "wearSeconds=" + blockHeadsetWearSeconds.ToString("F3", CultureInfo.InvariantCulture));
+            "condition=" + state.activeRow.condition +
+            ";wearSeconds=" + blockHeadsetWearSeconds.ToString("F3", CultureInfo.InvariantCulture));
     }
 
     public void InferHeadsetDonnedFromInteraction(string interaction)
@@ -157,9 +160,10 @@ public sealed class HeadsetPresenceTracker
         }
 
         headsetPresenceMismatchLogged = true;
-        string details = "interaction=" + interaction + "; block=" +
+        string details = "condition=" + state.activeRow.condition +
+                         ";interaction=" + interaction + ";block=" +
                          state.activeRow.block.ToString(CultureInfo.InvariantCulture);
-        actionRecorder.Record("HeadsetPresenceMismatch", state.activeRow.condition, null, details);
+        actionRecorder.Record("HeadsetPresenceMismatch", "", null, details);
         Debug.LogWarning("[StudyManager] Interaction preceded the headset-presence signal; " +
                          "inferring donning. " + details);
         BeginBlockHeadsetWear(Time.realtimeSinceStartup, "inferred_from_interaction");

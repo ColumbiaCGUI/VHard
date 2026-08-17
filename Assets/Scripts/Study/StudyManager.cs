@@ -352,10 +352,6 @@ public sealed class StudyManager : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (state.blockRunning && blockRun.TryExpireRunningBlock())
-        {
-            return;
-        }
         if (state.blockRunning)
         {
             blockRun.UpdateRunningBlock();
@@ -507,10 +503,7 @@ public sealed class StudyManager : MonoBehaviour
             }
             if (state.blockRunning)
             {
-                if (blockRun == null || !blockRun.TryExpireRunningBlock())
-                {
-                    EndBlock(true, "app_closed");
-                }
+                EndBlock(true, "app_closed");
             }
             else if (state.IsAuxiliaryActive)
             {

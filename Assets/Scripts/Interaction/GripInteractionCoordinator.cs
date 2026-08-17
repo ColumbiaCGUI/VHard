@@ -49,6 +49,8 @@ public sealed class GripInteractionCoordinator
     private int rightLatchedFingerCount;
     private bool leftLegacyFiveTipContact;
     private bool rightLegacyFiveTipContact;
+    private GameObject leftLegacyGripStartHold;
+    private GameObject rightLegacyGripStartHold;
     private bool inputSuppressed;
     private bool leftAcquisitionArmed = true;
     private bool rightAcquisitionArmed = true;
@@ -281,7 +283,7 @@ public sealed class GripInteractionCoordinator
             "LocomotionStop",
             hand == Hand.Left ? "Left" : "Right",
             null,
-            "grip locomotion stopped");
+            string.Empty);
     }
 
     /// <summary>Resets every per-hand grip artifact; the facade owns the visual/hover parts of a
@@ -301,6 +303,8 @@ public sealed class GripInteractionCoordinator
         rightLatchedFingerCount = 0;
         leftLegacyFiveTipContact = false;
         rightLegacyFiveTipContact = false;
+        leftLegacyGripStartHold = null;
+        rightLegacyGripStartHold = null;
         owner.leftHandIsGripping = false;
         owner.rightHandIsGripping = false;
         owner.isGripLocomotionActive = false;
@@ -644,11 +648,11 @@ public sealed class GripInteractionCoordinator
                 "GripLatched",
                 hand,
                 latchedHold,
-                "min_fingers=" + minFingers + "; fingers=" + acquiredFingers);
+                "minFingers=" + minFingers + ";fingers=" + acquiredFingers);
         }
         else if (transition.Kind == GripLatchTransitionKind.Frozen)
         {
-            owner.RaiseGripEngagement("GripFrozen", hand, latchedHold, "tracking_lost");
+            owner.RaiseGripEngagement("GripFrozen", hand, latchedHold, "reason=tracking_lost");
         }
         else if (transition.Kind == GripLatchTransitionKind.Released)
         {
@@ -658,10 +662,18 @@ public sealed class GripInteractionCoordinator
                 "GripReleased",
                 hand,
                 latchedHold,
-                transition.ReleaseReason.ToRecorderValue());
+                "reason=" + transition.ReleaseReason.ToRecorderValue());
             SetLatchedHold(hand, null);
             SetLatchedFingerCount(hand, 0);
             InvalidateAcquisitionSample(hand);
+            if (hand == Hand.Left)
+            {
+                leftLegacyGripStartHold = null;
+            }
+            else
+            {
+                rightLegacyGripStartHold = null;
+            }
         }
 
         if (transition.ResetAnchor && trackingValid)
@@ -698,7 +710,7 @@ public sealed class GripInteractionCoordinator
             "LocomotionStart",
             hand == Hand.Left ? "Left" : "Right",
             hand == Hand.Left ? leftLatchedHold : rightLatchedHold,
-            "grip locomotion started; anchors=" + anchorCount);
+            "anchors=" + anchorCount);
     }
 
     private Vector3 AdvanceGripLocomotion(
@@ -781,13 +793,27 @@ public sealed class GripInteractionCoordinator
         bool wasFiveTipContact = hand == Hand.Left
             ? leftLegacyFiveTipContact
             : rightLegacyFiveTipContact;
-        if (isFiveTipContact && !wasFiveTipContact)
+        // Five-tip contact flickers while a hold stays gripped, so a new GripStart is recorded
+        // only when the contact lands on a hold this hand has not already reported since its
+        // last release.
+        GameObject reportedHold = hand == Hand.Left
+            ? leftLegacyGripStartHold
+            : rightLegacyGripStartHold;
+        if (isFiveTipContact && !wasFiveTipContact && hold != reportedHold)
         {
             owner.actionRecorder?.Record(
                 "GripStart",
                 hand == Hand.Left ? "Left" : "Right",
                 hold,
-                "legacy_all_five_tips");
+                "method=legacy_all_five_tips");
+            if (hand == Hand.Left)
+            {
+                leftLegacyGripStartHold = hold;
+            }
+            else
+            {
+                rightLegacyGripStartHold = hold;
+            }
         }
         if (hand == Hand.Left)
         {

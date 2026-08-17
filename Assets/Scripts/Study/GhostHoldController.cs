@@ -353,7 +353,7 @@ public sealed class GhostHoldController : MonoBehaviour
         CreateGhostDecorations(ghost);
         sceneConfiguror.RegisterGhostHold(ghost.Root);
         sceneConfiguror.PrepareGripHold(ghost.Root);
-        RecordGhostEvent("GhostSpawn", ghost, summonedBy, sourceHold.name);
+        RecordGhostEvent("GhostSpawn", ghost, summonedBy, "source=" + sourceHold.name);
     }
 
     private int SelectEvictionIndex()
@@ -1445,7 +1445,6 @@ public sealed class GhostHoldController : MonoBehaviour
         RecordSelectionAttempt(pointer, target, outcome, origin, direction);
     }
 
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void RecordInputDiagnostics(HandPointer pointer, bool trackingConfident, bool hasRay)
     {
         ActionRecorder recorder = sceneConfiguror?.actionRecorder;
@@ -1502,7 +1501,6 @@ public sealed class GhostHoldController : MonoBehaviour
             ";showState=" + (hand != null ? hand.m_showState.ToString() : "unavailable"));
     }
 
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void RecordInputSuppression(bool suppressed)
     {
         if (modeActive && sceneConfiguror?.actionRecorder != null)
@@ -1515,7 +1513,6 @@ public sealed class GhostHoldController : MonoBehaviour
         }
     }
 
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void RecordSelectionAttempt(
         HandPointer pointer,
         GameObject target,

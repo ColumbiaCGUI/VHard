@@ -20,7 +20,6 @@ public enum ManualRunRecoveryOutcome
 public sealed class BlockRunController
 {
     private const string NullRoutesHashSentinel = "__NULL_ROUTES_JSON_SHA256__";
-    public const float RehearsalDurationSeconds = StudyRehearsalTiming.RehearsalDurationSeconds;
 
     private readonly StudySessionState state;
     private readonly SceneConfiguror sceneConfiguror;
@@ -50,9 +49,6 @@ public sealed class BlockRunController
             blockStartRealtime,
             Time.realtimeSinceStartupAsDouble)
         : 0f;
-    public float RemainingSeconds => state.blockTimerStarted
-        ? Mathf.Max(0f, RehearsalDurationSeconds - ElapsedSeconds)
-        : RehearsalDurationSeconds;
 
     public BlockRunController(
         StudySessionState state,
@@ -336,7 +332,6 @@ public sealed class BlockRunController
             state.blockTimerStarted = false;
             completionRequested = false;
             firstInteractionRecorded = activeManifest.firstInteractionRecorded;
-            panel.ResetBlockTimerDisplay();
             state.panelPinned = true;
             state.blockRunning = true;
             PrepareRehearsalClock(requestedStartRealtime, requestedStartUtc);
@@ -375,7 +370,6 @@ public sealed class BlockRunController
             if (row.condition == "A")
             {
                 panel.ShowPanel();
-                panel.SetTimerChipVisible(true);
             }
             else
             {
@@ -523,11 +517,6 @@ public sealed class BlockRunController
         {
             return FinalizeInterruptedStartup(recovery, utcNow);
         }
-        if (recovery.IsExpired(utcNow))
-        {
-            return FinalizeExpiredRecoveredRun(recovery);
-        }
-
         StudyScheduleRow row = new()
         {
             participant = activeManifest.participant,
@@ -564,31 +553,17 @@ public sealed class BlockRunController
         sceneConfiguror.SetGameMode(row.condition == "B" ? GameMode.Grip : GameMode.Ghost);
         sceneConfiguror.SetStudyFeedbackVisible(true);
 
-        utcNow = DateTimeOffset.UtcNow;
-        if (recovery.IsExpired(utcNow))
-        {
-            return FinalizeExpiredRecoveredRun(recovery);
-        }
-
         int resumeIndex = checked(activeManifest.resumeCount + 1);
         segmentDroppedCaptureFramesBaseline = activeManifest.droppedCaptureFrames;
         segmentHoldAggregateBaseline = StudyRehearsalTiming.MergeHoldAggregates(
             Array.Empty<HoldAggregateData>(),
             activeManifest.holdAggregates);
-        int previousResumeCount = activeManifest.resumeCount;
         bool recordingStarted = false;
         try
         {
             activeManifest.pendingResumeIndex = resumeIndex;
             WriteManifest();
-            utcNow = DateTimeOffset.UtcNow;
-            if (recovery.IsExpired(utcNow))
-            {
-                activeManifest.pendingResumeIndex = 0;
-                return FinalizeExpiredRecoveredRun(recovery);
-            }
-
-            elapsedBeforeCurrentProcess = recovery.GetElapsedSeconds(utcNow);
+            elapsedBeforeCurrentProcess = recovery.GetElapsedSeconds(DateTimeOffset.UtcNow);
             blockStartRealtime = Time.realtimeSinceStartupAsDouble;
             actionRecorder.BeginBlock(
                 recovery.DirectoryPath,
@@ -596,31 +571,11 @@ public sealed class BlockRunController
                 "_resume" + resumeIndex.ToString(CultureInfo.InvariantCulture),
                 elapsedBeforeCurrentProcess);
             recordingStarted = true;
-            utcNow = DateTimeOffset.UtcNow;
-            if (recovery.IsExpired(utcNow))
-            {
-                RollbackOpenedResumeSegment(
-                    recovery.DirectoryPath,
-                    resumeIndex,
-                    previousResumeCount);
-                recordingStarted = false;
-                return FinalizeExpiredRecoveredRun(recovery);
-            }
 
             activeManifest.resumeCount = resumeIndex;
             activeManifest.pendingResumeIndex = 0;
             activeManifest.recordingSummaryComplete = false;
             WriteManifest();
-            utcNow = DateTimeOffset.UtcNow;
-            if (recovery.IsExpired(utcNow))
-            {
-                RollbackOpenedResumeSegment(
-                    recovery.DirectoryPath,
-                    resumeIndex,
-                    previousResumeCount);
-                recordingStarted = false;
-                return FinalizeExpiredRecoveredRun(recovery);
-            }
 
             state.adhocConditionIndex = row.condition == "B" ? 0 : 1;
             state.adhocRouteIndex = routeIndex;
@@ -636,18 +591,18 @@ public sealed class BlockRunController
             headsetPresence.InitializeBlockHeadsetWear();
             actionRecorder.Record(
                 "ManualRunRecovered",
-                row.condition,
+                "",
                 null,
-                "resumeIndex=" + resumeIndex.ToString(CultureInfo.InvariantCulture) +
+                "condition=" + row.condition +
+                ";resumeIndex=" + resumeIndex.ToString(CultureInfo.InvariantCulture) +
                 ";elapsedBeforeResumeSeconds=" +
                 elapsedBeforeCurrentProcess.ToString("F3", CultureInfo.InvariantCulture) +
-                ";rehearsalDeadlineUtc=" + activeManifest.rehearsalDeadlineUtc);
-            panel.ResetBlockTimerDisplay();
-            panel.UpdateBlockRemainingText(RemainingSeconds);
+                ";elapsedSeconds=" +
+                ElapsedSeconds.ToString("F3", CultureInfo.InvariantCulture));
             panel.SetPanelVisible(false);
             state.statusMessage = "Recovered mode " + (row.condition == "B" ? "A" : "B") +
-                                  " with " + StudyRehearsalTiming.FormatRemainingSeconds(RemainingSeconds) +
-                                  " remaining.";
+                                  " after " + StudyRehearsalTiming.FormatElapsedSeconds(ElapsedSeconds) +
+                                  " elapsed.";
             panel.RefreshPanelText();
             return ManualRunRecoveryOutcome.Resumed;
         }
@@ -704,9 +659,7 @@ public sealed class BlockRunController
             sceneConfiguror.SetStudyEnvironmentVisible(true);
             sceneConfiguror.SetStudyFeedbackVisible(true);
         }
-        activeManifest.endUtc = string.Equals(reason, "timer_expired", StringComparison.Ordinal)
-            ? activeManifest.rehearsalDeadlineUtc
-            : DateTime.UtcNow.ToString("o");
+        activeManifest.endUtc = DateTime.UtcNow.ToString("o");
         activeManifest.pendingStart = false;
         activeManifest.endedEarly = endedEarly;
         activeManifest.endReason = reason;
@@ -738,7 +691,6 @@ public sealed class BlockRunController
         state.statusMessage = activeManifest.adhoc
             ? "Run ended: " + reason + "."
             : $"Ended {state.activeRow.participant} block {state.activeRow.block}: {reason}.";
-        panel.SetTimerChipVisible(false);
         panel.ShowPanel();
         panel.RefreshPanelText();
     }
@@ -777,37 +729,17 @@ public sealed class BlockRunController
                     (float)(Time.realtimeSinceStartupAsDouble - headsetPresence.DonningStartRealtime));
                 actionRecorder.Record(
                     "FirstInteraction",
-                    state.activeRow.condition,
+                    "",
                     null,
-                    interaction + ";donningLatencySeconds=" +
+                    "condition=" + state.activeRow.condition +
+                    ";interaction=" + interaction +
+                    ";donningLatencySeconds=" +
                     donningLatency.ToString("F3", CultureInfo.InvariantCulture) +
                     ";rehearsalElapsedSeconds=" +
                     ElapsedSeconds.ToString("F3", CultureInfo.InvariantCulture));
                 CheckpointRecordingProgress();
             }
         }
-        if (state.blockTimerStarted)
-        {
-            panel.UpdateBlockRemainingText(RemainingSeconds);
-            panel.PositionTimerChip();
-        }
-    }
-
-    public bool TryExpireRunningBlock()
-    {
-        if (!state.blockRunning || !state.blockTimerStarted || activeManifest == null ||
-            !activeManifest.adhoc || RemainingSeconds > 0f)
-        {
-            return false;
-        }
-
-        actionRecorder.Record(
-            "RehearsalClockExpired",
-            state.activeRow.condition,
-            null,
-            "durationSeconds=" + RehearsalDurationSeconds.ToString(CultureInfo.InvariantCulture));
-        EndBlock(false, "timer_expired");
-        return true;
     }
 
     private void PrepareRehearsalClock(
@@ -830,9 +762,6 @@ public sealed class BlockRunController
         state.blockTimerStarted = true;
         activeManifest.startUtc = requestedStartUtc.ToString("o");
         activeManifest.rehearsalStartUtc = requestedStartUtc.ToString("o");
-        activeManifest.rehearsalDeadlineUtc = requestedStartUtc
-            .AddSeconds(RehearsalDurationSeconds)
-            .ToString("o");
     }
 
     private void RecordRehearsalClockStarted(string trigger)
@@ -845,12 +774,13 @@ public sealed class BlockRunController
 
         actionRecorder.Record(
             "RehearsalClockStarted",
-            state.activeRow.condition,
+            "",
             null,
-            "block=" + state.activeRow.block.ToString(CultureInfo.InvariantCulture) + ";trigger=" + trigger);
+            "condition=" + state.activeRow.condition +
+            ";block=" + state.activeRow.block.ToString(CultureInfo.InvariantCulture) +
+            ";trigger=" + trigger);
         state.statusMessage = $"Running {state.activeRow.participant} block {state.activeRow.block}.";
         WriteManifest();
-        panel.UpdateBlockRemainingText(RehearsalDurationSeconds);
         panel.RefreshPanelText();
     }
 
@@ -927,22 +857,6 @@ public sealed class BlockRunController
         StudyManifestStorage.DeleteRecoveryFiles(manifestPath);
     }
 
-    private ManualRunRecoveryOutcome FinalizeExpiredRecoveredRun(
-        StudyRehearsalTiming.ActiveManualRunRecovery recovery)
-    {
-        activeManifest.pendingStart = false;
-        activeManifest.pendingResumeIndex = 0;
-        activeManifest.recordingSummaryComplete = false;
-        activeManifest.endUtc = recovery.RehearsalDeadlineUtc.ToString("o");
-        activeManifest.endedEarly = true;
-        activeManifest.endReason = "app_interrupted_timer_expired";
-        activeManifest.boardAlignmentEnd = null;
-        WriteManifest();
-        state.statusMessage = "Previous run expired while the app was closed.";
-        ClearRecoveredRunReferences();
-        return ManualRunRecoveryOutcome.Expired;
-    }
-
     private ManualRunRecoveryOutcome FinalizeInterruptedStartup(
         StudyRehearsalTiming.ActiveManualRunRecovery recovery,
         DateTimeOffset utcNow)
@@ -979,17 +893,6 @@ public sealed class BlockRunController
             "[StudyManager] Rolled back uncommitted recording segment " + suffix.Substring(1) + ".");
         activeManifest.pendingResumeIndex = 0;
         WriteManifest();
-    }
-
-    private void RollbackOpenedResumeSegment(
-        string directory,
-        int resumeIndex,
-        int previousResumeCount)
-    {
-        actionRecorder.EndBlock();
-        DeleteRecordingSegmentFiles(directory, resumeIndex);
-        activeManifest.resumeCount = previousResumeCount;
-        activeManifest.pendingResumeIndex = 0;
     }
 
     private static void DeleteRecordingSegmentFiles(string directory, int resumeIndex)

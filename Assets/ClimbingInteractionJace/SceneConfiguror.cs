@@ -605,7 +605,7 @@ public class SceneConfiguror : MonoBehaviour
             gripContactPipeline?.ClearFeedback();
             gripContactPipeline?.Prepare((IReadOnlyList<GameObject>)null);
         }
-        actionRecorder?.Record("ModeChanged", "", null, newMode.ToString());
+        actionRecorder?.Record("ModeChanged", "", null, "mode=" + newMode);
     }
 
     public void SetPanelInputSuppressed(bool suppressed)

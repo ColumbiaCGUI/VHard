@@ -117,15 +117,19 @@ public sealed class ActionRecorderRecordingTests
 
         string captureHeader = RecordingCsvSerializer.BuildCaptureHeader();
         Assert.That(captureHeader, Is.EqualTo(BuildLockedCaptureHeader()));
-        Assert.That(captureHeader.Split(','), Has.Length.EqualTo(384));
+        Assert.That(captureHeader.Split(','), Has.Length.EqualTo(388));
     }
 
     [Test]
-    public void CaptureSerializerPreservesEveryLegacyColumn()
+    public void CaptureSerializerPreservesEveryColumn()
     {
         CaptureFrame frame = CreateFrame("ROUTE, ONE");
         frame.hold = "A\"1";
-        frame.touchedHold = "L:A\"1|R:B,2";
+        frame.leftHold = "A\"1";
+        frame.rightHold = "B,2";
+        frame.rightGripFlag = 1;
+        frame.rightFingerMask = 17;
+        frame.rightGripScore = 0.25f;
         for (int i = 0; i < CaptureFrame.BoneCount; i++)
         {
             frame.leftPositions[i] = new Vector3(i + 0.1f, i + 0.2f, i + 0.3f);
@@ -162,13 +166,17 @@ public sealed class ActionRecorderRecordingTests
             AddQuaternionColumns(expected, frame.rightRotations[i]);
         }
         expected.Add("1");
-        expected.Add("L:A\"1|R:B,2");
+        expected.Add("A\"1");
         expected.Add("1");
         expected.Add("3");
         expected.Add("0.75000");
+        expected.Add("B,2");
+        expected.Add("1");
+        expected.Add("17");
+        expected.Add("0.25000");
 
         Assert.That(ParseCsvRow(row), Is.EqualTo(expected));
-        Assert.That(expected, Has.Count.EqualTo(384));
+        Assert.That(expected, Has.Count.EqualTo(388));
     }
 
     [Test]
@@ -181,7 +189,7 @@ public sealed class ActionRecorderRecordingTests
             TimeSpan.FromHours(1));
         CaptureFrame frame = CreateFrame("ROUTE, ONE");
         frame.hold = "A\"1";
-        frame.touchedHold = frame.hold;
+        frame.leftHold = frame.hold;
 
         writer.Enqueue(frame);
         writer.StopAndFinalize(1000);
@@ -192,12 +200,14 @@ public sealed class ActionRecorderRecordingTests
         Assert.That(lines, Has.Length.EqualTo(2));
         Assert.That(lines[0], Is.EqualTo(BuildLockedCaptureHeader()));
         List<string> columns = ParseCsvRow(lines[1]);
-        Assert.That(columns, Has.Count.EqualTo(384));
+        Assert.That(columns, Has.Count.EqualTo(388));
         Assert.That(columns[5], Is.EqualTo("ROUTE, ONE"));
         Assert.That(columns[6], Is.EqualTo("A\"1"));
         Assert.That(columns[1], Is.EqualTo("1.25000"));
         Assert.That(columns[3], Is.EqualTo("2.50000"));
+        Assert.That(columns[380], Is.EqualTo("A\"1"));
         Assert.That(columns[383], Is.EqualTo("0.75000"));
+        Assert.That(columns[387], Is.EqualTo("-1.00000"));
     }
 
     [Test]
@@ -245,7 +255,7 @@ public sealed class ActionRecorderRecordingTests
             .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
         Assert.That(captureLines, Has.Length.EqualTo(2));
         Assert.That(captureLines[0], Is.EqualTo(BuildLockedCaptureHeader()));
-        Assert.That(ParseCsvRow(captureLines[1]), Has.Count.EqualTo(384));
+        Assert.That(ParseCsvRow(captureLines[1]), Has.Count.EqualTo(388));
         Assert.That(session.DroppedCaptureFrames, Is.Zero);
     }
 
@@ -825,10 +835,10 @@ public sealed class ActionRecorderRecordingTests
             headRotation = Quaternion.identity,
             leftConfidence = 1,
             rightConfidence = 1,
-            touchedHold = "A1",
-            gripFlag = 1,
-            perFingerContactMask = 3,
-            gripScore = 0.75f,
+            leftHold = "A1",
+            leftGripFlag = 1,
+            leftFingerMask = 3,
+            leftGripScore = 0.75f,
         };
     }
 
@@ -867,10 +877,13 @@ public sealed class ActionRecorderRecordingTests
             }
             columns.Add($"{hand}Conf");
         }
-        columns.Add("touchedHold");
-        columns.Add("gripFlag");
-        columns.Add("perFingerContactMask");
-        columns.Add("gripScore");
+        foreach (char hand in "LR")
+        {
+            columns.Add($"{hand}Hold");
+            columns.Add($"{hand}GripFlag");
+            columns.Add($"{hand}FingerMask");
+            columns.Add($"{hand}GripScore");
+        }
         return string.Join(",", columns);
     }
 

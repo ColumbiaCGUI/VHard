@@ -179,16 +179,16 @@ public sealed class ManualEstimationConsoleTests
     }
 
     [Test]
-    public void ConsoleKeepsOneEstimationControlInsteadOfTheUnwiredPair()
+    public void ConsoleHasNoDedicatedEstimationControls()
     {
         Type panel = FindLoadedType("StudyControlPanel");
         const BindingFlags NonPublicInstance = BindingFlags.NonPublic | BindingFlags.Instance;
 
-        Assert.That(panel.GetField("estimationButton", NonPublicInstance), Is.Not.Null);
         Assert.That(
-            panel.GetField("estimationStartButton", NonPublicInstance),
+            panel.GetField("estimationButton", NonPublicInstance),
             Is.Null,
-            "The unwired scheduled-estimation buttons were the reason the battery never appeared.");
+            "Estimation problems are cycled as ordinary routes; the console has no ESTIMATE control.");
+        Assert.That(panel.GetField("estimationStartButton", NonPublicInstance), Is.Null);
         Assert.That(panel.GetField("estimationNextButton", NonPublicInstance), Is.Null);
     }
 

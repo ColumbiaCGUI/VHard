@@ -14,14 +14,16 @@ EXPECTED_COLUMNS = (
     + [f"L{bone}{field}" for bone in range(26) for field in VECTOR_FIELDS]
     + ["LConf"]
     + [f"R{bone}{field}" for bone in range(26) for field in VECTOR_FIELDS]
-    + ["RConf", "touchedHold", "gripFlag", "perFingerContactMask", "gripScore"]
+    + ["RConf"]
+    + [f"{hand}{field}" for hand in "LR" for field in ("Hold", "GripFlag", "FingerMask", "GripScore")]
 )
 FLOAT_COLUMNS = {
     "sessionTime",
     "blockTime",
     "headPosX", "headPosY", "headPosZ",
     "headRotX", "headRotY", "headRotZ", "headRotW",
-    "gripScore",
+    "LGripScore",
+    "RGripScore",
 } | {
     f"{hand}{bone}{field}"
     for hand in "LR"
@@ -132,8 +134,10 @@ def main():
         axes[0].set_ylabel("Head Y (m)")
         axes[1].plot(frame["blockTime"], fingertip_distance)
         axes[1].set_ylabel("L index delta (m)")
-        axes[2].plot(frame["blockTime"], frame["gripScore"])
+        axes[2].plot(frame["blockTime"], frame["LGripScore"], label="Left")
+        axes[2].plot(frame["blockTime"], frame["RGripScore"], label="Right")
         axes[2].set_ylabel("Grip score")
+        axes[2].legend(loc="upper right")
         axes[2].set_xlabel("Block time (s)")
         figure.tight_layout()
         figure.savefig(args.plot)

@@ -112,6 +112,12 @@ public sealed class MoonBoardEstimationCatalogTests
             Is.True,
             error);
         Assert.That(main.routes, Has.Length.EqualTo(3));
+        Assert.That(
+            main.SupplementalRouteIds,
+            Has.Count.EqualTo(13),
+            "The route cycle appends the 12 estimation problems and the practice problem.");
+        Assert.That(main.SupplementalRouteIds[0], Is.EqualTo("MB2016-386882"));
+        Assert.That(main.SupplementalRouteIds[12], Is.EqualTo("MB2016-19216"));
         Assert.That(main.TryGetRoute("MB2016-386882", out MoonBoardRouteDefinition route), Is.True);
         Assert.That(route.lockedForStudy, Is.False);
         Assert.That(main.TryValidate(out error), Is.True, error);

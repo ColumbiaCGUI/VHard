@@ -329,10 +329,14 @@ public sealed class ActionRecorder : MonoBehaviour
         frame.leftConfidence = leftHand != null && leftHand.IsTracked && leftHand.IsDataHighConfidence ? 1 : 0;
         frame.rightConfidence = rightHand != null && rightHand.IsTracked && rightHand.IsDataHighConfidence ? 1 : 0;
         frame.hold = GetTouchedHoldName(leftTouched, rightTouched);
-        frame.touchedHold = frame.hold;
-        frame.gripFlag = sceneConfiguror.leftHandIsGripping || sceneConfiguror.rightHandIsGripping ? 1 : 0;
-        frame.perFingerContactMask = sceneConfiguror.perFingerContactMask;
-        frame.gripScore = sceneConfiguror.currentGripScore;
+        frame.leftHold = leftTouched != null ? leftTouched.name : string.Empty;
+        frame.leftGripFlag = sceneConfiguror.leftHandIsGripping ? 1 : 0;
+        frame.leftFingerMask = sceneConfiguror.leftFingerContactMask;
+        frame.leftGripScore = sceneConfiguror.leftHandGripScore;
+        frame.rightHold = rightTouched != null ? rightTouched.name : string.Empty;
+        frame.rightGripFlag = sceneConfiguror.rightHandIsGripping ? 1 : 0;
+        frame.rightFingerMask = sceneConfiguror.rightFingerContactMask;
+        frame.rightGripScore = sceneConfiguror.rightHandGripScore;
     }
 
     private static void CopyBones(

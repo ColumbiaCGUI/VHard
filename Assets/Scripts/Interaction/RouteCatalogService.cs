@@ -115,11 +115,18 @@ public sealed class RouteCatalogService
         return names;
     }
 
+    /// <summary>The console's route cycle: the climbed catalog routes first, then every
+    /// supplemental route (estimation problems and the practice problem) in catalog order.</summary>
     public List<string> GetStudyRouteNames()
     {
-        return Catalog?.routes != null
-            ? Catalog.routes.Select(route => route.id).ToList()
-            : new List<string>();
+        if (Catalog?.routes == null)
+        {
+            return new List<string>();
+        }
+
+        List<string> names = Catalog.routes.Select(route => route.id).ToList();
+        names.AddRange(Catalog.SupplementalRouteIds);
+        return names;
     }
 
     public IEnumerator LoadRoutesJson()

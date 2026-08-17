@@ -110,9 +110,8 @@ public sealed class StudyRehearsalTimingTests
                 ?.Invoke(panel, null);
             Transform console = parentObject.transform.Find("Study Experimenter Console");
             Assert.That(console, Is.Not.Null);
-            // Eight controls since the manual estimation cycle landed: the seven manual-rehearsal
-            // controls plus the estimation entry point, which is the console's only way into the
-            // estimation battery now that the scheduled path is unreachable from this panel.
+            // Seven manual-rehearsal controls; the estimation battery is reached through the
+            // route cycle, which lists every supplemental problem alongside the climbed routes.
             (string objectName, string label)[] controls =
             {
                 ("Mode A", "MODE A"),
@@ -121,7 +120,6 @@ public sealed class StudyRehearsalTimingTests
                 ("Next Route", "NO ROUTES"),
                 ("Start Run", "START"),
                 ("Complete Run", "COMPLETE"),
-                ("Estimate", "ESTIMATE"),
                 ("Reset", "RESET"),
             };
             foreach ((string objectName, string label) control in controls)
@@ -137,6 +135,10 @@ public sealed class StudyRehearsalTimingTests
             Assert.That(console.Find("Practice B"), Is.Null);
             Assert.That(console.Find("Align Board"), Is.Null);
             Assert.That(console.Find("Hide Panel"), Is.Null);
+            Assert.That(console.Find("Estimate"), Is.Null,
+                "The estimation battery is reached through the route cycle, not a dedicated control.");
+            Assert.That(parentObject.transform.Find("Study Countdown Chip"), Is.Null,
+                "Runs are completed manually; there is no countdown timer.");
             Assert.That(console.Find("Panel Grab Handle"), Is.Null,
                 "The panel is dragged by its background, not by a pinch-drag control.");
             Assert.That(console.GetComponentsInChildren(buttonType, true), Has.Length.EqualTo(controls.Length),
@@ -292,11 +294,39 @@ public sealed class StudyRehearsalTimingTests
     }
 
     [Test]
-    public void ActiveManualRunRecoveryPreservesThePersistedFiveMinuteDeadline()
+    public void ActiveManualRunRecoveryHasNoDeadlineAndKeepsElapsedTimeUncapped()
     {
         DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
         WriteActiveManualManifest(
             "20260811_120000_000_B_MB2016_21329",
+            "approved-hash",
+            "MB2016_21329",
+            "B",
+            start,
+            null);
+
+        bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
+            recoveryStudyRoot,
+            "approved-hash",
+            new[] { "MB2016_21329", "MB2016_19215" },
+            start.AddMinutes(40),
+            out StudyRehearsalTiming.ActiveManualRunRecovery recovery,
+            out string diagnostic,
+            out _);
+
+        Assert.That(found, Is.True, diagnostic);
+        Assert.That(recovery.Manifest.condition, Is.EqualTo("B"));
+        Assert.That(recovery.RehearsalStartUtc, Is.EqualTo(start));
+        Assert.That(recovery.GetElapsedSeconds(start.AddMinutes(2)), Is.EqualTo(120f));
+        Assert.That(recovery.GetElapsedSeconds(start.AddMinutes(40)), Is.EqualTo(2400f));
+    }
+
+    [Test]
+    public void ActiveManualRunRecoveryStillAcceptsLegacyDeadlineManifests()
+    {
+        DateTimeOffset start = new(2026, 8, 11, 12, 0, 0, TimeSpan.Zero);
+        WriteActiveManualManifest(
+            "legacy-deadline",
             "approved-hash",
             "MB2016_21329",
             "B",
@@ -306,18 +336,17 @@ public sealed class StudyRehearsalTimingTests
         bool found = StudyRehearsalTiming.TryRecoverActiveManualRun(
             recoveryStudyRoot,
             "approved-hash",
-            new[] { "MB2016_21329", "MB2016_19215" },
-            start.AddMinutes(2),
+            new[] { "MB2016_21329" },
+            start.AddMinutes(20),
             out StudyRehearsalTiming.ActiveManualRunRecovery recovery,
             out string diagnostic,
             out _);
 
         Assert.That(found, Is.True, diagnostic);
-        Assert.That(recovery.Manifest.condition, Is.EqualTo("B"));
-        Assert.That(recovery.RehearsalStartUtc, Is.EqualTo(start));
-        Assert.That(recovery.GetElapsedSeconds(start.AddMinutes(2)), Is.EqualTo(120f));
-        Assert.That(recovery.IsExpired(start.AddMinutes(4)), Is.False);
-        Assert.That(recovery.IsExpired(start.AddMinutes(5)), Is.True);
+        Assert.That(
+            recovery.GetElapsedSeconds(start.AddMinutes(20)),
+            Is.EqualTo(1200f),
+            "A persisted legacy deadline is ignored; only the manual COMPLETE ends a run.");
     }
 
     [Test]
@@ -719,7 +748,7 @@ public sealed class StudyRehearsalTimingTests
     }
 
     [Test]
-    public void PanelViewportClampContainsFinalFacingPanelAndTimerBounds()
+    public void PanelViewportClampContainsFinalFacingPanelBounds()
     {
         GameObject cameraObject = new("Panel Clamp Test Camera");
         Camera camera = cameraObject.AddComponent<Camera>();
@@ -756,8 +785,8 @@ public sealed class StudyRehearsalTimingTests
             {
                 new(-0.41f, -0.51f, 0f),
                 new(0.41f, -0.51f, 0f),
-                new(-0.41f, 0.62f, 0f),
-                new(0.41f, 0.62f, 0f),
+                new(-0.41f, 0.51f, 0f),
+                new(0.41f, 0.51f, 0f),
             };
             foreach (Vector3 localCorner in localCorners)
             {
@@ -1042,7 +1071,7 @@ public sealed class StudyRehearsalTimingTests
         string route,
         string condition,
         DateTimeOffset start,
-        DateTimeOffset deadline,
+        DateTimeOffset? deadline,
         bool pendingStart = false)
     {
         string directory = Path.Combine(recoveryStudyRoot, directoryName);
@@ -1057,7 +1086,8 @@ public sealed class StudyRehearsalTimingTests
                       "  \"adhoc\": true,\n" +
                       "  \"startUtc\": \"" + start.ToString("o") + "\",\n" +
                       "  \"rehearsalStartUtc\": \"" + start.ToString("o") + "\",\n" +
-                       "  \"rehearsalDeadlineUtc\": \"" + deadline.ToString("o") + "\",\n" +
+                       "  \"rehearsalDeadlineUtc\": \"" +
+                       (deadline.HasValue ? deadline.Value.ToString("o") : string.Empty) + "\",\n" +
                        "  \"resumeCount\": 0,\n" +
                        "  \"pendingStart\": " + (pendingStart ? "true" : "false") + ",\n" +
                        "  \"pendingResumeIndex\": 0,\n" +

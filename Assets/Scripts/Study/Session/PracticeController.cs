@@ -102,7 +102,6 @@ public sealed class PracticeController
         actionRecorder.Record("PracticeStarted");
         BeginPracticePhase("B");
         panel.SetPanelVisible(false);
-        panel.SetTimerChipVisible(false);
         return true;
     }
 
@@ -133,7 +132,7 @@ public sealed class PracticeController
     private void BeginPracticePhase(string phase)
     {
         state.practicePhase = phase;
-        actionRecorder.Record("PracticePhase", phase);
+        actionRecorder.Record("PracticePhase", "", null, "phase=" + phase);
         sceneConfiguror.SetGameMode(GameMode.Basic);
         sceneConfiguror.ResetMoonBoardTransform();
         sceneConfiguror.SetStudyEnvironmentVisible(true);
@@ -162,7 +161,6 @@ public sealed class PracticeController
         state.practicePhase = string.Empty;
         estimation.RestoreScheduledDisplay(null);
         state.statusMessage = "Practice completed manually.";
-        panel.SetTimerChipVisible(false);
         panel.ShowPanel();
         panel.RefreshPanelText();
     }

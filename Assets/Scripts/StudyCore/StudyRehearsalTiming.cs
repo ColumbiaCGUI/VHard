@@ -7,8 +7,6 @@ using UnityEngine;
 
 public static class StudyRehearsalTiming
 {
-    public const float RehearsalDurationSeconds = 300f;
-
     [Serializable]
     private sealed class RecoveryManifest
     {
@@ -43,12 +41,6 @@ public static class StudyRehearsalTiming
         public string SourceManifestPath { get; internal set; }
         public StudySessionManifest Manifest { get; internal set; }
         public DateTimeOffset RehearsalStartUtc { get; internal set; }
-        public DateTimeOffset RehearsalDeadlineUtc { get; internal set; }
-
-        public bool IsExpired(DateTimeOffset utcNow)
-        {
-            return utcNow >= RehearsalDeadlineUtc;
-        }
 
         public float GetElapsedSeconds(DateTimeOffset utcNow)
         {
@@ -59,9 +51,7 @@ public static class StudyRehearsalTiming
                     "Recovery time cannot precede the persisted rehearsal start.");
             }
 
-            return (float)Math.Min(
-                RehearsalDurationSeconds,
-                (utcNow - RehearsalStartUtc).TotalSeconds);
+            return (float)(utcNow - RehearsalStartUtc).TotalSeconds;
         }
     }
 
@@ -402,7 +392,6 @@ public static class StudyRehearsalTiming
                     approvedRouteIds,
                     utcNow,
                     out DateTimeOffset rehearsalStartUtc,
-                    out DateTimeOffset rehearsalDeadlineUtc,
                     out string rejection,
                     out bool staleCatalog);
             string canonicalPath = Path.Combine(directory, "session.json");
@@ -445,7 +434,6 @@ public static class StudyRehearsalTiming
                 SourceManifestPath = sourceManifestPath,
                 Manifest = manifest,
                 RehearsalStartUtc = rehearsalStartUtc,
-                RehearsalDeadlineUtc = rehearsalDeadlineUtc,
             });
         }
 
@@ -547,12 +535,10 @@ public static class StudyRehearsalTiming
         ISet<string> approvedRoutes,
         DateTimeOffset utcNow,
         out DateTimeOffset rehearsalStartUtc,
-        out DateTimeOffset rehearsalDeadlineUtc,
         out string rejection,
         out bool staleCatalog)
     {
         rehearsalStartUtc = default;
-        rehearsalDeadlineUtc = default;
         // The hash decides which approved catalog the recording belongs to, so it is classified
         // before any structural verdict: a mismatch makes every stricter check irrelevant here.
         staleCatalog = !string.Equals(
@@ -591,11 +577,6 @@ public static class StudyRehearsalTiming
             rejection = "manifest rehearsalStartUtc is invalid.";
             return false;
         }
-        if (!TryParseRoundTripTimestamp(manifest.rehearsalDeadlineUtc, out rehearsalDeadlineUtc))
-        {
-            rejection = "manifest rehearsalDeadlineUtc is invalid.";
-            return false;
-        }
         if (sessionStartUtc > rehearsalStartUtc)
         {
             rejection = "manifest rehearsal starts before its session.";
@@ -604,12 +585,6 @@ public static class StudyRehearsalTiming
         if (sessionStartUtc > utcNow || rehearsalStartUtc > utcNow)
         {
             rejection = "manifest start timestamp is in the future.";
-            return false;
-        }
-        double durationSeconds = (rehearsalDeadlineUtc - rehearsalStartUtc).TotalSeconds;
-        if (Math.Abs(durationSeconds - RehearsalDurationSeconds) > 0.001d)
-        {
-            rejection = "manifest rehearsal deadline is not exactly five minutes after its start.";
             return false;
         }
         if (manifest.resumeCount < 0 || manifest.pendingResumeIndex < 0)
