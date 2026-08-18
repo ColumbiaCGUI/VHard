@@ -120,7 +120,7 @@ public sealed class StudyRehearsalTimingTests
                 ("Next Route", "NO ROUTES"),
                 ("Start Run", "START"),
                 ("Complete Run", "COMPLETE"),
-                ("Reset", "RESET"),
+                ("Recenter", "RECENTER"),
             };
             foreach ((string objectName, string label) control in controls)
             {

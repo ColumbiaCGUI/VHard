@@ -21,6 +21,8 @@ public sealed class BoardAlignmentController : MonoBehaviour
     private OVRSpatialAnchor spatialAnchor;
     private Vector3 initialLocalPosition;
     private Quaternion initialLocalRotation;
+    private Vector3 seatedWorldPosition;
+    private Quaternion seatedWorldRotation;
     private Vector3 firstFiducial;
     private CalibrationStage calibrationStage;
     private bool pinchArmed;
@@ -50,6 +52,8 @@ public sealed class BoardAlignmentController : MonoBehaviour
         SeatBoardBaseAheadOfTrackingOrigin();
         initialLocalPosition = transform.localPosition;
         initialLocalRotation = transform.localRotation;
+        seatedWorldPosition = transform.position;
+        seatedWorldRotation = transform.rotation;
         ResolveReferences();
     }
 
@@ -141,6 +145,58 @@ public sealed class BoardAlignmentController : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Re-seats the rehearsal environment (this root carries both the board and the room) so the
+    /// participant's current standing pose becomes the pose the scene-load seating assumed:
+    /// board fronting them at the policy standoff, room floor under their feet. Participants
+    /// hold no controllers, so the system recenter gesture is out of reach; this is the
+    /// app-side equivalent. A physically calibrated alignment is the one pose recentring must
+    /// never invent over, so an existing alignment or spatial anchor is cleared first and the
+    /// clearance is reported in the status message.
+    /// </summary>
+    public bool TryRecenterToParticipant(Transform participantHead, out string error)
+    {
+        if (participantHead == null)
+        {
+            error = "Recentring requires the participant camera.";
+            return false;
+        }
+        if (IsBusy)
+        {
+            error = "Wait for the board-alignment operation to finish, then recenter again.";
+            return false;
+        }
+        bool hadAlignment = isAligned || isSpatiallyAnchored || spatialAnchor != null;
+        if (hadAlignment && !ClearAlignment())
+        {
+            error = statusMessage;
+            return false;
+        }
+        if (!BoardRecenterPolicy.TryGetStandingYaw(
+                participantHead.forward,
+                participantHead.up,
+                out Quaternion standingYaw))
+        {
+            error = "The participant's facing direction could not be resolved.";
+            return false;
+        }
+
+        BoardRecenterPolicy.GetRecenteredPose(
+            standingYaw,
+            participantHead.position,
+            seatedWorldPosition,
+            seatedWorldRotation,
+            out Vector3 worldPosition,
+            out Quaternion worldRotation);
+        ApplyWorldPose(worldPosition, worldRotation);
+        recenterEpoch++;
+        statusMessage = hadAlignment
+            ? "Board alignment cleared; view recentered to the participant."
+            : "View recentered to the participant.";
+        error = string.Empty;
+        return true;
+    }
+
     public BoardAlignmentSnapshot GetSnapshot()
     {
         return new BoardAlignmentSnapshot
@@ -212,16 +268,7 @@ public sealed class BoardAlignmentController : MonoBehaviour
         Quaternion worldRotation = Quaternion.FromToRotation(Vector3.right, horizontalSpan.normalized);
         Vector3 localA3 = catalog.GetBoardLocalPosition("A3");
         Vector3 worldPosition = measuredA3 - worldRotation * localA3;
-        if (transform.parent == null)
-        {
-            transform.SetPositionAndRotation(worldPosition, worldRotation);
-        }
-        else
-        {
-            transform.localPosition = transform.parent.InverseTransformPoint(worldPosition);
-            transform.localRotation = Quaternion.Inverse(transform.parent.rotation) * worldRotation;
-        }
-        transform.localScale = Vector3.one;
+        ApplyWorldPose(worldPosition, worldRotation);
         isAligned = true;
         isSpatiallyAnchored = false;
         spatialAnchorUuid = string.Empty;
@@ -379,6 +426,22 @@ public sealed class BoardAlignmentController : MonoBehaviour
             boardCenterLateralOffsetMeters,
             worldPosition.y,
             boardBaseDistanceAheadOfOriginMeters);
+    }
+
+    // Calibration and recentring both land a world pose on a root that may sit under a
+    // (unit-scale) parent, so the world-to-local conversion lives in one place.
+    private void ApplyWorldPose(Vector3 worldPosition, Quaternion worldRotation)
+    {
+        if (transform.parent == null)
+        {
+            transform.SetPositionAndRotation(worldPosition, worldRotation);
+        }
+        else
+        {
+            transform.localPosition = transform.parent.InverseTransformPoint(worldPosition);
+            transform.localRotation = Quaternion.Inverse(transform.parent.rotation) * worldRotation;
+        }
+        transform.localScale = Vector3.one;
     }
 
     private void ResolveReferences()

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using TMPro;
@@ -7,8 +8,8 @@ using UnityEngine;
 
 /// <summary>
 /// Runtime-built experimenter console for selecting a VR mode and route, controlling a
-/// manually completed run, resetting the room, and hiding or moving the panel with hand-ray
-/// interaction.
+/// manually completed run, recentering the participant while resetting the room, and hiding
+/// or moving the panel with hand-ray interaction.
 /// </summary>
 public sealed class StudyControlPanel
 {
@@ -124,7 +125,7 @@ public sealed class StudyControlPanel
     private StudyPanelButton manualNextRouteButton;
     private StudyPanelButton manualStartButton;
     private StudyPanelButton manualCompleteButton;
-    private StudyPanelButton manualResetButton;
+    private StudyPanelButton manualRecenterButton;
     private Renderer panelBackgroundRenderer;
     private Collider panelGrabSurfaceCollider;
     private Color panelSurfaceTint = PanelColor;
@@ -340,12 +341,12 @@ public sealed class StudyControlPanel
             "COMPLETE",
             CompleteManualRun,
             out manualCompleteLabel);
-        manualResetButton = CreateButton(
-            "Reset",
+        manualRecenterButton = CreateButton(
+            "Recenter",
             new Vector3(0f, -0.29f, -0.02f),
             new Vector2(0.60f, 0.06f),
-            "RESET",
-            ResetStudyState,
+            "RECENTER",
+            RecenterStudyState,
             out _);
         TextMeshPro grabHint = CreateText(
             panelRoot.transform,
@@ -366,7 +367,7 @@ public sealed class StudyControlPanel
             manualCompleteButton);
         manualPreviousRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
         manualNextRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
-        manualResetButton.SetPalette(UtilityButtonColor, UtilityHoverColor, SelectedColor);
+        manualRecenterButton.SetPalette(UtilityButtonColor, UtilityHoverColor, SelectedColor);
         manualCompleteButton.SetDanger(true);
 
         BuildPointer("Left Panel Pointer", out leftPointerRoot, out leftPointerLine, out leftPointerReticle);
@@ -619,17 +620,38 @@ public sealed class StudyControlPanel
             blockRun.CompleteBlock);
     }
 
-    private void ResetStudyState()
+    private void RecenterStudyState()
     {
         CancelConfirmation();
-        // Reset is the console's way out of any state, so it closes an open estimation recording
-        // rather than leaving the cycle active with no board content behind it.
+        // Recenter is the console's way out of any state, so it closes an open estimation
+        // recording rather than leaving the cycle active with no board content behind it.
         EndEstimationIfShowing();
         if (sceneConfiguror == null)
         {
             throw new InvalidOperationException("The study environment is unavailable.");
         }
 
+        // The environment re-seats to the participant's current standing pose before the study
+        // state resets on top of it, so ghosts, mode re-entry, and the panel all land in the
+        // recentered frame.
+        string recenterError = "Recentring is unavailable.";
+        bool recentered = boardAlignment != null &&
+                          boardAlignment.TryRecenterToParticipant(
+                              userCamera != null ? userCamera.transform : null,
+                              out recenterError);
+        if (recentered)
+        {
+            BoardAlignmentSnapshot pose = boardAlignment.GetSnapshot();
+            sceneConfiguror.actionRecorder?.Record(
+                "ViewRecenter",
+                "",
+                null,
+                "source=console" +
+                ";boardX=" + pose.position.x.ToString("F3", CultureInfo.InvariantCulture) +
+                ";boardY=" + pose.position.y.ToString("F3", CultureInfo.InvariantCulture) +
+                ";boardZ=" + pose.position.z.ToString("F3", CultureInfo.InvariantCulture) +
+                ";boardYawDeg=" + pose.rotation.eulerAngles.y.ToString("F1", CultureInfo.InvariantCulture));
+        }
         sceneConfiguror.actionRecorder?.Record(
             "EnvironmentReset",
             "",
@@ -647,7 +669,9 @@ public sealed class StudyControlPanel
         rightPinchArmed = false;
         if (!state.manualRunRecoveryBlocked)
         {
-            state.statusMessage = "Board, room, grip, ghost, and panel reset.";
+            state.statusMessage = recentered
+                ? "View recentered; board, room, grip, ghost, and panel reset."
+                : recenterError + " Board, room, grip, ghost, and panel reset.";
         }
         RefreshPanelText();
     }
@@ -845,7 +869,7 @@ public sealed class StudyControlPanel
         manualNextRouteButton?.SetInteractable(idle && hasRoute);
         manualStartButton?.SetInteractable(modeSelectable && hasRoute);
         manualCompleteButton?.SetInteractable(state.blockRunning);
-        manualResetButton?.SetInteractable(sceneConfiguror != null);
+        manualRecenterButton?.SetInteractable(sceneConfiguror != null);
         if (manualStartLabel != null)
         {
             manualStartLabel.text = "START";
