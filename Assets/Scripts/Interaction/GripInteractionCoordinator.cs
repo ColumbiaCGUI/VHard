@@ -55,6 +55,10 @@ public sealed class GripInteractionCoordinator
     private bool inputSuppressed;
     private bool leftAcquisitionArmed = true;
     private bool rightAcquisitionArmed = true;
+    private int leftTelemetryStateKey = GripAcquisitionTelemetry.NoStateKey;
+    private int rightTelemetryStateKey = GripAcquisitionTelemetry.NoStateKey;
+    private float leftTelemetryRecordedAt = float.NegativeInfinity;
+    private float rightTelemetryRecordedAt = float.NegativeInfinity;
 
     public GripInteractionCoordinator(SceneConfiguror owner)
     {
@@ -336,6 +340,8 @@ public sealed class GripInteractionCoordinator
         owner.isGripLocomotionActive = false;
         leftLocomotionActive = false;
         rightLocomotionActive = false;
+        leftTelemetryStateKey = GripAcquisitionTelemetry.NoStateKey;
+        rightTelemetryStateKey = GripAcquisitionTelemetry.NoStateKey;
     }
 
     /// <summary>Releases a hold (e.g. an unregistering ghost) from whichever latch holds it.</summary>
@@ -451,6 +457,9 @@ public sealed class GripInteractionCoordinator
         if (inputSuppressed)
         {
             ReportDiagnostics(hand, latch, GripEngagementBlock.InputSuppressed, default, criteria, 0, minFingers);
+            RecordAcquisitionTelemetry(
+                hand, latch, GripEngagementBlock.InputSuppressed, default, 0, minFingers,
+                candidate, trackingValid, now);
             return;
         }
 
@@ -473,6 +482,9 @@ public sealed class GripInteractionCoordinator
                 }
             }
             ReportDiagnostics(hand, latch, GripEngagementBlock.AwaitingOpenHand, default, criteria, 0, minFingers);
+            RecordAcquisitionTelemetry(
+                hand, latch, GripEngagementBlock.AwaitingOpenHand, default, 0, minFingers,
+                candidate, trackingValid, now);
             return;
         }
 
@@ -523,20 +535,97 @@ public sealed class GripInteractionCoordinator
             transition,
             now,
             trackingValid);
+        GripEngagementBlock block = ResolveEngagementBlock(
+            latch.Phase,
+            trackingValid,
+            candidate,
+            affordancesReady,
+            acquisitionReady,
+            verdict);
+        int requiredFingers = verdict.CanAcquire ? verdict.RequiredFingers : minFingers;
         ReportDiagnostics(
             hand,
             latch,
-            ResolveEngagementBlock(
-                latch.Phase,
-                trackingValid,
-                candidate,
-                affordancesReady,
-                acquisitionReady,
-                verdict),
+            block,
             masks,
             criteria,
             verdict.CountedFingers,
-            verdict.CanAcquire ? verdict.RequiredFingers : minFingers);
+            requiredFingers);
+        RecordAcquisitionTelemetry(
+            hand, latch, block, masks, verdict.CountedFingers, requiredFingers,
+            candidate, trackingValid, now);
+    }
+
+    /// <summary>Snapshots the acquisition state to the recorder whenever the slow-moving signals
+    /// (latch phase, hand validity, per-finger confidence, candidate presence) change. This is
+    /// what lets a recorded session separate "the hand was open" from "the tracker could not see
+    /// the fingers" - the distinction the pilots' wrist-twist reports hinge on.</summary>
+    private void RecordAcquisitionTelemetry(
+        Hand hand,
+        GripLatchStateMachine latch,
+        GripEngagementBlock block,
+        in GripAcquisitionMasks masks,
+        int countedFingers,
+        int requiredFingers,
+        GameObject candidate,
+        bool trackingValid,
+        float now)
+    {
+        ActionRecorder recorder = owner.actionRecorder;
+        if (recorder == null || !recorder.IsRecording)
+        {
+            // Reset the change detector so the first evaluated state of the next recording is
+            // always captured, whatever it is.
+            if (hand == Hand.Left)
+            {
+                leftTelemetryStateKey = GripAcquisitionTelemetry.NoStateKey;
+            }
+            else
+            {
+                rightTelemetryStateKey = GripAcquisitionTelemetry.NoStateKey;
+            }
+            return;
+        }
+
+        int confidenceMask = GripAcquisitionTelemetry.BuildConfidenceMask(
+            hand == Hand.Left ? leftFingerConfidence : rightFingerConfidence);
+        int stateKey = GripAcquisitionTelemetry.BuildStateKey(
+            latch.Phase,
+            trackingValid,
+            confidenceMask,
+            candidate != null);
+        if (!GripAcquisitionTelemetry.ShouldRecord(
+                stateKey,
+                hand == Hand.Left ? leftTelemetryStateKey : rightTelemetryStateKey,
+                now,
+                hand == Hand.Left ? leftTelemetryRecordedAt : rightTelemetryRecordedAt))
+        {
+            return;
+        }
+
+        recorder.Record(
+            GripAcquisitionTelemetry.ActionName,
+            hand == Hand.Left ? "Left" : "Right",
+            candidate,
+            GripAcquisitionTelemetry.FormatDetails(
+                latch.Phase,
+                block,
+                trackingValid,
+                confidenceMask,
+                masks,
+                countedFingers,
+                requiredFingers,
+                hand == Hand.Left ? leftFingerCurls : rightFingerCurls));
+        if (hand == Hand.Left)
+        {
+            leftTelemetryStateKey = stateKey;
+            leftTelemetryRecordedAt = now;
+        }
+        else
+        {
+            rightTelemetryStateKey = stateKey;
+            rightTelemetryRecordedAt = now;
+        }
     }
 
     private static GripEngagementBlock ResolveEngagementBlock(
