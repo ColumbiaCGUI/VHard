@@ -185,7 +185,7 @@ class SessionValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             scheduled = self._write_block(root, "completed_manual")
-            manual = root / "MANUAL" / "20260811_120000_000_B_MB2016_412117"
+            manual = root / "MANUAL" / "20260811_120000_000_B_MB2016_19215"
             manual.parent.mkdir()
             scheduled.rename(manual)
             manifest_path = manual / "session.json"
@@ -254,19 +254,19 @@ class SessionValidationTests(unittest.TestCase):
 
     @staticmethod
     def _write_block(root: Path, end_reason: str) -> Path:
-        block = root / "P01" / "block1_B_MB2016_412117"
+        block = root / "P01" / "block1_B_MB2016_19215"
         block.mkdir(parents=True)
         start = datetime(2026, 7, 16, tzinfo=timezone.utc)
         end = start + timedelta(seconds=2)
         catalog = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
-        route_definition = next(route for route in catalog["routes"] if route["id"] == "MB2016-412117")
+        route_definition = next(route for route in catalog["routes"] if route["id"] == "MB2016-19215")
         manifest = {
             "participant": "P01",
             "block": 1,
             "condition": "B",
-            "route": "MB2016-412117",
-            "routeName": "No Vaping or Reptiles",
-            "routeSourceProblemId": "412117",
+            "route": "MB2016-19215",
+            "routeName": "FAR FROM THE MADDING CROWD",
+            "routeSourceProblemId": "19215",
             "routeCatalogSha256": APPROVED_CATALOG_SHA256,
             "boardSetup": "MoonBoard 2016",
             "boardOverhangAngleDegrees": 40,
@@ -325,7 +325,7 @@ class SessionValidationTests(unittest.TestCase):
                 "frame": str(index),
                 "blockTime": f"{index / 30:.5f}",
                 "mode": "Grip",
-                "route": "MB2016-412117",
+                "route": "MB2016-19215",
                 "LConf": "1",
                 "RConf": "1",
                 "LHold": "",

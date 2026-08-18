@@ -9,7 +9,7 @@ class ScheduleGeneratorTests(unittest.TestCase):
     def test_routes_come_from_authoritative_catalog(self):
         self.assertEqual(
             load_routes(DEFAULT_CATALOG),
-            ("MB2016-412117", "MB2016-410602", "MB2016-412973"),
+            ("MB2016-19215", "MB2016-21329", "MB2016-170190"),
         )
 
     def test_one_hundred_participants_are_balanced(self):

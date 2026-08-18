@@ -10,7 +10,7 @@ public sealed class StudyRouteIdentityTests
 {
     private static readonly string[] ApprovedRouteIds =
     {
-        "MB2016-412117", "MB2016-410602", "MB2016-412973",
+        "MB2016-19215", "MB2016-21329", "MB2016-170190",
     };
 
     [Test]
@@ -26,7 +26,7 @@ public sealed class StudyRouteIdentityTests
         }
         Assert.That(
             StudyRouteIdentity.GetRouteCode(ApprovedRouteIds[0]),
-            Is.EqualTo(StudyRouteIdentity.GetRouteCode(" mb2016-412117 ")));
+            Is.EqualTo(StudyRouteIdentity.GetRouteCode(" mb2016-19215 ")));
     }
 
     [Test]
@@ -49,8 +49,8 @@ public sealed class StudyRouteIdentityTests
         Assert.That(label, Does.Contain("SLOT 1 / 3"));
         Assert.That(label, Does.Contain(StudyRouteIdentity.GetRouteCode(ApprovedRouteIds[0])));
         Assert.That(label, Does.Not.Contain(ApprovedRouteIds[0]));
-        Assert.That(label, Does.Not.Contain("412117"));
-        Assert.That(label, Does.Not.Contain("No Vaping or Reptiles"));
+        Assert.That(label, Does.Not.Contain("19215"));
+        Assert.That(label, Does.Not.Contain("FAR FROM THE MADDING CROWD"));
         Assert.That(label, Does.Not.Contain("6B+"));
     }
 

@@ -7,7 +7,7 @@ using UnityEngine;
 public sealed class MoonBoardEstimationCatalog
 {
     public const string ApprovedCatalogSha256 =
-        "76d5c5e6e0e36a8fe6ce1843c3a0a6abfcdbb14b5d365f706273f8a7cf71bd64";
+        "ba460d1585ff91a5ed1dacba3522b6d5c6a85605053aefa7bc4042683862510c";
     public const string ApprovedSourceArchive = "problems_2023_01_30.zip";
     public const string ApprovedSourceArchiveUrl =
         "https://drive.google.com/file/d/1Zoqsmc15IHtGekY99xazemxjGGx07Kep/view";

@@ -15,7 +15,7 @@ MANUAL_DIRECTORY_PATTERN = re.compile(
     r"[0-9]{8}_[0-9]{6}_[0-9]{3}_[BC]_[A-Z0-9_]+(?:_retry[0-9]+)?$"
 )
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "Assets/StreamingAssets/moonboard_2016_40.json"
-APPROVED_CATALOG_SHA256 = "ced054d8e31ad95dc8644479d1522cd58b929119bab79e505f05d6452fa67862"
+APPROVED_CATALOG_SHA256 = "0d10b5aa4b7629799987ad2058c80702ef9727b824da076712a123cd546fb6f7"
 MAX_ALIGNMENT_DRIFT_METERS = 0.02
 MAX_ALIGNMENT_DRIFT_DEGREES = 2.0
 COMPLETE_END_REASONS = {"completed_manual", "completed_early", "timer_expired"}
@@ -136,11 +136,10 @@ def validate_session(directory: Path) -> int:
         or route.get("id") != manifest["route"]
         or route.get("name") != manifest["routeName"]
         or route.get("sourceProblemId") != manifest["routeSourceProblemId"]
-        # 2026-08-12 model-blind climb rule: uncontested community 6B+ with at most eight
-        # holds; benchmark status is no longer part of the contract.
         or route.get("grade") != "6B+"
+        or route.get("isBenchmark") is not True
         or route.get("lockedForStudy") is not True
-        or not 3 <= len(route.get("moves", ())) <= 8
+        or len(route.get("moves", ())) != 7
     ):
         raise SystemExit("Manifest route snapshot is inconsistent or not study-locked")
     roles = [move.get("role") for move in route["moves"]]

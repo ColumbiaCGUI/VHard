@@ -3,7 +3,7 @@
   "setupId": "moonboard-2016",
   "setupName": "MoonBoard 2016",
   "overhangAngleDegrees": 40,
-  "archiveDate": "2026-08-18",
+  "archiveDate": "2026-07-27",
   "geometry": {
     "boardWidthMeters": 2.44,
     "totalHeightMeters": 3.15,
@@ -24,12 +24,7 @@
     "holdsSha256": "c29a4215a61baa11d66bacd622447b017ece1dbdb39e954b4703626f4ecb7d9d",
     "dimensionsSha256": "850a2b7e8de0b7e74fb00309b3c0f27cb69be5f10372384e4d385e0afc587a78",
     "meshAsset": "Assets/Resources/New_Decimated_Holds.fbx",
-    "meshAssetSha256": "ec1dafd9ed8ee134395af0919f7ff96cc2f34a353baaa604102e4fd2f968b22a",
-    "climbSourceArchive": "problems_2023_01_30.zip",
-    "climbSourceArchiveUrl": "https://drive.google.com/file/d/1Zoqsmc15IHtGekY99xazemxjGGx07Kep/view",
-    "climbSourceArchiveSha256": "f7f8becff8d1bcb3bd93feaee67cea4b5cecf27d84e079115ef9590b0efe5c05",
-    "climbSourceFile": "problems MoonBoard 2016 .json",
-    "climbSourceFileSha256": "355792de881324a51accc32e7478b7cd4535a63a4b2bf8cedf56d4280044723d"
+    "meshAssetSha256": "ec1dafd9ed8ee134395af0919f7ff96cc2f34a353baaa604102e4fd2f968b22a"
   },
   "holds": [
     {
@@ -2297,191 +2292,173 @@
   ],
   "routes": [
     {
-      "id": "MB2016-412117",
-      "sourceProblemId": "412117",
-      "name": "No Vaping or Reptiles",
+      "id": "MB2016-19215",
+      "sourceProblemId": "19215",
+      "name": "FAR FROM THE MADDING CROWD",
       "grade": "6B+",
-      "isBenchmark": false,
+      "isBenchmark": true,
       "method": "Feet follow hands",
-      "repeatsAtArchive": 115,
-      "setter": "halladay",
+      "repeatsAtArchive": 7228,
+      "setter": "Ben Moon",
       "lockedForStudy": true,
-      "selectionMatch": "model-blind 2026-08-12: uncontested 6B+; created 2021+; >=50 repeats; <=8 holds; two starts; pairwise shared holds <=1",
-      "sourceRecordSha256": "f2b7073c195c3d845c34cf56ebc9c2b47ebf8906fb5d90d452854c8eb14dc6ce",
+      "selectionMatch": "6B+ benchmark; 7 holds; 2 distinct start holds",
+      "sourceRecordSha256": "a4fff7d386703908bec81765646f2a3f0f9cda7ea04488ac7e5f96a3e58a5832",
       "moves": [
         {
           "sequence": 0,
-          "coordinate": "F5",
+          "coordinate": "E6",
           "role": "start",
-          "sourceMoveId": "412117"
+          "sourceMoveId": "1518000"
         },
         {
           "sequence": 1,
-          "coordinate": "G2",
-          "role": "start",
-          "sourceMoveId": "412117"
-        },
-        {
-          "sequence": 2,
-          "coordinate": "H10",
-          "role": "move",
-          "sourceMoveId": "412117"
-        },
-        {
-          "sequence": 3,
-          "coordinate": "E8",
-          "role": "move",
-          "sourceMoveId": "412117"
-        },
-        {
-          "sequence": 4,
-          "coordinate": "E13",
-          "role": "move",
-          "sourceMoveId": "412117"
-        },
-        {
-          "sequence": 5,
-          "coordinate": "F14",
-          "role": "move",
-          "sourceMoveId": "412117"
-        },
-        {
-          "sequence": 6,
-          "coordinate": "I16",
-          "role": "move",
-          "sourceMoveId": "412117"
-        },
-        {
-          "sequence": 7,
-          "coordinate": "G18",
-          "role": "finish",
-          "sourceMoveId": "412117"
-        }
-      ]
-    },
-    {
-      "id": "MB2016-410602",
-      "sourceProblemId": "410602",
-      "name": "Golden Years",
-      "grade": "6B+",
-      "isBenchmark": false,
-      "method": "Feet follow hands",
-      "repeatsAtArchive": 100,
-      "setter": "Kyle Knapp",
-      "lockedForStudy": true,
-      "selectionMatch": "model-blind 2026-08-12: uncontested 6B+; created 2021+; >=50 repeats; <=8 holds; two starts; pairwise shared holds <=1",
-      "sourceRecordSha256": "7f8863a16311ea120bb02caa3c06d5a54c3f47fd4b6c1acca92d5072f25e53cc",
-      "moves": [
-        {
-          "sequence": 0,
           "coordinate": "C5",
           "role": "start",
-          "sourceMoveId": "410602"
-        },
-        {
-          "sequence": 1,
-          "coordinate": "A5",
-          "role": "start",
-          "sourceMoveId": "410602"
+          "sourceMoveId": "1518001"
         },
         {
           "sequence": 2,
-          "coordinate": "B9",
+          "coordinate": "E8",
           "role": "move",
-          "sourceMoveId": "410602"
+          "sourceMoveId": "1518002"
         },
         {
           "sequence": 3,
-          "coordinate": "B10",
+          "coordinate": "F11",
           "role": "move",
-          "sourceMoveId": "410602"
+          "sourceMoveId": "1518003"
         },
         {
           "sequence": 4,
-          "coordinate": "F11",
+          "coordinate": "C13",
           "role": "move",
-          "sourceMoveId": "410602"
+          "sourceMoveId": "1518004"
         },
         {
           "sequence": 5,
-          "coordinate": "A14",
+          "coordinate": "D15",
           "role": "move",
-          "sourceMoveId": "410602"
+          "sourceMoveId": "1518005"
         },
         {
           "sequence": 6,
-          "coordinate": "D15",
-          "role": "move",
-          "sourceMoveId": "410602"
-        },
-        {
-          "sequence": 7,
           "coordinate": "D18",
           "role": "finish",
-          "sourceMoveId": "410602"
+          "sourceMoveId": "1518006"
         }
       ]
     },
     {
-      "id": "MB2016-412973",
-      "sourceProblemId": "412973",
-      "name": "Sailor Moonboard",
+      "id": "MB2016-21329",
+      "sourceProblemId": "21329",
+      "name": "KLINGON EASY",
       "grade": "6B+",
-      "isBenchmark": false,
+      "isBenchmark": true,
       "method": "Feet follow hands",
-      "repeatsAtArchive": 91,
-      "setter": "Danielle Korman",
+      "repeatsAtArchive": 6357,
+      "setter": "Ben Moon",
       "lockedForStudy": true,
-      "selectionMatch": "model-blind 2026-08-12: uncontested 6B+; created 2021+; >=50 repeats; <=8 holds; two starts; pairwise shared holds <=1",
-      "sourceRecordSha256": "5a2ed2b70f9724c3ae98e186a7809224a16c8320de495cb982f3d7a18e71aaab",
+      "selectionMatch": "6B+ benchmark; 7 holds; 2 distinct start holds",
+      "sourceRecordSha256": "c35f117ca1dbf4d8d095b810b00fa9f41f00b11afbdb2df2ee97ddc7668767e7",
       "moves": [
         {
           "sequence": 0,
-          "coordinate": "I5",
+          "coordinate": "G4",
           "role": "start",
-          "sourceMoveId": "412973"
+          "sourceMoveId": "1520000"
         },
         {
           "sequence": 1,
-          "coordinate": "K5",
+          "coordinate": "E6",
           "role": "start",
-          "sourceMoveId": "412973"
+          "sourceMoveId": "1520001"
         },
         {
           "sequence": 2,
-          "coordinate": "J8",
+          "coordinate": "H10",
           "role": "move",
-          "sourceMoveId": "412973"
+          "sourceMoveId": "1520002"
         },
         {
           "sequence": 3,
-          "coordinate": "H10",
+          "coordinate": "E10",
           "role": "move",
-          "sourceMoveId": "412973"
+          "sourceMoveId": "1520003"
         },
         {
           "sequence": 4,
-          "coordinate": "H11",
+          "coordinate": "F14",
           "role": "move",
-          "sourceMoveId": "412973"
+          "sourceMoveId": "1520004"
         },
         {
           "sequence": 5,
-          "coordinate": "C13",
+          "coordinate": "I14",
           "role": "move",
-          "sourceMoveId": "412973"
+          "sourceMoveId": "1520005"
         },
         {
           "sequence": 6,
-          "coordinate": "E15",
+          "coordinate": "G18",
+          "role": "finish",
+          "sourceMoveId": "1520006"
+        }
+      ]
+    },
+    {
+      "id": "MB2016-170190",
+      "sourceProblemId": "170190",
+      "name": "SALUHALLEN 6",
+      "grade": "6B+",
+      "isBenchmark": true,
+      "method": "Feet follow hands",
+      "repeatsAtArchive": 4312,
+      "setter": "Joakim Aagaerd",
+      "lockedForStudy": true,
+      "selectionMatch": "6B+ benchmark; 7 holds; 2 distinct start holds",
+      "sourceRecordSha256": "89ee7f8933d6e9d281732fae4a70d52e18c9c33e37a7a881bf76d634b1a56eee",
+      "moves": [
+        {
+          "sequence": 0,
+          "coordinate": "B11",
           "role": "move",
-          "sourceMoveId": "412973"
+          "sourceMoveId": "1622018"
         },
         {
-          "sequence": 7,
-          "coordinate": "B18",
+          "sequence": 1,
+          "coordinate": "E6",
+          "role": "start",
+          "sourceMoveId": "1622019"
+        },
+        {
+          "sequence": 2,
+          "coordinate": "E15",
+          "role": "move",
+          "sourceMoveId": "1622020"
+        },
+        {
+          "sequence": 3,
+          "coordinate": "G9",
+          "role": "move",
+          "sourceMoveId": "1622021"
+        },
+        {
+          "sequence": 4,
+          "coordinate": "G13",
+          "role": "move",
+          "sourceMoveId": "1622022"
+        },
+        {
+          "sequence": 5,
+          "coordinate": "H5",
+          "role": "start",
+          "sourceMoveId": "1622023"
+        },
+        {
+          "sequence": 6,
+          "coordinate": "I18",
           "role": "finish",
-          "sourceMoveId": "412973"
+          "sourceMoveId": "1622024"
         }
       ]
     }
