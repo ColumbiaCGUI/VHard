@@ -29,12 +29,17 @@ public sealed class GripDiagnosticsHud : MonoBehaviour
     private readonly float[] jointSamples = new float[FingerCurlEstimator.MaximumJointsPerFinger];
     private readonly StringBuilder textBuilder = new(1024);
 
+    private const float DimmedPanelAlpha = 0.32f;
+    private const float DimmedTextAlpha = 0.35f;
+
     private SceneConfiguror configuror;
     private GripInteractionCoordinator coordinator;
     private GripEngagementSettings settings;
     private GameObject panelRoot;
+    private TextMeshPro titleText;
     private TextMeshPro leftText;
     private TextMeshPro rightText;
+    private bool panelDimmed;
     private Material panelMaterial;
     private Material textMaterial;
     private Mesh quadMesh;
@@ -118,8 +123,13 @@ public sealed class GripDiagnosticsHud : MonoBehaviour
             return;
         }
 
+        // The palm-up summon dwell suppresses input before the console opens; the panel dims for
+        // that armed window instead of vanishing, so the gesture no longer looks like it deletes
+        // the diagnostics. Only an actually open console hides it.
+        bool suppressed = configuror.IsPanelInputSuppressed;
+        bool summonArmed = suppressed && configuror.IsPanelSummonArmed;
         bool examining = (configuror.gameMode is GameMode.Grip or GameMode.Ghost) &&
-                         !configuror.IsPanelInputSuppressed;
+                         (!suppressed || summonArmed);
         if (!examining)
         {
             SetPanelVisible(false);
@@ -142,6 +152,7 @@ public sealed class GripDiagnosticsHud : MonoBehaviour
             return;
         }
 
+        ApplyPanelDimmed(summonArmed);
         FollowHead();
         if (now - lastRefreshAt < settings.diagnosticsRefreshSeconds)
         {
@@ -241,6 +252,23 @@ public sealed class GripDiagnosticsHud : MonoBehaviour
             Quaternion.Slerp(panelRoot.transform.rotation, rotation, smoothing));
     }
 
+    private void ApplyPanelDimmed(bool dimmed)
+    {
+        if (panelRoot == null || panelDimmed == dimmed)
+        {
+            return;
+        }
+
+        panelDimmed = dimmed;
+        Color panelColor = PanelColor;
+        panelColor.a = dimmed ? DimmedPanelAlpha : PanelColor.a;
+        panelMaterial.SetColor("_Color", panelColor);
+        float textAlpha = dimmed ? DimmedTextAlpha : 1f;
+        titleText.alpha = textAlpha;
+        leftText.alpha = textAlpha;
+        rightText.alpha = textAlpha;
+    }
+
     private void SetPanelVisible(bool visible)
     {
         if (visible && panelRoot == null)
@@ -305,7 +333,7 @@ public sealed class GripDiagnosticsHud : MonoBehaviour
         backgroundRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         backgroundRenderer.receiveShadows = false;
 
-        TextMeshPro title = CreateText(
+        titleText = CreateText(
             uiLayer,
             fontAsset,
             "Grip Diagnostics Title",
@@ -314,7 +342,7 @@ public sealed class GripDiagnosticsHud : MonoBehaviour
             0.014f,
             TitleColor,
             TextAlignmentOptions.Center);
-        title.text = "HAND GRIP  |  FLEXION AND CONTACT";
+        titleText.text = "HAND GRIP  |  FLEXION AND CONTACT";
 
         float columnWidth = PanelWidthMeters * 0.5f - 0.015f;
         float columnX = PanelWidthMeters * 0.25f;

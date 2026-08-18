@@ -1002,6 +1002,11 @@ public sealed class StudyControlPanel
         sceneConfiguror?.SetPanelInputSuppressed(suppressed);
     }
 
+    public void SetSummonArmed(bool armed)
+    {
+        sceneConfiguror?.SetPanelSummonArmed(armed);
+    }
+
     public void HandlePanelInput(
         OVRHand leftHand,
         OVRSkeleton leftSkeleton,

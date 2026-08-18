@@ -608,6 +608,16 @@ public class SceneConfiguror : MonoBehaviour
         actionRecorder?.Record("ModeChanged", "", null, "mode=" + newMode);
     }
 
+    /// <summary>True from the moment the palm-up summon dwell completes until the pinch lands or
+    /// the palm drops. Input is suppressed while armed, but the console itself is still closed —
+    /// the diagnostics HUD dims for this state instead of vanishing.</summary>
+    public bool IsPanelSummonArmed { get; private set; }
+
+    public void SetPanelSummonArmed(bool armed)
+    {
+        IsPanelSummonArmed = armed;
+    }
+
     public void SetPanelInputSuppressed(bool suppressed)
     {
         bool suppressionStarted = suppressed && !panelInputSuppressed;
@@ -747,6 +757,21 @@ public class SceneConfiguror : MonoBehaviour
             return;
         }
         alignmentRoot.position = ghostStandoffBaselinePosition;
+    }
+
+    /// <summary>Mid-run "back to start" for grip rehearsal: releases both grips and restores the
+    /// board and scenery to their pristine pose, and nothing else — the active run, its recording,
+    /// the mode, and the experimenter panel all continue untouched.</summary>
+    public void ResetClimbToBase(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("Climb reset reason is required.", nameof(reason));
+        }
+
+        actionRecorder?.Record("EnvironmentReset", "", null, "reason=" + reason);
+        ResetInteractionState();
+        ResetMoonBoardTransform();
     }
 
     public void ResetManualStudyState(bool restoreBasicMode = false)

@@ -15,6 +15,21 @@ public sealed class SummonGestureDetector
     private bool summonReadyForPinch;
     private float summonCooldownUntil;
 
+    /// <summary>True once the palm-up dwell has completed and a pinch would toggle the panel.</summary>
+    public bool ArmedForPinch => summonReadyForPinch;
+
+    /// <summary>True while the guarded summon is visibly in progress: dwelling or armed.</summary>
+    public bool IsDwellIndicatorVisible => summonDwellStart >= 0f || summonReadyForPinch;
+
+    public float GetDwellProgress01(float now)
+    {
+        return StudyRehearsalTiming.ComputeSummonDwellProgress(
+            summonReadyForPinch,
+            summonDwellStart,
+            now,
+            summonDwellSeconds());
+    }
+
     public SummonGestureDetector(
         StudySessionState state,
         StudyControlPanel panel,
@@ -81,6 +96,7 @@ public sealed class SummonGestureDetector
         {
             summonReadyForPinch = true;
             panel.SetGameplayInputSuppressed(true);
+            panel.SetSummonArmed(true);
         }
 
         if (summonReadyForPinch && pinchStarted)
@@ -102,6 +118,7 @@ public sealed class SummonGestureDetector
     {
         summonDwellStart = -1f;
         summonReadyForPinch = false;
+        panel.SetSummonArmed(false);
         if (panel.IsPanelHidden)
         {
             panel.SetGameplayInputSuppressed(false);

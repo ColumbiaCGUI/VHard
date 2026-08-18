@@ -25,6 +25,7 @@ public sealed class GripInteractionCoordinator
     private OVRHand rightTrackedHand;
     private GripEngagementSettings settings;
     private GripDiagnosticsHud diagnosticsHud;
+    private TopOutResetPresenter topOutPresenter;
     private bool leftLocomotionActive;
     private bool rightLocomotionActive;
     private GripLatchStateMachine leftGripLatch;
@@ -135,6 +136,18 @@ public sealed class GripInteractionCoordinator
         diagnosticsHud.Bind(owner, this, settings);
     }
 
+    private void EnsureTopOutPresenter()
+    {
+        if (topOutPresenter != null || !settings.topOutResetButtonEnabled)
+        {
+            return;
+        }
+
+        GameObject presenterObject = new(TopOutResetPresenter.RootName + " Root");
+        topOutPresenter = presenterObject.AddComponent<TopOutResetPresenter>();
+        topOutPresenter.Bind(owner, this, settings);
+    }
+
     /// <summary>Per-frame hand tracking refresh: validity, bone copies, and finger curls.
     /// Preserves the facade's original call order (left before right).</summary>
     public void UpdateTracking()
@@ -167,6 +180,7 @@ public sealed class GripInteractionCoordinator
         Initialize();
         EnsureSettings();
         EnsureDiagnosticsHud();
+        EnsureTopOutPresenter();
         float now = Time.unscaledTime;
         UpdateHandGripLatch(Hand.Left, now);
         UpdateHandGripLatch(Hand.Right, now);
@@ -286,10 +300,22 @@ public sealed class GripInteractionCoordinator
             string.Empty);
     }
 
+    /// <summary>The hold a hand is currently latched onto, or null while the latch is free.</summary>
+    public GameObject GetLatchedHold(Hand hand)
+    {
+        GripLatchStateMachine latch = hand == Hand.Left ? leftGripLatch : rightGripLatch;
+        if (latch == null || !latch.IsEngaged)
+        {
+            return null;
+        }
+        return hand == Hand.Left ? leftLatchedHold : rightLatchedHold;
+    }
+
     /// <summary>Resets every per-hand grip artifact; the facade owns the visual/hover parts of a
     /// full interaction reset and calls this for the grip share.</summary>
     public void ResetState()
     {
+        topOutPresenter?.NotifyInteractionReset();
         StopGripLocomotion();
         owner.SetGripLatchFeedback(Hand.Left, leftLatchedHold, false);
         owner.SetGripLatchFeedback(Hand.Right, rightLatchedHold, false);

@@ -22,13 +22,14 @@ public sealed class StudyManager : MonoBehaviour
     [SerializeField] private bool useMockSchedule;
 
     [Header("Panel Interaction")]
-    [SerializeField] private float summonDwellSeconds = 1f;
+    [SerializeField] private float summonDwellSeconds = 0.6f;
     [SerializeField] private float summonCooldownSeconds = 2f;
     [SerializeField] private float panelSettleSeconds = 0.75f;
 
     private readonly StudySessionState state = new();
     private StudyControlPanel controlPanel;
     private SummonGestureDetector summonGesture;
+    private SummonProgressIndicator summonIndicator;
     private HeadsetPresenceTracker headsetPresence;
     private BlockRunController blockRun;
     private PracticeController practice;
@@ -340,6 +341,7 @@ public sealed class StudyManager : MonoBehaviour
             practice.UpdatePractice();
         }
         controlPanel.HandlePanelInput(leftHand, leftSkeleton, rightHand, rightSkeleton);
+        UpdateSummonIndicator();
         controlPanel.UpdateIdlePanelPosition();
 #if UNITY_EDITOR
         if (UnityEngine.InputSystem.Keyboard.current != null &&
@@ -356,6 +358,24 @@ public sealed class StudyManager : MonoBehaviour
         {
             blockRun.UpdateRunningBlock();
         }
+    }
+
+    private void UpdateSummonIndicator()
+    {
+        if (summonGesture == null || !summonGesture.IsDwellIndicatorVisible ||
+            userCamera == null || leftSkeleton == null || leftSkeleton.Bones == null ||
+            leftSkeleton.Bones.Count == 0 || leftSkeleton.Bones[0].Transform == null)
+        {
+            summonIndicator?.Hide();
+            return;
+        }
+
+        summonIndicator ??= SummonProgressIndicator.Create(transform);
+        summonIndicator.Show(
+            leftSkeleton.Bones[0].Transform.position,
+            userCamera.transform.position,
+            summonGesture.GetDwellProgress01(Time.unscaledTime),
+            summonGesture.ArmedForPinch);
     }
 
     private string BuildMockSchedule()

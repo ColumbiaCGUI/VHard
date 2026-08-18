@@ -27,6 +27,23 @@ public sealed class GripEngagementSettings : MonoBehaviour
              "driving hand, where a second latch stops the board instead of sharing it.")]
     public bool allowBimanualLocomotion = true;
 
+    [Header("Top-out reset button")]
+    [Tooltip("Spawn a pokeable BACK TO START button once both hands have latched the route's " +
+             "finish. Grip mode only; pressing it releases the grips and restores the board " +
+             "to its start pose without touching the run or the console.")]
+    public bool topOutResetButtonEnabled = true;
+    [Tooltip("Seconds both hands must stay latched on the finish before the button appears.")]
+    [Min(0f)] public float topOutHoldSeconds = 0.5f;
+    [Tooltip("Seconds the button lingers after a hand leaves the finish, so it can be poked.")]
+    [Min(0.5f)] public float topOutLingerSeconds = 8f;
+    [Tooltip("Seconds a fingertip must stay on the button to press it; filters brushes.")]
+    [Min(0f)] public float topOutPressDwellSeconds = 0.25f;
+    [Tooltip("How far in front of the button face a fingertip already counts as pressing.")]
+    [Min(0.01f)] public float topOutPressDepthMeters = 0.05f;
+    [Tooltip("Height of the button centre above the finish hold, up the vertical wall the " +
+             "button is mounted on.")]
+    [Min(0f)] public float topOutButtonAboveFinishMeters = 0.3f;
+
     [Header("Grip diagnostics panel")]
     [Tooltip("Build and drive the anatomy panel at all. Identical in conditions B and C.")]
     public bool showDiagnosticsPanel = true;

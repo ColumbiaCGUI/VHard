@@ -689,6 +689,29 @@ public static class StudyRehearsalTiming
         return blockRunning || auxiliarySequenceActive;
     }
 
+    /// <summary>Progress of the guarded palm-up summon for its feedback indicator: 0 while idle,
+    /// filling over the dwell, pinned at 1 once a pinch would open the console.</summary>
+    public static float ComputeSummonDwellProgress(
+        bool armed,
+        float dwellStart,
+        float now,
+        float dwellSeconds)
+    {
+        if (float.IsNaN(now) || float.IsInfinity(now))
+        {
+            throw new ArgumentOutOfRangeException(nameof(now));
+        }
+        if (armed)
+        {
+            return 1f;
+        }
+        if (dwellStart < 0f || now < dwellStart)
+        {
+            return 0f;
+        }
+        return Mathf.Clamp01((now - dwellStart) / Mathf.Max(0.0001f, dwellSeconds));
+    }
+
     public static Vector3 ResolvePanelDragPosition(
         Vector3 pointerOrigin,
         Vector3 pointerDirection,
