@@ -126,6 +126,7 @@ public sealed class StudyControlPanel
     private StudyPanelButton manualStartButton;
     private StudyPanelButton manualCompleteButton;
     private StudyPanelButton manualRecenterButton;
+    private StudyPanelButton manualCloseButton;
     private Renderer panelBackgroundRenderer;
     private Collider panelGrabSurfaceCollider;
     private Color panelSurfaceTint = PanelColor;
@@ -348,6 +349,13 @@ public sealed class StudyControlPanel
             "RECENTER",
             RecenterStudyState,
             out _);
+        manualCloseButton = CreateButton(
+            "Close Panel",
+            new Vector3(0f, -0.40f, -0.02f),
+            new Vector2(0.60f, 0.06f),
+            "CLOSE",
+            ClosePanel,
+            out _);
         TextMeshPro grabHint = CreateText(
             panelRoot.transform,
             "Panel Grab Hint",
@@ -368,6 +376,7 @@ public sealed class StudyControlPanel
         manualPreviousRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
         manualNextRouteButton.SetPalette(AdhocButtonColor, AdhocHoverColor, SelectedColor);
         manualRecenterButton.SetPalette(UtilityButtonColor, UtilityHoverColor, SelectedColor);
+        manualCloseButton.SetPalette(UtilityButtonColor, UtilityHoverColor, SelectedColor);
         manualCompleteButton.SetDanger(true);
 
         BuildPointer("Left Panel Pointer", out leftPointerRoot, out leftPointerLine, out leftPointerReticle);
@@ -676,6 +685,17 @@ public sealed class StudyControlPanel
         RefreshPanelText();
     }
 
+    /// <summary>
+    /// Hides the panel without touching the run, the recording, or the study state. The palm-up
+    /// close gesture is refused while the left ray targets the panel, so a participant looking at
+    /// an accidentally summoned console has no gesture way out; this control therefore stays
+    /// pressable in every console state, including mid-run and while recovery is blocked.
+    /// </summary>
+    private void ClosePanel()
+    {
+        SetPanelVisible(false);
+    }
+
     private void PreviousParticipant()
     {
         CancelConfirmation();
@@ -870,6 +890,7 @@ public sealed class StudyControlPanel
         manualStartButton?.SetInteractable(modeSelectable && hasRoute);
         manualCompleteButton?.SetInteractable(state.blockRunning);
         manualRecenterButton?.SetInteractable(sceneConfiguror != null);
+        manualCloseButton?.SetInteractable(true);
         if (manualStartLabel != null)
         {
             manualStartLabel.text = "START";

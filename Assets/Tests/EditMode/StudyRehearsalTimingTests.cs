@@ -110,7 +110,7 @@ public sealed class StudyRehearsalTimingTests
                 ?.Invoke(panel, null);
             Transform console = parentObject.transform.Find("Study Experimenter Console");
             Assert.That(console, Is.Not.Null);
-            // Seven manual-rehearsal controls; the estimation battery is reached through the
+            // Eight manual-rehearsal controls; the estimation battery is reached through the
             // route cycle, which lists every supplemental problem alongside the climbed routes.
             (string objectName, string label)[] controls =
             {
@@ -121,6 +121,7 @@ public sealed class StudyRehearsalTimingTests
                 ("Start Run", "START"),
                 ("Complete Run", "COMPLETE"),
                 ("Recenter", "RECENTER"),
+                ("Close Panel", "CLOSE"),
             };
             foreach ((string objectName, string label) control in controls)
             {
@@ -134,7 +135,6 @@ public sealed class StudyRehearsalTimingTests
             Assert.That(console.Find("Previous Block"), Is.Null);
             Assert.That(console.Find("Practice B"), Is.Null);
             Assert.That(console.Find("Align Board"), Is.Null);
-            Assert.That(console.Find("Hide Panel"), Is.Null);
             Assert.That(console.Find("Estimate"), Is.Null,
                 "The estimation battery is reached through the route cycle, not a dedicated control.");
             Assert.That(parentObject.transform.Find("Study Countdown Chip"), Is.Null,
@@ -154,6 +154,67 @@ public sealed class StudyRehearsalTimingTests
                 "The console cannot reveal the route's identifying record.");
             Assert.That(console.Find("Route Identity Readout"), Is.Null,
                 "The console cannot reveal the route's identifying record.");
+        }
+        finally
+        {
+            panelType.GetMethod("DestroyMaterials", BindingFlags.Public | BindingFlags.Instance)
+                ?.Invoke(panel, null);
+            UnityEngine.Object.DestroyImmediate(parentObject);
+            UnityEngine.Object.DestroyImmediate(cameraObject);
+        }
+    }
+
+    [Test]
+    public void ClosePanelControlHidesThePanelInEveryConsoleState()
+    {
+        GameObject parentObject = new("Panel Close Test Parent");
+        GameObject cameraObject = new("Panel Close Test Camera");
+        Camera camera = cameraObject.AddComponent<Camera>();
+        Type panelType = FindLoadedType("StudyControlPanel");
+        Type stateType = FindLoadedType("StudySessionState");
+        Type buttonType = FindLoadedType("StudyPanelButton");
+        object state = Activator.CreateInstance(stateType);
+        ConstructorInfo constructor = panelType.GetConstructors()
+            .Single(candidate => candidate.GetParameters().Length == 6);
+        object panel = constructor.Invoke(new object[]
+        {
+            parentObject.transform,
+            camera,
+            null,
+            null,
+            state,
+            new Func<float>(() => 0f),
+        });
+        try
+        {
+            panelType.GetMethod("BuildPanel", BindingFlags.Public | BindingFlags.Instance)
+                ?.Invoke(panel, null);
+            MethodInfo showPanel = panelType.GetMethod(
+                "ShowPanel",
+                BindingFlags.Public | BindingFlags.Instance);
+            PropertyInfo isHidden = panelType.GetProperty(
+                "IsPanelHidden",
+                BindingFlags.Public | BindingFlags.Instance);
+            Transform console = parentObject.transform.Find("Study Experimenter Console");
+            Component closeButton = console.Find("Close Panel").GetComponent(buttonType);
+            MethodInfo press = buttonType.GetMethod("Press", BindingFlags.Public | BindingFlags.Instance);
+
+            // Mid-run with recovery blocked is the console's most locked-down state; closing must
+            // survive it because it is the bail-out from an accidental mid-run summon.
+            stateType.GetField("blockRunning").SetValue(state, true);
+            stateType.GetField("manualRunRecoveryBlocked").SetValue(state, true);
+            showPanel.Invoke(panel, null);
+            Assert.That(isHidden.GetValue(panel), Is.False);
+            Assert.That(press.Invoke(closeButton, null), Is.True,
+                "The close control must stay pressable in every console state.");
+            Assert.That(isHidden.GetValue(panel), Is.True,
+                "Pressing CLOSE hides the panel.");
+
+            // Closing must not consume the control: a re-summoned panel closes again.
+            showPanel.Invoke(panel, null);
+            Assert.That(isHidden.GetValue(panel), Is.False);
+            Assert.That(press.Invoke(closeButton, null), Is.True);
+            Assert.That(isHidden.GetValue(panel), Is.True);
         }
         finally
         {
