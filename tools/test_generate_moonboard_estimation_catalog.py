@@ -118,7 +118,11 @@ class MoonBoardEstimationCatalogGeneratorTests(unittest.TestCase):
         source_root = pathlib.Path(SOURCE_ROOT or "")
         estimation_source = pathlib.Path(ESTIMATION_SOURCE or "")
 
-        main = gen.build_catalog(source_root, PROJECT_ROOT)
+        main = gen.build_catalog(
+            source_root,
+            PROJECT_ROOT,
+            gen.load_estimation_records(estimation_source),
+        )
         first = gen.build_estimation_catalog(estimation_source, source_root, main)
         second = gen.build_estimation_catalog(estimation_source, source_root, main)
 
@@ -127,7 +131,8 @@ class MoonBoardEstimationCatalogGeneratorTests(unittest.TestCase):
         self.assertEqual(gen.catalog_bytes(first), gen.catalog_bytes(second))
 
     def test_paired_generation_builds_both_catalogs_before_writing(self):
-        with mock.patch.object(gen, "build_catalog", return_value={"catalog": "main"}), \
+        with mock.patch.object(gen, "load_estimation_records", return_value=[]), \
+             mock.patch.object(gen, "build_catalog", return_value={"catalog": "main"}), \
              mock.patch.object(
                  gen,
                  "build_estimation_catalog",

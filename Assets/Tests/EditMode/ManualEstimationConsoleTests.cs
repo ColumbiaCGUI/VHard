@@ -133,7 +133,7 @@ public sealed class ManualEstimationConsoleTests
                 StudyRehearsalTiming.TryRecoverActiveManualRun(
                     manualRoot,
                     new string('a', 64),
-                    new[] { "MB2016-19215" },
+                    new[] { "MB2016-412117" },
                     DateTimeOffset.UtcNow,
                     out _,
                     out string diagnostic,

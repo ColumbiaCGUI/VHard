@@ -205,10 +205,14 @@ public sealed class BoardFloorSeatingTests
                             seated.z,
                             Is.LessThan(0.95f),
                             move.coordinate + " is beyond a standing reach.");
+                        // The 2026-08-18 model-blind re-lock admits edge-column holds
+                        // (columns A and K sit 1.0 m off centre): a participant reaches them
+                        // with a sideways step or mid-locomotion, so the lateral band spans
+                        // the board's own half width rather than a no-step reach.
                         Assert.That(
                             Mathf.Abs(seated.x),
-                            Is.LessThan(0.85f),
-                            move.coordinate + " is beyond a lateral standing reach.");
+                            Is.LessThan(1.05f),
+                            move.coordinate + " is beyond the board's half-width band.");
                     }
                 }
             }

@@ -9,7 +9,20 @@ from pathlib import Path
 
 SOURCE_REPOSITORY = "https://github.com/e-sr/moonboard"
 SOURCE_REVISION = "ccd78f587ab189acea6dd7ce8a6d4f086f65db69"
-ROUTE_SOURCE_IDS = ("19215", "21329", "170190")
+# Climbed routes re-locked 2026-08-18 under the 2026-08-12 model-blind rule (see
+# docs/study-operations/n10-power-and-defensibility-2026-08-12.md): created 2021+ (after the
+# grading model's training window), uncontested community 6B+, >= 50 repeats, <= 8 holds,
+# every coordinate mounted, two distinct start holds and one finish, none of the frozen
+# estimation/practice problems, pairwise shared holds <= 1. Selected deterministically from
+# the pinned 2023-01-30 export by (-repeats, apiId) greedy under the overlap cap.
+ROUTE_SOURCE_IDS = ("412117", "410602", "412973")
+CLIMB_MINIMUM_REPEATS = 50
+CLIMB_MAXIMUM_HOLDS = 8
+CLIMB_EXPECTED_POOL_SIZE = 30
+CLIMB_SELECTION_MATCH = (
+    "model-blind 2026-08-12: uncontested 6B+; created 2021+; >=50 repeats; "
+    "<=8 holds; two starts; pairwise shared holds <=1"
+)
 ESTIMATION_SOURCE_ARCHIVE = "problems_2023_01_30.zip"
 ESTIMATION_SOURCE_URL = (
     "https://drive.google.com/file/d/1Zoqsmc15IHtGekY99xazemxjGGx07Kep/view"
@@ -564,13 +577,12 @@ def coordinate_key(coordinate: str) -> tuple[int, int]:
     return int(coordinate[1:]), ord(coordinate[0]) - ord("A")
 
 
-def build_catalog(source_root: Path, project_root: Path) -> dict:
+def build_catalog(source_root: Path, project_root: Path, climb_records: list[dict]) -> dict:
     problems_path = source_root / "problems/fetch/moonboard_problems_setup_2016.json"
     holds_path = source_root / "problems/holds_tmp/Moonboard2016.tmp"
     dimensions_path = source_root / "doc/Moonboard.xlsx"
     mesh_path = project_root / "Assets/Resources/New_Decimated_Holds.fbx"
 
-    problems = json.loads(problems_path.read_text(encoding="utf-8"))
     holdsets = json.loads(holds_path.read_text(encoding="utf-8"))["Data"]
 
     holds = []
@@ -639,48 +651,36 @@ def build_catalog(source_root: Path, project_root: Path) -> dict:
         raise ValueError("Bolt-bore offset references an unknown physical scan")
 
     routes = []
-    for source_id in ROUTE_SOURCE_IDS:
-        source_route = problems[source_id]
-        if source_route["Holdsetup"]["Description"] != "MoonBoard 2016":
-            raise ValueError(f"Problem {source_id} is not a MoonBoard 2016 problem")
-        if source_route["Grade"] != "6B+" or not source_route["IsBenchmark"]:
-            raise ValueError(f"Problem {source_id} is not a 6B+ benchmark")
-        if len(source_route["Moves"]) != 7:
-            raise ValueError(f"Problem {source_id} does not contain seven holds")
-        starts = [move for move in source_route["Moves"] if move["IsStart"]]
-        finishes = [move for move in source_route["Moves"] if move["IsEnd"]]
-        if len(starts) != 2 or len(finishes) != 1:
-            raise ValueError(f"Problem {source_id} does not have two starts and one finish")
-
+    for record in select_climb_records(climb_records, coordinates):
+        api_id = int(record["apiId"])
         moves = []
-        for index, move in enumerate(source_route["Moves"]):
-            coordinate = move["Description"].upper()
+        for index, move in enumerate(record["moves"]):
+            coordinate = move["description"].upper()
             if coordinate not in coordinates:
-                raise ValueError(f"Problem {source_id} references vacant coordinate {coordinate}")
-            role = "start" if move["IsStart"] else "finish" if move["IsEnd"] else "move"
+                raise ValueError(f"Problem {api_id} references vacant coordinate {coordinate}")
+            role = "start" if move["isStart"] else "finish" if move["isEnd"] else "move"
             moves.append(
                 {
                     "sequence": index,
                     "coordinate": coordinate,
                     "role": role,
-                    "sourceMoveId": str(move["Id"]),
+                    "sourceMoveId": str(move.get("problemId", api_id)),
                 }
             )
 
-        setter = source_route["Setter"]
         routes.append(
             {
-                "id": f"MB2016-{source_id}",
-                "sourceProblemId": source_id,
-                "name": source_route["Name"],
-                "grade": source_route["Grade"],
-                "isBenchmark": True,
-                "method": source_route["Method"],
-                "repeatsAtArchive": int(source_route["Repeats"]),
-                "setter": setter["Nickname"],
+                "id": f"MB2016-{api_id}",
+                "sourceProblemId": str(api_id),
+                "name": record["name"],
+                "grade": record["grade"],
+                "isBenchmark": bool(record["isBenchmark"]),
+                "method": record["method"],
+                "repeatsAtArchive": int(record["repeats"]),
+                "setter": record["setby"],
                 "lockedForStudy": True,
-                "selectionMatch": "6B+ benchmark; 7 holds; 2 distinct start holds",
-                "sourceRecordSha256": record_sha256(source_route),
+                "selectionMatch": CLIMB_SELECTION_MATCH,
+                "sourceRecordSha256": record_sha256(record),
                 "moves": moves,
             }
         )
@@ -700,7 +700,7 @@ def build_catalog(source_root: Path, project_root: Path) -> dict:
         "setupId": "moonboard-2016",
         "setupName": "MoonBoard 2016",
         "overhangAngleDegrees": 40,
-        "archiveDate": "2026-07-27",
+        "archiveDate": "2026-08-18",
         "geometry": {
             "boardWidthMeters": 2.44,
             "totalHeightMeters": 3.15,
@@ -722,6 +722,11 @@ def build_catalog(source_root: Path, project_root: Path) -> dict:
             "dimensionsSha256": sha256(dimensions_path),
             "meshAsset": "Assets/Resources/New_Decimated_Holds.fbx",
             "meshAssetSha256": sha256(mesh_path),
+            "climbSourceArchive": ESTIMATION_SOURCE_ARCHIVE,
+            "climbSourceArchiveUrl": ESTIMATION_SOURCE_URL,
+            "climbSourceArchiveSha256": ESTIMATION_SOURCE_SHA256,
+            "climbSourceFile": ESTIMATION_INNER_FILE,
+            "climbSourceFileSha256": ESTIMATION_INNER_SHA256,
         },
         "holds": holds,
         "routes": routes,
@@ -758,7 +763,8 @@ def load_estimation_records(source_archive: Path) -> list[dict]:
 
 
 def select_estimation_records(records: list[dict], mounted_coordinates: set[str]) -> dict[str, list[dict]]:
-    climbed_ids = {int(source_id) for source_id in ROUTE_SOURCE_IDS}
+    # The battery froze 2026-07-21; the 2026-08-18 climb re-lock defers to it, so climbed ids
+    # are excluded on the climb side (select_climb_records), never from these pinned pools.
     selected = {}
     for grade in ESTIMATION_GRADES:
         eligible = [
@@ -768,7 +774,6 @@ def select_estimation_records(records: list[dict], mounted_coordinates: set[str]
             and record.get("dateDeleted") is None
             and record.get("dateInserted", "") > "2021-01-01"
             and record.get("holdsetup", {}).get("description") == "MoonBoard 2016"
-            and int(record.get("apiId", -1)) not in climbed_ids
             and record.get("name") not in ESTIMATION_NAME_EXCLUSIONS
             and record.get("userGrade") == grade
             and not record.get("downgraded", False)
@@ -795,6 +800,62 @@ def select_estimation_records(records: list[dict], mounted_coordinates: set[str]
                 f"{ESTIMATION_EXPECTED_IDS[grade]}, found {selected_ids}"
             )
     return selected
+
+
+def select_climb_records(records: list[dict], mounted_coordinates: set[str]) -> list[dict]:
+    """The 2026-08-12 model-blind climb rule, applied deterministically: filter, sort by
+    (-repeats, apiId), then take greedily under the pairwise shared-hold cap. Pool size and
+    the resulting ids are pinned so export drift fails closed like the battery selection."""
+    excluded_ids = {api_id for ids in ESTIMATION_EXPECTED_IDS.values() for api_id in ids}
+    excluded_ids.add(PRACTICE_EXPECTED_ID)
+    eligible = []
+    for record in records:
+        moves = record.get("moves") or []
+        coordinates = {move.get("description", "").upper() for move in moves}
+        starts = sum(1 for move in moves if move.get("isStart"))
+        finishes = sum(1 for move in moves if move.get("isEnd"))
+        if (
+            record.get("holdsetup", {}).get("description") == "MoonBoard 2016"
+            and record.get("dateDeleted") is None
+            and record.get("dateInserted", "") > "2021-01-01"
+            and record.get("grade") == "6B+"
+            and record.get("userGrade") == "6B+"
+            and not record.get("downgraded", False)
+            and not record.get("upgraded", False)
+            and int(record.get("repeats", 0)) >= CLIMB_MINIMUM_REPEATS
+            and moves
+            and coordinates <= mounted_coordinates
+            and len(coordinates) <= CLIMB_MAXIMUM_HOLDS
+            and starts == 2
+            and finishes == 1
+            and int(record.get("apiId", -1)) not in excluded_ids
+        ):
+            eligible.append(record)
+
+    eligible.sort(key=lambda record: (-int(record["repeats"]), int(record["apiId"])))
+    if len(eligible) != CLIMB_EXPECTED_POOL_SIZE:
+        raise ValueError(
+            f"Expected {CLIMB_EXPECTED_POOL_SIZE} eligible climb problems, "
+            f"found {len(eligible)}"
+        )
+
+    chosen = []
+    for record in eligible:
+        coordinates = {move["description"].upper() for move in record["moves"]}
+        if all(
+            len(coordinates & {move["description"].upper() for move in other["moves"]}) <= 1
+            for other in chosen
+        ):
+            chosen.append(record)
+        if len(chosen) == len(ROUTE_SOURCE_IDS):
+            break
+
+    chosen_ids = tuple(str(record["apiId"]) for record in chosen)
+    if chosen_ids != ROUTE_SOURCE_IDS:
+        raise ValueError(
+            f"Climb selection drift: expected {ROUTE_SOURCE_IDS}, found {chosen_ids}"
+        )
+    return chosen
 
 
 def archive_estimation_problem(source_problem: dict) -> dict:
@@ -965,7 +1026,9 @@ def main() -> None:
     parser.add_argument(
         "--estimation-source",
         type=Path,
-        help="Pinned problems_2023_01_30.zip used only for estimation content.",
+        required=True,
+        help="Pinned problems_2023_01_30.zip; climbed routes and estimation content both "
+             "archive from it.",
     )
     parser.add_argument(
         "--estimation-output",
@@ -975,11 +1038,10 @@ def main() -> None:
     args = parser.parse_args()
 
     source_root = args.source_root.resolve()
-    catalog = build_catalog(source_root, args.project_root.resolve())
+    climb_records = load_estimation_records(args.estimation_source.resolve())
+    catalog = build_catalog(source_root, args.project_root.resolve(), climb_records)
     estimation_catalog = None
     if args.estimation_output is not None:
-        if args.estimation_source is None:
-            parser.error("--estimation-source is required with --estimation-output")
         estimation_catalog = build_estimation_catalog(
             args.estimation_source.resolve(),
             source_root,

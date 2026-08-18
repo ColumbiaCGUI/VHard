@@ -24,9 +24,9 @@ public sealed class StudyCoreTests
     {
         const string csv =
             "participant,block,condition,route\n" +
-            "P07,1,B,MB2016-19215\n" +
+            "P07,1,B,MB2016-412117\n" +
             "P07,2,C,\"ROUTE, WITH COMMA\"\n" +
-            "P07,3,A,MB2016-170190\n";
+            "P07,3,A,MB2016-412973\n";
 
         bool parsed = StudySchedule.TryParse(csv, out List<StudyScheduleRow> rows, out string error);
 
@@ -102,9 +102,9 @@ public sealed class StudyCoreTests
     {
         const string csv =
             "participant,block,condition,route\n" +
-            "P01,1,A,MB2016-19215\n" +
-            "P01,1,B,MB2016-21329\n" +
-            "P01,3,C,MB2016-170190\n";
+            "P01,1,A,MB2016-412117\n" +
+            "P01,1,B,MB2016-410602\n" +
+            "P01,3,C,MB2016-412973\n";
 
         bool parsed = StudySchedule.TryParse(csv, out _, out string error);
 
@@ -117,14 +117,14 @@ public sealed class StudyCoreTests
     {
         const string repeatedCondition =
             "participant,block,condition,route\n" +
-            "P01,1,A,MB2016-19215\n" +
-            "P01,2,A,MB2016-21329\n" +
-            "P01,3,C,MB2016-170190\n";
+            "P01,1,A,MB2016-412117\n" +
+            "P01,2,A,MB2016-410602\n" +
+            "P01,3,C,MB2016-412973\n";
         const string repeatedRoute =
             "participant,block,condition,route\n" +
-            "P01,1,A,MB2016-19215\n" +
-            "P01,2,B,MB2016-19215\n" +
-            "P01,3,C,MB2016-170190\n";
+            "P01,1,A,MB2016-412117\n" +
+            "P01,2,B,MB2016-412117\n" +
+            "P01,3,C,MB2016-412973\n";
 
         Assert.That(StudySchedule.TryParse(repeatedCondition, out _, out string conditionError), Is.False);
         Assert.That(conditionError, Does.Contain("one block in each condition"));
@@ -137,12 +137,12 @@ public sealed class StudyCoreTests
     {
         const string csv =
             "participant,block,condition,route\n" +
-            "P100,1,A,MB2016-19215\n" +
-            "P100,2,B,MB2016-21329\n" +
-            "P100,3,C,MB2016-170190\n" +
-            "P99,1,A,MB2016-19215\n" +
-            "P99,2,B,MB2016-21329\n" +
-            "P99,3,C,MB2016-170190\n";
+            "P100,1,A,MB2016-412117\n" +
+            "P100,2,B,MB2016-410602\n" +
+            "P100,3,C,MB2016-412973\n" +
+            "P99,1,A,MB2016-412117\n" +
+            "P99,2,B,MB2016-410602\n" +
+            "P99,3,C,MB2016-412973\n";
 
         bool parsed = StudySchedule.TryParse(csv, out List<StudyScheduleRow> rows, out string error);
 
@@ -158,16 +158,19 @@ public sealed class StudyCoreTests
 
         Assert.That(catalog.holds, Has.Length.EqualTo(140));
         Assert.That(catalog.routes, Has.Length.EqualTo(3));
-        Assert.That(catalog.routes[0].id, Is.EqualTo("MB2016-19215"));
-        Assert.That(catalog.routes[1].id, Is.EqualTo("MB2016-21329"));
-        Assert.That(catalog.routes[2].id, Is.EqualTo("MB2016-170190"));
+        Assert.That(catalog.routes[0].id, Is.EqualTo("MB2016-412117"));
+        Assert.That(catalog.routes[1].id, Is.EqualTo("MB2016-410602"));
+        Assert.That(catalog.routes[2].id, Is.EqualTo("MB2016-412973"));
         Assert.That(catalog.TryGetHold("F18", out _), Is.False);
         Assert.That(catalog.TryGetHold("D1", out _), Is.False);
         foreach (MoonBoardRouteDefinition route in catalog.routes)
         {
+            // 2026-08-12 model-blind climb rule: uncontested community 6B+ created after the
+            // grading model's training window, at most eight holds; benchmark status is no
+            // longer required (2021+ problems are not classic benchmarks).
             Assert.That(route.grade, Is.EqualTo("6B+"));
-            Assert.That(route.isBenchmark, Is.True);
-            Assert.That(route.moves, Has.Length.EqualTo(7));
+            Assert.That(route.lockedForStudy, Is.True);
+            Assert.That(route.moves.Length, Is.InRange(3, 8));
             Assert.That(route.moves, Has.Exactly(2).Matches<MoonBoardRouteMove>(move => move.role == "start"));
             Assert.That(route.moves, Has.Exactly(1).Matches<MoonBoardRouteMove>(move => move.role == "finish"));
         }
@@ -702,8 +705,8 @@ public sealed class StudyCoreTests
         MoonBoardStudyCatalog catalog = LoadCatalog();
         const string csv =
             "participant,block,condition,route\n" +
-            "P01,1,A,MB2016-19215\n" +
-            "P01,2,B,MB2016-21329\n" +
+            "P01,1,A,MB2016-412117\n" +
+            "P01,2,B,MB2016-410602\n" +
             "P01,3,C,DEATH STAR\n";
 
         Assert.That(StudySchedule.TryParse(csv, out List<StudyScheduleRow> rows, out string parseError),

@@ -7,7 +7,7 @@ using UnityEngine;
 [Serializable]
 public sealed class MoonBoardStudyCatalog
 {
-    public const string ApprovedCatalogSha256 = "0d10b5aa4b7629799987ad2058c80702ef9727b824da076712a123cd546fb6f7";
+    public const string ApprovedCatalogSha256 = "ced054d8e31ad95dc8644479d1522cd58b929119bab79e505f05d6452fa67862";
 
     /// <summary>Local scale at which the aggregate FBX imports each normalised hold child.</summary>
     public const float NormalizedMeshScale = 100f;
@@ -169,14 +169,16 @@ public static readonly string[] ScaleCalibrationSources =
         HashSet<string> routeIds = new(StringComparer.Ordinal);
         foreach (MoonBoardRouteDefinition route in routes)
         {
+            // 2026-08-12 model-blind climb rule: uncontested community 6B+ with at most eight
+            // holds; benchmark status is no longer part of the contract, since problems created
+            // after the grading model's training window are not classic benchmarks.
             if (route == null ||
                 !route.lockedForStudy ||
                 string.IsNullOrWhiteSpace(route.id) ||
                 string.IsNullOrWhiteSpace(route.sourceProblemId) ||
                 string.IsNullOrWhiteSpace(route.name) ||
                 route.grade != "6B+" ||
-                !route.isBenchmark ||
-                route.moves == null || route.moves.Length != 7 ||
+                route.moves == null || route.moves.Length < 3 || route.moves.Length > 8 ||
                 !IsSha256(route.sourceRecordSha256) ||
                 !routeIds.Add(route.id))
             {
