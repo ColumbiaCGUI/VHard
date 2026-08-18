@@ -39,6 +39,13 @@ public sealed class GhostHoldController : MonoBehaviour
     [Header("Ghosts")]
     [SerializeField] private int maximumLiveGhosts = GhostRegistryPolicy.DefaultMaximumLiveGhosts;
 
+    [Header("Manipulation")]
+    // 1 = the old rigid mapping. 2 lets one comfortable wrist turn cover a half rotation, at the
+    // cost of doubling whatever rotation jitter the tracker delivers; tune on device.
+    [SerializeField] [Min(1f)] private float rotationGain = 2f;
+    [SerializeField] [Min(30f)] private float alignSpeedDegreesPerSecond =
+        GhostAlignAnimation.DefaultSpeedDegreesPerSecond;
+
     [Header("Visuals")]
     [SerializeField] private Color rayColor = new(0.25f, 0.8f, 1f, 0.8f);
     [SerializeField] private Color markerColor = new(1f, 0.8f, 0.2f, 0.9f);
@@ -56,6 +63,7 @@ public sealed class GhostHoldController : MonoBehaviour
     private const float IndexTipBoneIndex = 10;
     private const float PalmUpDotThreshold = 0.55f;
     private const float TextTransformScale = 0.01f;
+    private const float MaximumAlignStepSeconds = 0.1f;
 
     private sealed class GhostInstance
     {
@@ -68,6 +76,10 @@ public sealed class GhostHoldController : MonoBehaviour
         public int Slot;
         public GameObject DismissAffordance;
         public TextMeshPro DismissLabel;
+        public GameObject AlignAffordance;
+        public TextMeshPro AlignLabel;
+        public bool AlignAnimating;
+        public float AlignSpeedDegreesPerSecond;
         public LineRenderer WallMarker;
         public LineRenderer Tether;
         public LineRenderer OrientationArc;
@@ -92,6 +104,9 @@ public sealed class GhostHoldController : MonoBehaviour
         public GhostInstance Manipulated;
         public Vector3 GrabPositionOffset;
         public Quaternion GrabRotationOffset;
+        public Quaternion GrabHandRotation;
+        public Vector3 GrabCenterLocal;
+        public float GrabSurplusFactor;
         public float NextPoseRecordTime;
         public int DiagnosticState = -1;
     }
@@ -102,6 +117,7 @@ public sealed class GhostHoldController : MonoBehaviour
         Ghost,
         DismissGhost,
         DismissAll,
+        AlignGhost,
     }
 
     private struct Candidate
@@ -431,6 +447,7 @@ public sealed class GhostHoldController : MonoBehaviour
 
     private void DismissGhost(GhostInstance ghost, string reason)
     {
+        CancelAlign(ghost, null);
         ReleaseManipulationOf(ghost);
         if (left != null && left.HoverObject != null && FindGhost(left.HoverObject) == ghost)
         {
@@ -450,6 +467,7 @@ public sealed class GhostHoldController : MonoBehaviour
 
         DestroyIfPresent(ghost.Root);
         DestroyIfPresent(ghost.DismissAffordance);
+        DestroyIfPresent(ghost.AlignAffordance);
         DestroyIfPresent(ghost.IndicatorRoot != null ? ghost.IndicatorRoot.gameObject : null);
         DestroyIfPresent(ghost.WallMarker != null ? ghost.WallMarker.gameObject : null);
         DestroyIfPresent(ghost.Tether != null ? ghost.Tether.gameObject : null);
@@ -516,6 +534,9 @@ public sealed class GhostHoldController : MonoBehaviour
         {
             AdvanceSuppressedPointer(left, now);
             AdvanceSuppressedPointer(right, now);
+            // An already-commanded return is not gameplay input: it keeps animating while the
+            // console owns the pinches, so suppression cannot freeze a proxy halfway home.
+            UpdateAlignAnimations(Time.unscaledDeltaTime);
             UpdateGhostDecorations();
             return;
         }
@@ -524,6 +545,7 @@ public sealed class GhostHoldController : MonoBehaviour
         UpdatePointer(right, now);
         UpdateManipulation(left);
         UpdateManipulation(right);
+        UpdateAlignAnimations(Time.unscaledDeltaTime);
         UpdateGhostDecorations();
 
         foreach (GhostInstance ghost in ghosts)
@@ -611,6 +633,10 @@ public sealed class GhostHoldController : MonoBehaviour
             case CandidateKind.DismissGhost:
                 RecordSelection(pointer, hovered.Ghost.Root, "dismiss", origin, direction);
                 DismissGhost(hovered.Ghost, "participant");
+                break;
+            case CandidateKind.AlignGhost:
+                RecordSelection(pointer, hovered.Ghost.Root, "align", origin, direction);
+                BeginAlign(hovered.Ghost, pointer.Side);
                 break;
             case CandidateKind.Ghost:
                 RecordSelection(pointer, hovered.Ghost.Root, "grabGhost", origin, direction);
@@ -708,6 +734,17 @@ public sealed class GhostHoldController : MonoBehaviour
                     Radius = 0.045f,
                 });
             }
+            if (ghost.AlignAffordance != null && ghost.AlignAffordance.activeSelf)
+            {
+                candidates.Add(new Candidate
+                {
+                    Kind = CandidateKind.AlignGhost,
+                    Object = ghost.AlignAffordance,
+                    Ghost = ghost,
+                    Center = ghost.AlignAffordance.transform.position,
+                    Radius = 0.045f,
+                });
+            }
             if (ghost.Root != null && TryGetCombinedBounds(ghost.Root, out Bounds ghostBounds))
             {
                 candidates.Add(new Candidate
@@ -766,7 +803,8 @@ public sealed class GhostHoldController : MonoBehaviour
             // the explicit affordances a head start so a dismiss target is never shadowed by the
             // proxy it sits beside.
             float relief = HandRayTargeting.GetAngularRadiusDegrees(origin, candidate.Center, candidate.Radius);
-            if (candidate.Kind == CandidateKind.DismissGhost || candidate.Kind == CandidateKind.DismissAll)
+            if (candidate.Kind == CandidateKind.DismissGhost || candidate.Kind == CandidateKind.DismissAll ||
+                candidate.Kind == CandidateKind.AlignGhost)
             {
                 relief += affordanceAcquireBonusDegrees;
             }
@@ -837,11 +875,32 @@ public sealed class GhostHoldController : MonoBehaviour
             return;
         }
 
+        CancelAlign(ghost, pointer.Side);
         pointer.Manipulated = ghost;
         pointer.GrabPositionOffset = Quaternion.Inverse(handPose.rotation) *
                                      (ghost.Root.transform.position - handPose.position);
         pointer.GrabRotationOffset = Quaternion.Inverse(handPose.rotation) * ghost.Root.transform.rotation;
+        pointer.GrabHandRotation = handPose.rotation;
+        // The amplified surplus spins the proxy about its rendered centre; the root pivot sits at
+        // the hold's bolt region, and spinning faster about that would swing the mesh sideways.
+        pointer.GrabCenterLocal = TryGetCombinedBounds(ghost.Root, out Bounds grabBounds)
+            ? ghost.Root.transform.InverseTransformPoint(grabBounds.center)
+            : Vector3.zero;
+        pointer.GrabSurplusFactor = GetSurplusFactor(rotationGain);
         pointer.NextPoseRecordTime = 0f;
+    }
+
+    /// <summary>Surplus factor above the rigid 1x mapping, snapshotted per grab so an inspector
+    /// edit mid-grab cannot jump the held proxy's orientation, and a malformed value degrades to
+    /// the rigid mapping instead of throwing from the per-frame update.</summary>
+    private static float GetSurplusFactor(float gain)
+    {
+        if (float.IsNaN(gain) || float.IsInfinity(gain))
+        {
+            Debug.LogError("[GhostHoldController] rotationGain is not finite; using the rigid 1x mapping.");
+            return 0f;
+        }
+        return Mathf.Max(0f, gain - 1f);
     }
 
     private void UpdateManipulation(HandPointer pointer)
@@ -857,9 +916,22 @@ public sealed class GhostHoldController : MonoBehaviour
             return;
         }
 
-        pointer.Manipulated.Root.transform.SetPositionAndRotation(
+        Transform root = pointer.Manipulated.Root.transform;
+        root.SetPositionAndRotation(
             handPose.position + handPose.rotation * pointer.GrabPositionOffset,
             handPose.rotation * pointer.GrabRotationOffset);
+        // Gain above 1x is applied as a surplus spin about the proxy's own centre on top of the
+        // rigid attach: translation keeps its 1:1 mapping and the hold turns in place instead of
+        // orbiting the hand faster than the wrist moves.
+        Quaternion surplus = GhostRotationAmplification.ScaleRotation(
+            handPose.rotation * Quaternion.Inverse(pointer.GrabHandRotation),
+            pointer.GrabSurplusFactor);
+        surplus.ToAngleAxis(out float surplusAngle, out Vector3 surplusAxis);
+        if (surplusAngle > GhostRotationAmplification.MinimumAngleDegrees &&
+            !float.IsNaN(surplusAxis.x) && surplusAxis.sqrMagnitude > 1e-8f)
+        {
+            root.RotateAround(root.TransformPoint(pointer.GrabCenterLocal), surplusAxis, surplusAngle);
+        }
         RecordManipulatedPose(pointer, released: false);
     }
 
@@ -882,6 +954,83 @@ public sealed class GhostHoldController : MonoBehaviour
         if (right != null && right.Manipulated == ghost)
         {
             ReleaseManipulation(right);
+        }
+    }
+
+    private void BeginAlign(GhostInstance ghost, Hand? requestedBy)
+    {
+        if (ghost?.Root == null || ghost.AlignAnimating)
+        {
+            return;
+        }
+
+        // Aligning is an explicit command on the proxy, so it takes the proxy out of any hand
+        // currently holding it - the pinch grab AND the grip latch, exactly as dismissing does.
+        ReleaseManipulationOf(ghost);
+        sceneConfiguror?.ReleaseGripHold(ghost.Root);
+        ghost.AlignAnimating = true;
+        ghost.AlignSpeedDegreesPerSecond = GetAlignSpeed(alignSpeedDegreesPerSecond);
+        RecordGhostEvent(
+            "GhostAlign",
+            ghost,
+            requestedBy,
+            System.FormattableString.Invariant(
+                $"phase=start;deviationDeg={GhostOrientationIndicatorPolicy.GetDeviationDegrees(ghost.Root.transform.rotation, GetLiveWallRotation(ghost)):F1}"));
+    }
+
+    private static float GetAlignSpeed(float configured)
+    {
+        if (float.IsNaN(configured) || float.IsInfinity(configured) || configured <= 0f)
+        {
+            Debug.LogError(
+                "[GhostHoldController] alignSpeedDegreesPerSecond is invalid; using the default rate.");
+            return GhostAlignAnimation.DefaultSpeedDegreesPerSecond;
+        }
+        return configured;
+    }
+
+    private void CancelAlign(GhostInstance ghost, Hand? cancelledBy)
+    {
+        if (ghost == null || !ghost.AlignAnimating)
+        {
+            return;
+        }
+
+        ghost.AlignAnimating = false;
+        RecordGhostEvent("GhostAlign", ghost, cancelledBy, "phase=cancelled");
+    }
+
+    private void UpdateAlignAnimations(float deltaSeconds)
+    {
+        // An app hitch or a long pause must not turn into a single-frame teleport home.
+        float step = Mathf.Min(deltaSeconds, MaximumAlignStepSeconds);
+        foreach (GhostInstance ghost in ghosts)
+        {
+            if (!ghost.AlignAnimating || ghost.Root == null)
+            {
+                continue;
+            }
+
+            // A grip latch acquired mid-return means the participant took the proxy back.
+            if (sceneConfiguror != null && sceneConfiguror.IsGripHoldLatched(ghost.Root))
+            {
+                CancelAlign(ghost, null);
+                continue;
+            }
+
+            // The wall rotation is re-read every step: board alignment or a recenter can move the
+            // wall hold while the proxy is still animating home.
+            ghost.Root.transform.rotation = GhostAlignAnimation.Step(
+                ghost.Root.transform.rotation,
+                GetLiveWallRotation(ghost),
+                ghost.AlignSpeedDegreesPerSecond,
+                step,
+                out bool completed);
+            if (completed)
+            {
+                ghost.AlignAnimating = false;
+                RecordGhostEvent("GhostAlign", ghost, null, "phase=complete");
+            }
         }
     }
 
@@ -1127,6 +1276,20 @@ public sealed class GhostHoldController : MonoBehaviour
         ghost.DismissLabel.text = "×";
         ghost.DismissLabel.color = new Color(1f, 0.45f, 0.35f, 1f);
 
+        // Shares the orientation indicator's violet: this is the control that answers it.
+        ghost.AlignAffordance = new GameObject("Ghost Align")
+        {
+            layer = 0,
+            hideFlags = HideFlags.DontSaveInEditor | HideFlags.DontSaveInBuild,
+        };
+        ghost.AlignAffordance.transform.SetParent(decorationRoot, false);
+        ghost.AlignLabel = CreateLabel("Ghost Align Glyph", 0.024f, ghost.AlignAffordance.transform);
+        ghost.AlignLabel.text = "ALIGN";
+        ghost.AlignLabel.color = new Color(0.62f, 0.45f, 0.85f, 1f);
+        // Stays inactive until the decoration pass has positioned it: a control that spawns
+        // active sits at the decoration root's origin for a frame and can catch a ray press.
+        ghost.AlignAffordance.SetActive(false);
+
         ghost.WallMarker = CreateLine("Ghost Wall Referent", WallMarkerSegments, markerWidth, null);
         ghost.WallMarker.loop = true;
         ghost.Tether = CreateLine("Ghost Wall Tether", 2, tetherWidth, null);
@@ -1164,6 +1327,7 @@ public sealed class GhostHoldController : MonoBehaviour
             if (hasGhostBounds)
             {
                 UpdateDismissAffordance(ghost, ghostBounds, camera);
+                UpdateAlignAffordance(ghost, ghostBounds, camera);
                 UpdateOrientationIndicator(ghost, ghostBounds, camera);
             }
         }
@@ -1222,6 +1386,38 @@ public sealed class GhostHoldController : MonoBehaviour
                                                      camera.up * topOffset;
         ghost.DismissAffordance.transform.rotation = Quaternion.LookRotation(
             ghost.DismissAffordance.transform.position - camera.position,
+            camera.up);
+    }
+
+    /// <summary>
+    /// The align control mirrors the dismiss glyph on the proxy's other shoulder, and shows only
+    /// while there is a misalignment to fix: on a proxy turned true it would be a no-op, and
+    /// while the return animation runs a second press has nothing further to add.
+    /// </summary>
+    private void UpdateAlignAffordance(GhostInstance ghost, Bounds bounds, Transform camera)
+    {
+        if (ghost.AlignAffordance == null || ghost.Root == null)
+        {
+            return;
+        }
+
+        float deviation = GhostOrientationIndicatorPolicy.GetDeviationDegrees(
+            ghost.Root.transform.rotation,
+            GetLiveWallRotation(ghost));
+        bool visible = !ghost.AlignAnimating && !GhostOrientationIndicatorPolicy.IsAligned(deviation);
+        ghost.AlignAffordance.SetActive(visible);
+        if (!visible)
+        {
+            return;
+        }
+
+        float sideOffset = Mathf.Max(bounds.extents.x, bounds.extents.z) + 0.07f;
+        float topOffset = bounds.extents.y + 0.07f;
+        ghost.AlignAffordance.transform.position = bounds.center -
+                                                   camera.right * sideOffset +
+                                                   camera.up * topOffset;
+        ghost.AlignAffordance.transform.rotation = Quaternion.LookRotation(
+            ghost.AlignAffordance.transform.position - camera.position,
             camera.up);
     }
 

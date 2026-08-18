@@ -904,6 +904,24 @@ public class SceneConfiguror : MonoBehaviour
         Grip.ReleaseHold(ghost.GetInstanceID());
     }
 
+    /// <summary>Releases <paramref name="hold"/> from whichever grip latch holds it, leaving the
+    /// hover and ghost registries untouched. Aligning rotates a proxy out of the gripping hand,
+    /// so it has to drop the latch the way dismissing does, without unregistering the proxy.</summary>
+    public void ReleaseGripHold(GameObject hold)
+    {
+        if (hold != null)
+        {
+            Grip.ReleaseHold(hold.GetInstanceID());
+        }
+    }
+
+    /// <summary>True while either hand's grip latch is engaged on <paramref name="hold"/>.</summary>
+    public bool IsGripHoldLatched(GameObject hold)
+    {
+        return hold != null &&
+               (Grip.GetLatchedHold(Hand.Left) == hold || Grip.GetLatchedHold(Hand.Right) == hold);
+    }
+
     private void ApplyModeToRouteHolds()
     {
         if (activeHoldsList == null)
