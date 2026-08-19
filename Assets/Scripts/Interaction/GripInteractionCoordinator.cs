@@ -59,6 +59,21 @@ public sealed class GripInteractionCoordinator
     private int rightTelemetryStateKey = GripAcquisitionTelemetry.NoStateKey;
     private float leftTelemetryRecordedAt = float.NegativeInfinity;
     private float rightTelemetryRecordedAt = float.NegativeInfinity;
+    private GripShadowDwellTracker leftCoverageShadow;
+    private GripShadowDwellTracker rightCoverageShadow;
+    private float coverageTrackerDwellSeconds = float.NaN;
+    private float coverageTrackerRefireSeconds = float.NaN;
+    private Vector3 leftShadowWristBoardLocal;
+    private Vector3 rightShadowWristBoardLocal;
+    private float leftShadowWristSampledAt = float.NaN;
+    private float rightShadowWristSampledAt = float.NaN;
+    private bool leftGraceShadowFired;
+    private bool rightGraceShadowFired;
+    private bool shadowFaulted;
+    private readonly GripAcquisitionSample leftShadowAcquisitionSample = new();
+    private readonly GripAcquisitionSample rightShadowAcquisitionSample = new();
+    private int leftShadowPublishConfidenceMask;
+    private int rightShadowPublishConfidenceMask;
 
     public GripInteractionCoordinator(SceneConfiguror owner)
     {
@@ -342,6 +357,14 @@ public sealed class GripInteractionCoordinator
         rightLocomotionActive = false;
         leftTelemetryStateKey = GripAcquisitionTelemetry.NoStateKey;
         rightTelemetryStateKey = GripAcquisitionTelemetry.NoStateKey;
+        leftCoverageShadow?.Reset();
+        rightCoverageShadow?.Reset();
+        leftShadowWristSampledAt = float.NaN;
+        rightShadowWristSampledAt = float.NaN;
+        leftGraceShadowFired = false;
+        rightGraceShadowFired = false;
+        leftShadowAcquisitionSample.Invalidate();
+        rightShadowAcquisitionSample.Invalidate();
     }
 
     /// <summary>Releases a hold (e.g. an unregistering ghost) from whichever latch holds it.</summary>
@@ -378,6 +401,24 @@ public sealed class GripInteractionCoordinator
             ? leftGripAcquisitionSample
             : rightGripAcquisitionSample;
         sample.Publish(holdId, curls, distances, sampledAt);
+
+        // The pipeline invalidates the real sample on the very frame a tracking dropout nulls
+        // its target - before the latch update can look at it - and each epoch refresh replaces
+        // it. This coordinator-owned copy is what the shadow paths read, epoch-coherent and
+        // untouched by the pipeline's lifecycle. Confidence is captured at publish time as the
+        // closest observable proxy for the epoch's tracking state.
+        if (hand == Hand.Left)
+        {
+            leftShadowAcquisitionSample.Publish(holdId, curls, distances, sampledAt);
+            leftShadowPublishConfidenceMask =
+                GripAcquisitionTelemetry.BuildConfidenceMask(leftFingerConfidence);
+        }
+        else
+        {
+            rightShadowAcquisitionSample.Publish(holdId, curls, distances, sampledAt);
+            rightShadowPublishConfidenceMask =
+                GripAcquisitionTelemetry.BuildConfidenceMask(rightFingerConfidence);
+        }
     }
 
     public void InvalidateAcquisitionSample(Hand hand)
@@ -554,6 +595,280 @@ public sealed class GripInteractionCoordinator
         RecordAcquisitionTelemetry(
             hand, latch, block, masks, verdict.CountedFingers, requiredFingers,
             candidate, trackingValid, now);
+        UpdateShadowAcquisition(
+            hand, latch, candidate, candidateHoldId, curls, criteria,
+            trackingValid, affordancesReady, useDegradedCpu, now);
+    }
+
+    /// <summary>
+    /// Shadow acquisition paths: evaluated on every hold and logged, never latched. Coverage
+    /// watches for the open-hand grips the curl gate structurally misses; grace watches for a
+    /// high-confidence GPU sample landing during a hand-level confidence dropout - the sample
+    /// the real path discards. Their would-latch rates from real sessions are the evidence for
+    /// deciding whether either becomes a live path, per the mid-enrollment shadow discipline.
+    /// </summary>
+    private void UpdateShadowAcquisition(
+        Hand hand,
+        GripLatchStateMachine latch,
+        GameObject candidate,
+        int candidateHoldId,
+        float[] curls,
+        in GripAcquisitionCriteria criteria,
+        bool trackingValid,
+        bool affordancesReady,
+        bool useDegradedCpu,
+        float now)
+    {
+        if (shadowFaulted)
+        {
+            return;
+        }
+
+        // Shadow evaluation runs inline between the two hands' real updates, so a fault here
+        // must never take the real gate down with it: log it once and retire the shadows for
+        // the session.
+        try
+        {
+            ActionRecorder recorder = owner.actionRecorder;
+            bool recording = recorder != null && recorder.IsRecording;
+            bool freeOnCandidate = latch.Phase == GripLatchPhase.Free && candidate != null &&
+                                   affordancesReady && !useDegradedCpu &&
+                                   !owner.IsGripFeedbackDegraded;
+
+            if (settings.shadowGraceEnabled)
+            {
+                UpdateGraceShadow(
+                    hand, curls, criteria, candidate, candidateHoldId,
+                    freeOnCandidate, trackingValid, recording, recorder, now);
+            }
+            else
+            {
+                leftGraceShadowFired = false;
+                rightGraceShadowFired = false;
+            }
+            if (settings.shadowOpenSurfaceEnabled)
+            {
+                UpdateCoverageShadow(
+                    hand, candidate, candidateHoldId,
+                    freeOnCandidate && trackingValid, recording, recorder, now);
+            }
+            else
+            {
+                leftCoverageShadow?.Reset();
+                rightCoverageShadow?.Reset();
+                leftShadowWristSampledAt = float.NaN;
+                rightShadowWristSampledAt = float.NaN;
+            }
+        }
+        catch (Exception exception)
+        {
+            shadowFaulted = true;
+            Debug.LogException(exception);
+            Debug.LogError(
+                "[SceneConfiguror] Shadow grip acquisition disabled for this session after the " +
+                "exception above; the real gate is unaffected.");
+        }
+    }
+
+    /// <summary>
+    /// The pipeline clears its acquisition sample on the very frame a tracking dropout nulls the
+    /// hand's target, before the latch update runs, so the real gate never sees the epoch that
+    /// landed on a dropout frame. The coordinator-owned shadow snapshot survives that clear;
+    /// peeking it here is the only record that a fully qualified grip evaporated into a
+    /// dropout. One row per dropout: the flag re-arms when tracking returns or the candidate
+    /// goes away.
+    /// </summary>
+    private void UpdateGraceShadow(
+        Hand hand,
+        float[] curls,
+        in GripAcquisitionCriteria criteria,
+        GameObject candidate,
+        int candidateHoldId,
+        bool freeOnCandidate,
+        bool trackingValid,
+        bool recording,
+        ActionRecorder recorder,
+        float now)
+    {
+        if (trackingValid || !freeOnCandidate)
+        {
+            if (hand == Hand.Left)
+            {
+                leftGraceShadowFired = false;
+            }
+            else
+            {
+                rightGraceShadowFired = false;
+            }
+            return;
+        }
+        bool fired = hand == Hand.Left ? leftGraceShadowFired : rightGraceShadowFired;
+        GripAcquisitionSample shadowSample = hand == Hand.Left
+            ? leftShadowAcquisitionSample
+            : rightShadowAcquisitionSample;
+        if (fired || !recording || !shadowSample.IsValid)
+        {
+            return;
+        }
+
+        GripAcquisitionMasks masks = shadowSample.PeekMasks(
+            candidateHoldId,
+            curls,
+            criteria,
+            now,
+            settings.shadowGraceWindowSeconds);
+        GripAcquisitionVerdict verdict = GripEngagementGate.Evaluate(criteria, masks);
+        if (!verdict.CanAcquire)
+        {
+            return;
+        }
+
+        if (hand == Hand.Left)
+        {
+            leftGraceShadowFired = true;
+        }
+        else
+        {
+            rightGraceShadowFired = true;
+        }
+        recorder.Record(
+            GripOpenSurfacePolicy.ShadowLatchAction,
+            hand == Hand.Left ? "Left" : "Right",
+            candidate,
+            GripOpenSurfacePolicy.FormatGraceDetails(
+                now - shadowSample.SampledAt,
+                masks,
+                verdict.CountedFingers,
+                verdict.RequiredFingers,
+                hand == Hand.Left
+                    ? leftShadowPublishConfidenceMask
+                    : rightShadowPublishConfidenceMask));
+    }
+
+    private void UpdateCoverageShadow(
+        Hand hand,
+        GameObject candidate,
+        int candidateHoldId,
+        bool active,
+        bool recording,
+        ActionRecorder recorder,
+        float now)
+    {
+        // Live-tunable dwell/refire: a changed value rebuilds both trackers rather than driving
+        // them with constants captured at first use.
+        if (leftCoverageShadow == null ||
+            coverageTrackerDwellSeconds != settings.shadowCoverageDwellSeconds ||
+            coverageTrackerRefireSeconds != settings.shadowRefireSeconds)
+        {
+            coverageTrackerDwellSeconds = settings.shadowCoverageDwellSeconds;
+            coverageTrackerRefireSeconds = settings.shadowRefireSeconds;
+            leftCoverageShadow = new GripShadowDwellTracker(
+                coverageTrackerDwellSeconds,
+                coverageTrackerRefireSeconds);
+            rightCoverageShadow = new GripShadowDwellTracker(
+                coverageTrackerDwellSeconds,
+                coverageTrackerRefireSeconds);
+        }
+        GripShadowDwellTracker tracker = hand == Hand.Left ? leftCoverageShadow : rightCoverageShadow;
+
+        float boardSpeed = float.NaN;
+        if (active && recording)
+        {
+            boardSpeed = MeasureBoardLocalWristSpeed(hand, now);
+        }
+        else if (hand == Hand.Left)
+        {
+            leftShadowWristSampledAt = float.NaN;
+        }
+        else
+        {
+            rightShadowWristSampledAt = float.NaN;
+        }
+
+        // Evidence comes from the coordinator's shadow snapshot of the last GPU epoch, so the
+        // distances and curls are epoch-coherent and a stalled pipeline reads as no evidence
+        // (the epoch ages out) rather than as sustained contact from one frozen measurement.
+        GripAcquisitionSample shadowSample = hand == Hand.Left
+            ? leftShadowAcquisitionSample
+            : rightShadowAcquisitionSample;
+        bool eligible = false;
+        GripOpenSurfaceEvidence evidence = default;
+        bool epochFresh = shadowSample.IsValid &&
+                          shadowSample.HoldId == candidateHoldId &&
+                          now - shadowSample.SampledAt <= settings.shadowCoverageEpochFreshnessSeconds;
+        if (active && recording && epochFresh &&
+            !float.IsNaN(boardSpeed) &&
+            boardSpeed <= settings.shadowCoverageMaxSpeedMetersPerSecond)
+        {
+            evidence = GripOpenSurfacePolicy.Measure(
+                shadowSample.SampledBoneDistances,
+                shadowSample.SampledCurls,
+                settings.shadowCoverageContactRangeMeters,
+                settings.shadowCoveragePalmRangeMeters);
+            eligible = GripOpenSurfacePolicy.IsEligible(
+                evidence,
+                settings.shadowCoverageMinDigits,
+                settings.shadowCoverageMinPadSamples,
+                settings.shadowCoverageCurlFloor);
+        }
+
+        if (tracker.Update(eligible, candidateHoldId, now, out float sustainedSeconds))
+        {
+            recorder.Record(
+                GripOpenSurfacePolicy.ShadowLatchAction,
+                hand == Hand.Left ? "Left" : "Right",
+                candidate,
+                GripOpenSurfacePolicy.FormatCoverageDetails(
+                    evidence,
+                    sustainedSeconds,
+                    boardSpeed,
+                    shadowSample.SampledCurls));
+        }
+    }
+
+    /// <summary>Wrist speed measured in the board's frame: grip locomotion moves the environment
+    /// under a stationary hand, so world-space speed would read a clean mid-pull hang as fast
+    /// motion. Only called while the hand is tracked and a recording is live; returns NaN until
+    /// two consecutive samples exist.</summary>
+    private float MeasureBoardLocalWristSpeed(Hand hand, float now)
+    {
+        List<Vector3> positions = hand == Hand.Left
+            ? owner.leftHandBonePositions
+            : owner.rightHandBonePositions;
+        Transform board = owner.moonBoardEnv != null ? owner.moonBoardEnv.transform : null;
+        if (board == null || positions == null ||
+            positions.Count <= GripLocomotionAnchor.OpenXrWristBoneIndex)
+        {
+            if (hand == Hand.Left)
+            {
+                leftShadowWristSampledAt = float.NaN;
+            }
+            else
+            {
+                rightShadowWristSampledAt = float.NaN;
+            }
+            return float.NaN;
+        }
+
+        Vector3 local = board.InverseTransformPoint(GripLocomotionAnchor.GetWristPosition(positions));
+        float lastAt = hand == Hand.Left ? leftShadowWristSampledAt : rightShadowWristSampledAt;
+        Vector3 lastLocal = hand == Hand.Left ? leftShadowWristBoardLocal : rightShadowWristBoardLocal;
+        float speed = float.NaN;
+        if (!float.IsNaN(lastAt) && now > lastAt && now - lastAt < 0.2f)
+        {
+            speed = (local - lastLocal).magnitude / (now - lastAt);
+        }
+        if (hand == Hand.Left)
+        {
+            leftShadowWristBoardLocal = local;
+            leftShadowWristSampledAt = now;
+        }
+        else
+        {
+            rightShadowWristBoardLocal = local;
+            rightShadowWristSampledAt = now;
+        }
+        return speed;
     }
 
     /// <summary>Snapshots the acquisition state to the recorder whenever the slow-moving signals

@@ -433,6 +433,11 @@ public sealed class GripAcquisitionSample
     public int HoldId { get; private set; }
     public float SampledAt { get; private set; }
 
+    /// <summary>Read-only views of the epoch payload, for shadow evaluation that needs the raw
+    /// per-bone evidence (pad coverage) in epoch-coherent form rather than the fingertip masks.</summary>
+    public IReadOnlyList<float> SampledCurls => curls;
+    public IReadOnlyList<float> SampledBoneDistances => boneDistances;
+
     public void Publish(
         int holdId,
         IReadOnlyList<float> sampledCurls,
@@ -525,6 +530,49 @@ public sealed class GripAcquisitionSample
         int currentFlexedMask = GripEngagementGate.BuildFlexedMask(currentCurls, criteria.EngageCurl);
         int currentStrongMask = GripEngagementGate.BuildFlexedMask(currentCurls, criteria.StrongCurl);
         Invalidate();
+        return new GripAcquisitionMasks(
+            sampled.Flexed & currentFlexedMask,
+            sampled.Contact,
+            sampled.FlexedContact & currentFlexedMask,
+            sampled.StrongContact & currentStrongMask);
+    }
+
+    /// <summary>
+    /// <see cref="ConsumeMasks"/> without the consumption: reads the epoch evidence for shadow
+    /// evaluation while leaving the sample exactly as the real gate will find it. A mismatched
+    /// hold or an aged-out sample returns nothing and - unlike consuming - does NOT invalidate,
+    /// because peeking must never alter what the real acquisition path sees next frame.
+    /// </summary>
+    public GripAcquisitionMasks PeekMasks(
+        int holdId,
+        IReadOnlyList<float> currentCurls,
+        in GripAcquisitionCriteria criteria,
+        float now,
+        float maximumAgeSeconds = MaximumAgeSeconds)
+    {
+        if (maximumAgeSeconds < 0f || float.IsNaN(maximumAgeSeconds) ||
+            float.IsInfinity(maximumAgeSeconds))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumAgeSeconds),
+                "Acquisition sample age must be finite and non-negative.");
+        }
+        if (!IsValid)
+        {
+            return default;
+        }
+        if (float.IsNaN(now) || float.IsInfinity(now) || now < SampledAt)
+        {
+            throw new ArgumentOutOfRangeException(nameof(now), "Acquisition time must be finite and monotonic.");
+        }
+        if (HoldId != holdId || now - SampledAt > maximumAgeSeconds)
+        {
+            return default;
+        }
+
+        GripAcquisitionMasks sampled = GripAcquisitionMasks.Build(curls, boneDistances, criteria);
+        int currentFlexedMask = GripEngagementGate.BuildFlexedMask(currentCurls, criteria.EngageCurl);
+        int currentStrongMask = GripEngagementGate.BuildFlexedMask(currentCurls, criteria.StrongCurl);
         return new GripAcquisitionMasks(
             sampled.Flexed & currentFlexedMask,
             sampled.Contact,

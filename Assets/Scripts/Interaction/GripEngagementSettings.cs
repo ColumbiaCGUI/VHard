@@ -22,6 +22,35 @@ public sealed class GripEngagementSettings : MonoBehaviour
              "excludes it; an engagement always needs at least one non-thumb finger either way.")]
     public bool thumbCountsTowardMinimum;
 
+    [Header("Shadow acquisition paths (log-only; never latch)")]
+    [Tooltip("Log GripShadowLatch path=coverage events when the open-surface contact-coverage " +
+             "rule would have latched. Shadow only: the real gate is untouched.")]
+    public bool shadowOpenSurfaceEnabled = true;
+    [Tooltip("Pad/tip bone distance a digit must reach to count toward coverage.")]
+    [Min(0.001f)] public float shadowCoverageContactRangeMeters = 0.015f;
+    [Tooltip("Palm or wrist bone distance recorded as palm evidence. Telemetry only.")]
+    [Min(0.001f)] public float shadowCoveragePalmRangeMeters = 0.03f;
+    [Tooltip("Distinct non-thumb digits the coverage rule requires.")]
+    [Range(1, 4)] public int shadowCoverageMinDigits = 2;
+    [Tooltip("Contacting pad/tip bones across those digits the rule requires.")]
+    [Range(1, 12)] public int shadowCoverageMinPadSamples = 3;
+    [Tooltip("Lowest max-digit curl that still reads as gripping rather than hanging slack.")]
+    [Range(0f, 1f)] public float shadowCoverageCurlFloor = 0.1f;
+    [Tooltip("Seconds the coverage evidence must hold continuously before it would latch.")]
+    [Min(0f)] public float shadowCoverageDwellSeconds = 0.12f;
+    [Tooltip("Maximum age of the GPU contact epoch the coverage rule may treat as current. A " +
+             "stalled pipeline must read as no evidence, never as sustained contact.")]
+    [Range(0.02f, 0.2f)] public float shadowCoverageEpochFreshnessSeconds = 0.1f;
+    [Tooltip("Board-relative wrist speed above which the hand reads as reaching past, not gripping.")]
+    [Min(0.01f)] public float shadowCoverageMaxSpeedMetersPerSecond = 0.25f;
+    [Tooltip("Ineligibility gap after a fire before the same hold may fire again.")]
+    [Min(0f)] public float shadowRefireSeconds = 0.5f;
+    [Tooltip("Log GripShadowLatch path=grace events when a fresh high-confidence GPU sample " +
+             "would have latched during a hand-level confidence dropout.")]
+    public bool shadowGraceEnabled = true;
+    [Tooltip("Maximum sample age the grace would accept during a confidence dropout.")]
+    [Range(0.01f, 0.1f)] public float shadowGraceWindowSeconds = 0.08f;
+
     [Header("Two-hand locomotion")]
     [Tooltip("Let two latched, tracked hands drive the board together. Off restores the single " +
              "driving hand, where a second latch stops the board instead of sharing it.")]

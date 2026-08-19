@@ -102,16 +102,28 @@ public static class GripAcquisitionTelemetry
             .Append(";flexedContact=").Append(masks.FlexedContact.ToString(CultureInfo.InvariantCulture))
             .Append(";counted=").Append(countedFingers.ToString(CultureInfo.InvariantCulture))
             .Append(";required=").Append(requiredFingers.ToString(CultureInfo.InvariantCulture))
-            .Append(";curls=(");
+            .Append(";curls=").Append(FormatCurlList(curls));
+        return details.ToString();
+    }
+
+    /// <summary>The shared curl rendering: five F2 values, thumb first, in parentheses.</summary>
+    public static string FormatCurlList(IReadOnlyList<float> curls)
+    {
+        if (curls == null || curls.Count < FingerCurlEstimator.FingerCount)
+        {
+            throw new ArgumentException("Telemetry curls must contain five values.", nameof(curls));
+        }
+
+        StringBuilder list = new("(");
         for (int finger = 0; finger < FingerCurlEstimator.FingerCount; finger++)
         {
             if (finger > 0)
             {
-                details.Append(',');
+                list.Append(',');
             }
-            details.Append(curls[finger].ToString("F2", CultureInfo.InvariantCulture));
+            list.Append(curls[finger].ToString("F2", CultureInfo.InvariantCulture));
         }
-        return details.Append(')').ToString();
+        return list.Append(')').ToString();
     }
 
     public static int BuildConfidenceMask(IReadOnlyList<bool> highConfidence)
