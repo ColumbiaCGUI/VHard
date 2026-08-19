@@ -1339,6 +1339,7 @@ public sealed class GripInteractionCoordinator
                 latchedHold,
                 "minFingers=" + minFingers + ";fingers=" + acquiredFingers +
                 ";path=" + acquirePath.ToRecorderValue());
+            EvictOtherHandForHandoff(hand, latchedHold, now);
         }
         else if (transition.Kind == GripLatchTransitionKind.Frozen)
         {
@@ -1372,6 +1373,46 @@ public sealed class GripInteractionCoordinator
         {
             ResetGripAnchor(hand, now);
         }
+    }
+
+    /// <summary>
+    /// Auto-handoff: a latch committed to a new ROUTE hold releases the other hand's latch,
+    /// routed through the ordinary release handling so locomotion completion, feedback, the
+    /// recorder row (reason=handoff), and the coverage flags all see a normal release.
+    /// GripHandoffPolicy owns the rule: same-hold matches keep both latches (the top-out
+    /// button requires them) and ghost proxies are exempt on either side. Transition-time
+    /// only - no per-frame cost.
+    /// </summary>
+    private void EvictOtherHandForHandoff(Hand hand, GameObject newHold, float now)
+    {
+        if (!settings.autoHandoffEnabled || newHold == null)
+        {
+            return;
+        }
+        Hand other = hand == Hand.Left ? Hand.Right : Hand.Left;
+        GripLatchStateMachine otherLatch = other == Hand.Left ? leftGripLatch : rightGripLatch;
+        GameObject otherHold = other == Hand.Left ? leftLatchedHold : rightLatchedHold;
+        bool otherEngaged = otherLatch != null && otherLatch.IsEngaged;
+        if (!GripHandoffPolicy.ShouldEvictOtherHand(
+                settings.autoHandoffEnabled,
+                newHold.GetInstanceID(),
+                !owner.IsGhostHold(newHold),
+                otherEngaged,
+                otherEngaged ? otherLatch.HoldId : 0,
+                otherHold != null && !owner.IsGhostHold(otherHold)))
+        {
+            return;
+        }
+
+        GripLatchTransition released = otherLatch.ForceRelease(GripReleaseReason.Handoff);
+        if (released.Kind != GripLatchTransitionKind.Released)
+        {
+            return;
+        }
+        bool otherTracking = other == Hand.Left ? LeftTrackingValid : RightTrackingValid;
+        HandleGripLatchTransition(other, null, 0, 0, GripAcquirePath.Curl, released, now, otherTracking);
+        owner.leftHandIsGripping = leftGripLatch != null && leftGripLatch.IsEngaged;
+        owner.rightHandIsGripping = rightGripLatch != null && rightGripLatch.IsEngaged;
     }
 
     public void RestoreLatchFeedback()

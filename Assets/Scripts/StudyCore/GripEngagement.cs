@@ -610,6 +610,7 @@ public enum GripReleaseReason
     OpenHand,
     CountDrop,
     FrozenTimeout,
+    Handoff,
 }
 
 public readonly struct GripLatchTransition
@@ -785,6 +786,21 @@ public sealed class GripLatchStateMachine
         ClearTimers();
     }
 
+    /// <summary>
+    /// Releases the latch immediately for an external cause - the auto-handoff when the other
+    /// hand commits to a new hold - producing the same Released transition the evidence-driven
+    /// releases produce, so every release flows through one handler. A free latch has nothing
+    /// to release and returns the empty transition.
+    /// </summary>
+    public GripLatchTransition ForceRelease(GripReleaseReason reason)
+    {
+        if (reason == GripReleaseReason.None)
+        {
+            throw new ArgumentOutOfRangeException(nameof(reason), "A forced release needs a cause.");
+        }
+        return Phase == GripLatchPhase.Free ? default : Release(reason);
+    }
+
     private GripLatchTransition Release(GripReleaseReason reason)
     {
         int releasedHoldId = HoldId;
@@ -813,6 +829,7 @@ public static class GripReleaseReasonExtensions
             GripReleaseReason.OpenHand => "open_hand",
             GripReleaseReason.CountDrop => "count_drop",
             GripReleaseReason.FrozenTimeout => "frozen_timeout",
+            GripReleaseReason.Handoff => "handoff",
             _ => string.Empty,
         };
     }
@@ -844,24 +861,68 @@ public static class GripAcquirePathExtensions
 /// Names the acquisition-gate configuration a run was recorded under. Stamped into every run
 /// manifest so a recording is never analyzed against the wrong gate: v1 is the curl-only gate
 /// P1 and P2 ran (2026-08-17/18); v2 adds the coverage and grace paths live (2026-08-19,
-/// enabled on Ben's go per the plan of record). A partial toggle names the disabled path so a
-/// mid-study experiment is visible in the stamp rather than masquerading as either version.
+/// enabled on Ben's go per the plan of record); v3 adds the auto-handoff release. A partial
+/// toggle names the exact combination so a mid-study experiment is visible in the stamp rather
+/// than masquerading as a neighboring version.
 /// </summary>
 public static class GripGateVersionPolicy
 {
     public const string CurlOnly = "curl-v1";
     public const string Full = "curl+coverage+grace-v2";
+    public const string FullWithHandoff = "curl+coverage+grace+handoff-v3";
 
     public static string Describe(bool coverageLive, bool graceLive)
     {
-        if (coverageLive && graceLive)
+        return Describe(coverageLive, graceLive, handoffLive: false);
+    }
+
+    public static string Describe(bool coverageLive, bool graceLive, bool handoffLive)
+    {
+        string paths = coverageLive && graceLive
+            ? "curl+coverage+grace"
+            : coverageLive
+                ? "curl+coverage"
+                : graceLive ? "curl+grace" : "curl";
+        if (handoffLive)
         {
-            return Full;
+            return paths + "+handoff-v3";
         }
-        if (!coverageLive && !graceLive)
+        return paths + (coverageLive || graceLive ? "-v2" : "-v1");
+    }
+}
+
+/// <summary>
+/// The auto-handoff rule: committing a latch to a NEW route hold releases the other hand's
+/// latch, because weight transfer - the thing that releases a trailing hand on a real wall -
+/// does not exist in VR, and the flexion release demands an open-hand gesture a flowing
+/// climber never makes (P1/P2: median trailing overlap 0.5-1.2 s, 42 handoff moments each).
+/// Two carve-outs keep the real bimanual interactions: a match on the SAME hold keeps both
+/// latches (the top-out button needs both hands on the finish), and ghost proxies are exempt
+/// on either side (two-handed inspection of two ghosts must not evict itself).
+/// </summary>
+public static class GripHandoffPolicy
+{
+    public static bool ShouldEvictOtherHand(
+        bool enabled,
+        int newHoldId,
+        bool newIsRouteHold,
+        bool otherEngaged,
+        int otherHoldId,
+        bool otherIsRouteHold)
+    {
+        if (newHoldId == 0)
         {
-            return CurlOnly;
+            throw new ArgumentOutOfRangeException(nameof(newHoldId), "A latch always names its hold.");
         }
-        return coverageLive ? "curl+coverage-v2" : "curl+grace-v2";
+        if (otherEngaged && otherHoldId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(otherHoldId), "An engaged latch always names its hold.");
+        }
+
+        return enabled &&
+               otherEngaged &&
+               newIsRouteHold &&
+               otherIsRouteHold &&
+               newHoldId != otherHoldId;
     }
 }

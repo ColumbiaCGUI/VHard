@@ -40,6 +40,11 @@ public sealed class GripEngagementSettings : MonoBehaviour
              "lenient than acquisition freshness: a brief pipeline stall must not shed a held " +
              "drag, and flexion evidence still sustains in parallel.")]
     [Range(0.05f, 0.5f)] public float coverageReleaseFreshnessSeconds = 0.3f;
+    [Tooltip("Committing a latch to a NEW route hold releases the other hand's latch " +
+             "(GripReleased reason=handoff), so hand-over-hand flow needs no open-hand gesture " +
+             "on the trailing hand. Matching the SAME hold keeps both latches (top-out needs " +
+             "it), and ghost proxies are exempt on either side.")]
+    public bool autoHandoffEnabled = true;
 
     [Header("Shadow acquisition paths (log-only; never latch)")]
     [Tooltip("Log GripShadowLatch path=coverage events when the open-surface contact-coverage " +
@@ -143,7 +148,10 @@ public sealed class GripEngagementSettings : MonoBehaviour
 
     public string DescribeGateVersion()
     {
-        return GripGateVersionPolicy.Describe(coverageAcquisitionEnabled, graceAcquisitionEnabled);
+        return GripGateVersionPolicy.Describe(
+            coverageAcquisitionEnabled,
+            graceAcquisitionEnabled,
+            autoHandoffEnabled);
     }
 
     public GripAcquisitionCriteria BuildCriteria(

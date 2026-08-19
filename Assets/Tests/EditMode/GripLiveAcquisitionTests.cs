@@ -163,6 +163,63 @@ public sealed class GripLiveAcquisitionTests
     }
 
     [Test]
+    public void GateVersionNamesTheHandoffConfigurations()
+    {
+        Assert.That(GripGateVersionPolicy.Describe(true, true, true),
+            Is.EqualTo("curl+coverage+grace+handoff-v3"));
+        Assert.That(GripGateVersionPolicy.FullWithHandoff,
+            Is.EqualTo(GripGateVersionPolicy.Describe(true, true, true)));
+        Assert.That(GripGateVersionPolicy.Describe(false, false, true), Is.EqualTo("curl+handoff-v3"));
+        Assert.That(GripGateVersionPolicy.Describe(true, false, true), Is.EqualTo("curl+coverage+handoff-v3"));
+        Assert.That(GripGateVersionPolicy.Describe(true, true, false),
+            Is.EqualTo(GripGateVersionPolicy.Full),
+            "The two-argument overload's meaning must not drift when handoff is off.");
+    }
+
+    [Test]
+    public void HandoffEvictsOnlyADifferentRouteHold()
+    {
+        // The flow case: new latch on route hold 2 while the other hand holds route hold 1.
+        Assert.That(GripHandoffPolicy.ShouldEvictOtherHand(true, 2, true, true, 1, true), Is.True);
+        // Matching the same hold keeps both latches - the top-out button depends on it.
+        Assert.That(GripHandoffPolicy.ShouldEvictOtherHand(true, 1, true, true, 1, true), Is.False);
+        // Ghost proxies are exempt on either side: two-handed ghost inspection must survive.
+        Assert.That(GripHandoffPolicy.ShouldEvictOtherHand(true, 2, false, true, 1, true), Is.False);
+        Assert.That(GripHandoffPolicy.ShouldEvictOtherHand(true, 2, true, true, 1, false), Is.False);
+        // Nothing to evict, or the feature is off.
+        Assert.That(GripHandoffPolicy.ShouldEvictOtherHand(true, 2, true, false, 0, false), Is.False);
+        Assert.That(GripHandoffPolicy.ShouldEvictOtherHand(false, 2, true, true, 1, true), Is.False);
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => GripHandoffPolicy.ShouldEvictOtherHand(true, 0, true, true, 1, true));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => GripHandoffPolicy.ShouldEvictOtherHand(true, 2, true, true, 0, true));
+    }
+
+    [Test]
+    public void ForceReleaseFreesTheLatchWithItsCauseAndAllowsReacquisition()
+    {
+        GripLatchStateMachine latch = new();
+        Assert.That(latch.ForceRelease(GripReleaseReason.Handoff).Kind,
+            Is.EqualTo(GripLatchTransitionKind.None),
+            "A free latch has nothing to release.");
+
+        Assert.That(latch.Update(0f, true, true, 7, 2, 0b00110, 0).Kind,
+            Is.EqualTo(GripLatchTransitionKind.Latched));
+        GripLatchTransition released = latch.ForceRelease(GripReleaseReason.Handoff);
+        Assert.That(released.Kind, Is.EqualTo(GripLatchTransitionKind.Released));
+        Assert.That(released.ReleaseReason, Is.EqualTo(GripReleaseReason.Handoff));
+        Assert.That(released.HoldId, Is.EqualTo(7));
+        Assert.That(latch.IsEngaged, Is.False);
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => latch.ForceRelease(GripReleaseReason.None));
+
+        // The freed hand can immediately latch the next hold - the handoff rhythm.
+        Assert.That(latch.Update(0.1f, true, true, 9, 2, 0b01100, 0).Kind,
+            Is.EqualTo(GripLatchTransitionKind.Latched));
+        Assert.That(GripReleaseReason.Handoff.ToRecorderValue(), Is.EqualTo("handoff"));
+    }
+
+    [Test]
     public void GraceAcquiredLatchRidesTheFreezeMachineryThroughTheDropout()
     {
         // The grace path acquires with tracking reported valid for that single update (the
