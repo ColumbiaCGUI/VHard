@@ -922,6 +922,13 @@ public class SceneConfiguror : MonoBehaviour
                (Grip.GetLatchedHold(Hand.Left) == hold || Grip.GetLatchedHold(Hand.Right) == hold);
     }
 
+    /// <summary>The acquisition-gate configuration stamp for the run manifest (gate v1 = curl
+    /// only, v2 = curl + coverage + grace), so every recording names the gate it ran under.</summary>
+    public string DescribeGripGateVersion()
+    {
+        return Grip.DescribeGateVersion();
+    }
+
     private void ApplyModeToRouteHolds()
     {
         if (activeHoldsList == null)

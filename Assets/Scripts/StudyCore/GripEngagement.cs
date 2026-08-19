@@ -817,3 +817,51 @@ public static class GripReleaseReasonExtensions
         };
     }
 }
+
+/// <summary>Which acquisition mechanism granted a latch. Recorded on every GripLatched event so
+/// the analysis can split latches by path without inferring it from the surrounding evidence.</summary>
+public enum GripAcquirePath
+{
+    Curl,
+    Coverage,
+    Grace,
+}
+
+public static class GripAcquirePathExtensions
+{
+    public static string ToRecorderValue(this GripAcquirePath path)
+    {
+        return path switch
+        {
+            GripAcquirePath.Coverage => "coverage",
+            GripAcquirePath.Grace => "grace",
+            _ => "curl",
+        };
+    }
+}
+
+/// <summary>
+/// Names the acquisition-gate configuration a run was recorded under. Stamped into every run
+/// manifest so a recording is never analyzed against the wrong gate: v1 is the curl-only gate
+/// P1 and P2 ran (2026-08-17/18); v2 adds the coverage and grace paths live (2026-08-19,
+/// enabled on Ben's go per the plan of record). A partial toggle names the disabled path so a
+/// mid-study experiment is visible in the stamp rather than masquerading as either version.
+/// </summary>
+public static class GripGateVersionPolicy
+{
+    public const string CurlOnly = "curl-v1";
+    public const string Full = "curl+coverage+grace-v2";
+
+    public static string Describe(bool coverageLive, bool graceLive)
+    {
+        if (coverageLive && graceLive)
+        {
+            return Full;
+        }
+        if (!coverageLive && !graceLive)
+        {
+            return CurlOnly;
+        }
+        return coverageLive ? "curl+coverage-v2" : "curl+grace-v2";
+    }
+}

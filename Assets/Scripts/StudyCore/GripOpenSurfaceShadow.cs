@@ -7,9 +7,13 @@ using System.Globalization;
 /// structurally excludes these styles - a drag reads about 0.28 curl against the 0.55 engage
 /// threshold - and hold geometry cannot predict who will use them, so this path is evaluated on
 /// EVERY hold from what the hand actually does: several distinct digits with pad or tip bones on
-/// the surface, held there briefly with the hand quiet relative to the board. The study is
-/// mid-enrollment, so the path runs in SHADOW: it logs the latches it would have granted and
-/// never grants one, giving real-session false-latch and miss rates before any gate change.
+/// the surface, held there briefly with the hand quiet relative to the board. The path shipped
+/// as SHADOW (log-only) during P1/P2; since gate v2 (2026-08-19, Ben's go per the plan of
+/// record) the same rule and the same frozen values are the LIVE acquisition path, with the
+/// shadow evaluators retained only for whichever path is toggled back off. Crimps and half
+/// crimps also satisfy this rule - tip bones count as contact and a flexed digit clears the
+/// 0.1 curl floor by a wide margin - but in practice they latch first through the curl path;
+/// coverage exists for the styles curl cannot see.
 /// </summary>
 public readonly struct GripOpenSurfaceEvidence
 {
@@ -109,6 +113,61 @@ public static class GripOpenSurfacePolicy
         bool palmClose = boneDistances[PalmBoneIndex] <= palmRangeMeters ||
                          boneDistances[WristBoneIndex] <= palmRangeMeters;
         return new GripOpenSurfaceEvidence(digitMask, padSamples, palmClose, maxDigitCurl);
+    }
+
+    /// <summary>
+    /// Digit contact mask alone (bit = finger index), without the curl or palm reads: the
+    /// evidence that SUSTAINS a live coverage-latched grip each frame. Kept lean because it
+    /// runs while latched; the acquisition-side Measure carries the full evidence.
+    /// </summary>
+    public static int MeasureDigitContactMask(
+        IReadOnlyList<float> boneDistances,
+        float contactRangeMeters)
+    {
+        if (boneDistances == null || boneDistances.Count < GripEngagementGate.RequiredBoneDistanceCount)
+        {
+            throw new ArgumentException(
+                "Coverage distances must contain all OpenXR hand bones.",
+                nameof(boneDistances));
+        }
+        if (contactRangeMeters <= 0f || float.IsNaN(contactRangeMeters))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(contactRangeMeters),
+                "Coverage contact ranges must be positive.");
+        }
+
+        int digitMask = 0;
+        for (int digit = 0; digit < DigitPadBones.Length; digit++)
+        {
+            int[] bones = DigitPadBones[digit];
+            for (int index = 0; index < bones.Length; index++)
+            {
+                if (boneDistances[bones[index]] <= contactRangeMeters)
+                {
+                    digitMask |= 1 << (FirstNonThumbFinger + digit);
+                    break;
+                }
+            }
+        }
+        return digitMask;
+    }
+
+    /// <summary>
+    /// Digits the live coverage path demands on one hold: the global coverage minimum, raised
+    /// to the hold's own finger minimum so a pocket's spec-08 constraint binds this path exactly
+    /// as it binds the curl path. Geometry never lowers the requirement.
+    /// </summary>
+    public static int RequiredCoverageDigits(int coverageMinimumDigits, int holdMinFingers)
+    {
+        if (coverageMinimumDigits < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(coverageMinimumDigits),
+                "Coverage minimums must be at least one.");
+        }
+        GripEngagementGate.ValidateMinFingers(holdMinFingers);
+        return Math.Max(coverageMinimumDigits, holdMinFingers);
     }
 
     /// <summary>

@@ -63,6 +63,9 @@ public sealed class GripInteractionCoordinator
     private GripShadowDwellTracker rightCoverageShadow;
     private float coverageTrackerDwellSeconds = float.NaN;
     private float coverageTrackerRefireSeconds = float.NaN;
+    private bool coverageTrackerLiveMode;
+    private bool leftLatchedViaCoverage;
+    private bool rightLatchedViaCoverage;
     private Vector3 leftShadowWristBoardLocal;
     private Vector3 rightShadowWristBoardLocal;
     private float leftShadowWristSampledAt = float.NaN;
@@ -363,6 +366,8 @@ public sealed class GripInteractionCoordinator
         rightShadowWristSampledAt = float.NaN;
         leftGraceShadowFired = false;
         rightGraceShadowFired = false;
+        leftLatchedViaCoverage = false;
+        rightLatchedViaCoverage = false;
         leftShadowAcquisitionSample.Invalidate();
         rightShadowAcquisitionSample.Invalidate();
     }
@@ -376,6 +381,7 @@ public sealed class GripInteractionCoordinator
             leftGripLatch.Reset();
             leftLatchedHold = null;
             leftLatchedFingerCount = 0;
+            leftLatchedViaCoverage = false;
             StopGripLocomotion(Hand.Left);
         }
         if (rightGripLatch != null && rightGripLatch.HoldId == holdId)
@@ -384,6 +390,7 @@ public sealed class GripInteractionCoordinator
             rightGripLatch.Reset();
             rightLatchedHold = null;
             rightLatchedFingerCount = 0;
+            rightLatchedViaCoverage = false;
             StopGripLocomotion(Hand.Right);
         }
         owner.leftHandIsGripping = leftGripLatch != null && leftGripLatch.IsEngaged;
@@ -559,20 +566,96 @@ public sealed class GripInteractionCoordinator
             ? GripEngagementGate.Evaluate(criteria, masks)
             : default;
         int acquiredFingers = GripEngagementGate.CountNonThumbFingers(verdict.AcquiredMask);
+
+        // Gate v2 (2026-08-19): coverage and grace are live acquisition paths layered as a
+        // union over the curl verdict. Neither touches the curl criteria or the release rules,
+        // and both need the GPU pipeline's epoch evidence, so the degraded CPU path stays
+        // curl-only. Coverage runs while tracked; grace runs exactly on dropout frames.
+        bool acquire = verdict.CanAcquire;
+        int acquireMask = verdict.AcquiredMask;
+        int acquireFingers = acquiredFingers;
+        int acquireMinimum = Mathf.Max(1, acquiredFingers);
+        bool latchTrackingValid = trackingValid;
+        GripAcquirePath acquirePath = GripAcquirePath.Curl;
+        bool livePathContext = latch.Phase == GripLatchPhase.Free &&
+                               candidate != null &&
+                               affordancesReady &&
+                               !useDegradedCpu &&
+                               !owner.IsGripFeedbackDegraded;
+        if (settings.coverageAcquisitionEnabled &&
+            TryAcquireCoverage(
+                hand,
+                candidateHoldId,
+                livePathContext && trackingValid && !acquire,
+                minFingers,
+                now,
+                out int coverageMask,
+                out int coverageDigits,
+                out int coverageRequired))
+        {
+            acquire = true;
+            acquireMask = coverageMask;
+            acquireFingers = coverageDigits;
+            acquireMinimum = coverageRequired;
+            acquirePath = GripAcquirePath.Coverage;
+        }
+        if (!acquire && settings.graceAcquisitionEnabled &&
+            TryAcquireGrace(
+                hand,
+                curls,
+                criteria,
+                candidateHoldId,
+                livePathContext && !trackingValid,
+                now,
+                out GripAcquisitionVerdict graceVerdict))
+        {
+            acquire = true;
+            acquireMask = graceVerdict.AcquiredMask;
+            acquireFingers = GripEngagementGate.CountNonThumbFingers(graceVerdict.AcquiredMask);
+            acquireMinimum = Mathf.Max(1, acquireFingers);
+            // The qualifying epoch was measured while confidence was still high; the latch
+            // acquires on that evidence and immediately rides the existing freeze/resume
+            // machinery through the dropout it bridged.
+            latchTrackingValid = true;
+            acquirePath = GripAcquirePath.Grace;
+        }
+        if (trackingValid)
+        {
+            // Grace fires once per dropout: it re-arms only after tracking actually returns.
+            if (hand == Hand.Left)
+            {
+                leftGraceShadowFired = false;
+            }
+            else
+            {
+                rightGraceShadowFired = false;
+            }
+        }
+
+        // A coverage-latched grip is sustained by contact as well as flexion, or a held drag
+        // (curl ~0.28, below the 0.35 release threshold) would release on the next frame.
+        int sustainMask = lowFlexedMask;
+        if ((hand == Hand.Left ? leftLatchedViaCoverage : rightLatchedViaCoverage) &&
+            latch.IsEngaged)
+        {
+            sustainMask |= MeasureCoverageSustainMask(hand, latch.HoldId, now);
+        }
+
         GripLatchTransition transition = latch.Update(
             now,
-            trackingValid,
-            verdict.CanAcquire,
-            verdict.CanAcquire ? candidateHoldId : 0,
-            Mathf.Max(1, acquiredFingers),
-            verdict.AcquiredMask,
-            lowFlexedMask);
+            latchTrackingValid,
+            acquire,
+            acquire ? candidateHoldId : 0,
+            acquireMinimum,
+            acquireMask,
+            sustainMask);
 
         HandleGripLatchTransition(
             hand,
             candidate,
             minFingers,
-            acquiredFingers,
+            acquireFingers,
+            acquirePath,
             transition,
             now,
             trackingValid);
@@ -600,12 +683,191 @@ public sealed class GripInteractionCoordinator
             trackingValid, affordancesReady, useDegradedCpu, now);
     }
 
+    /// <summary>The gate configuration stamp for the run manifest. Ensures the tuning component
+    /// exists so a manifest created before the first grip update still records the truth.</summary>
+    public string DescribeGateVersion()
+    {
+        EnsureSettings();
+        return settings.DescribeGateVersion();
+    }
+
+    /// <summary>Rebuilds both dwell trackers when the tunables change or ownership moves between
+    /// the live path and the shadow logger, so neither ever runs on state the other primed.</summary>
+    private void EnsureCoverageTrackers(bool liveMode)
+    {
+        if (leftCoverageShadow != null &&
+            coverageTrackerDwellSeconds == settings.shadowCoverageDwellSeconds &&
+            coverageTrackerRefireSeconds == settings.shadowRefireSeconds &&
+            coverageTrackerLiveMode == liveMode)
+        {
+            return;
+        }
+        coverageTrackerDwellSeconds = settings.shadowCoverageDwellSeconds;
+        coverageTrackerRefireSeconds = settings.shadowRefireSeconds;
+        coverageTrackerLiveMode = liveMode;
+        leftCoverageShadow = new GripShadowDwellTracker(
+            coverageTrackerDwellSeconds,
+            coverageTrackerRefireSeconds);
+        rightCoverageShadow = new GripShadowDwellTracker(
+            coverageTrackerDwellSeconds,
+            coverageTrackerRefireSeconds);
+    }
+
+    /// <summary>
+    /// Live coverage acquisition: the shadow-era rule with the shadow-frozen values, granting a
+    /// real latch. Evidence comes from the coordinator's epoch-coherent snapshot; the dwell
+    /// tracker carries the sustain and fires exactly once per episode, so the latch lands on the
+    /// frame the dwell completes. Runs every frame the path is enabled - with an inactive
+    /// context it only advances the tracker's ineligibility - and allocates nothing. Faults here
+    /// are real gate faults and propagate; only the log-only shadows are allowed to retire.
+    /// </summary>
+    private bool TryAcquireCoverage(
+        Hand hand,
+        int candidateHoldId,
+        bool active,
+        int minFingers,
+        float now,
+        out int digitMask,
+        out int digitCount,
+        out int requiredDigits)
+    {
+        digitMask = 0;
+        digitCount = 0;
+        requiredDigits = 0;
+        EnsureCoverageTrackers(liveMode: true);
+        GripShadowDwellTracker tracker = hand == Hand.Left ? leftCoverageShadow : rightCoverageShadow;
+
+        float boardSpeed = float.NaN;
+        if (active)
+        {
+            boardSpeed = MeasureBoardLocalWristSpeed(hand, now);
+        }
+        else if (hand == Hand.Left)
+        {
+            leftShadowWristSampledAt = float.NaN;
+        }
+        else
+        {
+            rightShadowWristSampledAt = float.NaN;
+        }
+
+        GripAcquisitionSample sample = hand == Hand.Left
+            ? leftShadowAcquisitionSample
+            : rightShadowAcquisitionSample;
+        bool eligible = false;
+        GripOpenSurfaceEvidence evidence = default;
+        if (active)
+        {
+            requiredDigits = GripOpenSurfacePolicy.RequiredCoverageDigits(
+                settings.shadowCoverageMinDigits,
+                minFingers);
+            bool epochFresh = sample.IsValid &&
+                              sample.HoldId == candidateHoldId &&
+                              now - sample.SampledAt <= settings.shadowCoverageEpochFreshnessSeconds;
+            if (epochFresh && !float.IsNaN(boardSpeed) &&
+                boardSpeed <= settings.shadowCoverageMaxSpeedMetersPerSecond)
+            {
+                evidence = GripOpenSurfacePolicy.Measure(
+                    sample.SampledBoneDistances,
+                    sample.SampledCurls,
+                    settings.shadowCoverageContactRangeMeters,
+                    settings.shadowCoveragePalmRangeMeters);
+                eligible = GripOpenSurfacePolicy.IsEligible(
+                    evidence,
+                    requiredDigits,
+                    settings.shadowCoverageMinPadSamples,
+                    settings.shadowCoverageCurlFloor);
+            }
+        }
+
+        if (!tracker.Update(eligible, candidateHoldId, now, out _))
+        {
+            return false;
+        }
+        digitMask = evidence.DigitContactMask;
+        digitCount = evidence.DigitCount;
+        return true;
+    }
+
+    /// <summary>
+    /// Live grace acquisition: on the frame a hand-level dropout nulls the pipeline's own
+    /// sample, a fully qualified epoch from the coordinator snapshot completes the latch the
+    /// dropout interrupted. Fires at most once per dropout; consuming the snapshot keeps one
+    /// epoch from serving twice.
+    /// </summary>
+    private bool TryAcquireGrace(
+        Hand hand,
+        float[] curls,
+        in GripAcquisitionCriteria criteria,
+        int candidateHoldId,
+        bool active,
+        float now,
+        out GripAcquisitionVerdict verdict)
+    {
+        verdict = default;
+        if (!active)
+        {
+            return false;
+        }
+        bool fired = hand == Hand.Left ? leftGraceShadowFired : rightGraceShadowFired;
+        GripAcquisitionSample sample = hand == Hand.Left
+            ? leftShadowAcquisitionSample
+            : rightShadowAcquisitionSample;
+        if (fired || !sample.IsValid)
+        {
+            return false;
+        }
+
+        GripAcquisitionMasks masks = sample.PeekMasks(
+            candidateHoldId,
+            curls,
+            criteria,
+            now,
+            settings.shadowGraceWindowSeconds);
+        verdict = GripEngagementGate.Evaluate(criteria, masks);
+        if (!verdict.CanAcquire)
+        {
+            return false;
+        }
+
+        if (hand == Hand.Left)
+        {
+            leftGraceShadowFired = true;
+        }
+        else
+        {
+            rightGraceShadowFired = true;
+        }
+        sample.Invalidate();
+        return true;
+    }
+
+    /// <summary>Contact evidence sustaining a coverage-latched grip: any pad or tip bone of a
+    /// digit within the wider release range, read from the epoch snapshot under the lenient
+    /// release freshness. A stale or retargeted epoch contributes nothing, leaving flexion -
+    /// and, on real tracking loss, the freeze machinery - to carry the grip.</summary>
+    private int MeasureCoverageSustainMask(Hand hand, int latchedHoldId, float now)
+    {
+        GripAcquisitionSample sample = hand == Hand.Left
+            ? leftShadowAcquisitionSample
+            : rightShadowAcquisitionSample;
+        if (!sample.IsValid || sample.HoldId != latchedHoldId ||
+            now - sample.SampledAt > settings.coverageReleaseFreshnessSeconds)
+        {
+            return 0;
+        }
+        return GripOpenSurfacePolicy.MeasureDigitContactMask(
+            sample.SampledBoneDistances,
+            settings.coverageReleaseContactRangeMeters);
+    }
+
     /// <summary>
     /// Shadow acquisition paths: evaluated on every hold and logged, never latched. Coverage
     /// watches for the open-hand grips the curl gate structurally misses; grace watches for a
     /// high-confidence GPU sample landing during a hand-level confidence dropout - the sample
-    /// the real path discards. Their would-latch rates from real sessions are the evidence for
-    /// deciding whether either becomes a live path, per the mid-enrollment shadow discipline.
+    /// the real path discards. Since gate v2 each shadow runs only while its live counterpart
+    /// is toggled OFF: a live latch records its own path, so shadowing it would only duplicate
+    /// rows and work.
     /// </summary>
     private void UpdateShadowAcquisition(
         Hand hand,
@@ -635,24 +897,24 @@ public sealed class GripInteractionCoordinator
                                    affordancesReady && !useDegradedCpu &&
                                    !owner.IsGripFeedbackDegraded;
 
-            if (settings.shadowGraceEnabled)
+            if (settings.shadowGraceEnabled && !settings.graceAcquisitionEnabled)
             {
                 UpdateGraceShadow(
                     hand, curls, criteria, candidate, candidateHoldId,
                     freeOnCandidate, trackingValid, recording, recorder, now);
             }
-            else
+            else if (!settings.graceAcquisitionEnabled)
             {
                 leftGraceShadowFired = false;
                 rightGraceShadowFired = false;
             }
-            if (settings.shadowOpenSurfaceEnabled)
+            if (settings.shadowOpenSurfaceEnabled && !settings.coverageAcquisitionEnabled)
             {
                 UpdateCoverageShadow(
                     hand, candidate, candidateHoldId,
                     freeOnCandidate && trackingValid, recording, recorder, now);
             }
-            else
+            else if (!settings.coverageAcquisitionEnabled)
             {
                 leftCoverageShadow?.Reset();
                 rightCoverageShadow?.Reset();
@@ -756,19 +1018,7 @@ public sealed class GripInteractionCoordinator
     {
         // Live-tunable dwell/refire: a changed value rebuilds both trackers rather than driving
         // them with constants captured at first use.
-        if (leftCoverageShadow == null ||
-            coverageTrackerDwellSeconds != settings.shadowCoverageDwellSeconds ||
-            coverageTrackerRefireSeconds != settings.shadowRefireSeconds)
-        {
-            coverageTrackerDwellSeconds = settings.shadowCoverageDwellSeconds;
-            coverageTrackerRefireSeconds = settings.shadowRefireSeconds;
-            leftCoverageShadow = new GripShadowDwellTracker(
-                coverageTrackerDwellSeconds,
-                coverageTrackerRefireSeconds);
-            rightCoverageShadow = new GripShadowDwellTracker(
-                coverageTrackerDwellSeconds,
-                coverageTrackerRefireSeconds);
-        }
+        EnsureCoverageTrackers(liveMode: false);
         GripShadowDwellTracker tracker = hand == Hand.Left ? leftCoverageShadow : rightCoverageShadow;
 
         float boardSpeed = float.NaN;
@@ -1063,6 +1313,7 @@ public sealed class GripInteractionCoordinator
         GameObject candidate,
         int minFingers,
         int acquiredFingers,
+        GripAcquirePath acquirePath,
         GripLatchTransition transition,
         float now,
         bool trackingValid)
@@ -1073,12 +1324,21 @@ public sealed class GripInteractionCoordinator
             latchedHold = candidate;
             SetLatchedHold(hand, latchedHold);
             SetLatchedFingerCount(hand, acquiredFingers);
+            if (hand == Hand.Left)
+            {
+                leftLatchedViaCoverage = acquirePath == GripAcquirePath.Coverage;
+            }
+            else
+            {
+                rightLatchedViaCoverage = acquirePath == GripAcquirePath.Coverage;
+            }
             owner.SetGripLatchFeedback(hand, latchedHold, true);
             owner.RaiseGripEngagement(
                 "GripLatched",
                 hand,
                 latchedHold,
-                "minFingers=" + minFingers + ";fingers=" + acquiredFingers);
+                "minFingers=" + minFingers + ";fingers=" + acquiredFingers +
+                ";path=" + acquirePath.ToRecorderValue());
         }
         else if (transition.Kind == GripLatchTransitionKind.Frozen)
         {
@@ -1099,10 +1359,12 @@ public sealed class GripInteractionCoordinator
             if (hand == Hand.Left)
             {
                 leftLegacyGripStartHold = null;
+                leftLatchedViaCoverage = false;
             }
             else
             {
                 rightLegacyGripStartHold = null;
+                rightLatchedViaCoverage = false;
             }
         }
 

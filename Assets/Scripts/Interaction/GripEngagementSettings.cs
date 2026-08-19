@@ -22,9 +22,28 @@ public sealed class GripEngagementSettings : MonoBehaviour
              "excludes it; an engagement always needs at least one non-thumb finger either way.")]
     public bool thumbCountsTowardMinimum;
 
+    [Header("Live acquisition paths (gate v2, 2026-08-19)")]
+    [Tooltip("Coverage is a REAL acquisition path: the open-surface rule latches drags, slopers " +
+             "and palms the curl gate structurally excludes. Uses the frozen shadow-era values " +
+             "below. While on, the coverage shadow logger stands down (the latch itself records " +
+             "path=coverage).")]
+    public bool coverageAcquisitionEnabled = true;
+    [Tooltip("Grace is a REAL acquisition path: a fresh, fully qualified GPU sample landing on " +
+             "the frame a hand-level dropout nulls the target completes the latch, which then " +
+             "rides the existing freeze/resume machinery. While on, the grace shadow logger " +
+             "stands down (the latch itself records path=grace).")]
+    public bool graceAcquisitionEnabled = true;
+    [Tooltip("Pad/tip bone distance that SUSTAINS a coverage-latched grip. Wider than the " +
+             "acquisition range so evidence flicker at the surface cannot pump releases.")]
+    [Min(0.001f)] public float coverageReleaseContactRangeMeters = 0.025f;
+    [Tooltip("Maximum age of the contact epoch used to sustain a coverage-latched grip. More " +
+             "lenient than acquisition freshness: a brief pipeline stall must not shed a held " +
+             "drag, and flexion evidence still sustains in parallel.")]
+    [Range(0.05f, 0.5f)] public float coverageReleaseFreshnessSeconds = 0.3f;
+
     [Header("Shadow acquisition paths (log-only; never latch)")]
     [Tooltip("Log GripShadowLatch path=coverage events when the open-surface contact-coverage " +
-             "rule would have latched. Shadow only: the real gate is untouched.")]
+             "rule would have latched. Ignored while the live coverage path is on.")]
     public bool shadowOpenSurfaceEnabled = true;
     [Tooltip("Pad/tip bone distance a digit must reach to count toward coverage.")]
     [Min(0.001f)] public float shadowCoverageContactRangeMeters = 0.015f;
@@ -46,7 +65,8 @@ public sealed class GripEngagementSettings : MonoBehaviour
     [Tooltip("Ineligibility gap after a fire before the same hold may fire again.")]
     [Min(0f)] public float shadowRefireSeconds = 0.5f;
     [Tooltip("Log GripShadowLatch path=grace events when a fresh high-confidence GPU sample " +
-             "would have latched during a hand-level confidence dropout.")]
+             "would have latched during a hand-level confidence dropout. Ignored while the live " +
+             "grace path is on.")]
     public bool shadowGraceEnabled = true;
     [Tooltip("Maximum sample age the grace would accept during a confidence dropout.")]
     [Range(0.01f, 0.1f)] public float shadowGraceWindowSeconds = 0.08f;
@@ -119,6 +139,11 @@ public sealed class GripEngagementSettings : MonoBehaviour
         }
         reason = string.Empty;
         return false;
+    }
+
+    public string DescribeGateVersion()
+    {
+        return GripGateVersionPolicy.Describe(coverageAcquisitionEnabled, graceAcquisitionEnabled);
     }
 
     public GripAcquisitionCriteria BuildCriteria(

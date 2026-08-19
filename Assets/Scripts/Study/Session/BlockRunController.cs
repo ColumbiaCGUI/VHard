@@ -322,6 +322,7 @@ public sealed class BlockRunController
             gripFeedback = sceneConfiguror.IsGripFeedbackDegraded
                 ? "degraded_at_" + sceneConfiguror.GripFeedbackDegradedUtc
                 : "ok",
+            gripGateVersion = sceneConfiguror.DescribeGripGateVersion(),
         };
 
         segmentDroppedCaptureFramesBaseline = 0;
