@@ -1409,6 +1409,20 @@ public sealed class GripInteractionCoordinator
         {
             return;
         }
+        // The evicted hand's fingers are still flexed on its hold, so without a disarm the
+        // curl path re-latches it on the NEXT FRAME and evicts the latch that just committed
+        // - a per-frame eviction ping-pong in every two-hand stance (P3, 2026-08-19: 106
+        // artifact latch episodes). Evicted hands therefore re-arm exactly like
+        // suppression-released ones: only once every non-thumb finger opens below the
+        // engage curl (gate v4).
+        if (other == Hand.Left)
+        {
+            leftAcquisitionArmed = false;
+        }
+        else
+        {
+            rightAcquisitionArmed = false;
+        }
         bool otherTracking = other == Hand.Left ? LeftTrackingValid : RightTrackingValid;
         HandleGripLatchTransition(other, null, 0, 0, GripAcquirePath.Curl, released, now, otherTracking);
         owner.leftHandIsGripping = leftGripLatch != null && leftGripLatch.IsEngaged;

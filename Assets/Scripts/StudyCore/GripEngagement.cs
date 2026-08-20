@@ -861,15 +861,20 @@ public static class GripAcquirePathExtensions
 /// Names the acquisition-gate configuration a run was recorded under. Stamped into every run
 /// manifest so a recording is never analyzed against the wrong gate: v1 is the curl-only gate
 /// P1 and P2 ran (2026-08-17/18); v2 adds the coverage and grace paths live (2026-08-19,
-/// enabled on Ben's go per the plan of record); v3 adds the auto-handoff release. A partial
-/// toggle names the exact combination so a mid-study experiment is visible in the stamp rather
-/// than masquerading as a neighboring version.
+/// enabled on Ben's go per the plan of record); v3 adds the auto-handoff release (the P3
+/// build); v4 disarms the evicted hand until it opens, fixing v3's per-frame eviction
+/// ping-pong in two-hand stances (P3 field data: 106 artifact latch episodes). A partial
+/// toggle names the exact combination so a mid-study experiment is visible in the stamp
+/// rather than masquerading as a neighboring version.
 /// </summary>
 public static class GripGateVersionPolicy
 {
     public const string CurlOnly = "curl-v1";
     public const string Full = "curl+coverage+grace-v2";
+    /// <summary>Historical: the P3 build's stamp — handoff WITHOUT the evicted-hand disarm.
+    /// Recordings carrying it contain the eviction ping-pong artifact.</summary>
     public const string FullWithHandoff = "curl+coverage+grace+handoff-v3";
+    public const string FullWithHandoffDisarm = "curl+coverage+grace+handoff-v4";
 
     public static string Describe(bool coverageLive, bool graceLive)
     {
@@ -885,7 +890,7 @@ public static class GripGateVersionPolicy
                 : graceLive ? "curl+grace" : "curl";
         if (handoffLive)
         {
-            return paths + "+handoff-v3";
+            return paths + "+handoff-v4";
         }
         return paths + (coverageLive || graceLive ? "-v2" : "-v1");
     }

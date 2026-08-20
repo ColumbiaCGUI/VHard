@@ -165,12 +165,17 @@ public sealed class GripLiveAcquisitionTests
     [Test]
     public void GateVersionNamesTheHandoffConfigurations()
     {
+        // v4 = handoff WITH the evicted-hand disarm (the P3 oscillation fix). The live
+        // Describe must never emit v3 again: that stamp names the ping-pong-affected build.
         Assert.That(GripGateVersionPolicy.Describe(true, true, true),
-            Is.EqualTo("curl+coverage+grace+handoff-v3"));
-        Assert.That(GripGateVersionPolicy.FullWithHandoff,
+            Is.EqualTo("curl+coverage+grace+handoff-v4"));
+        Assert.That(GripGateVersionPolicy.FullWithHandoffDisarm,
             Is.EqualTo(GripGateVersionPolicy.Describe(true, true, true)));
-        Assert.That(GripGateVersionPolicy.Describe(false, false, true), Is.EqualTo("curl+handoff-v3"));
-        Assert.That(GripGateVersionPolicy.Describe(true, false, true), Is.EqualTo("curl+coverage+handoff-v3"));
+        Assert.That(GripGateVersionPolicy.FullWithHandoff,
+            Is.EqualTo("curl+coverage+grace+handoff-v3"),
+            "The historical v3 stamp must stay stable - P3's recordings carry it.");
+        Assert.That(GripGateVersionPolicy.Describe(false, false, true), Is.EqualTo("curl+handoff-v4"));
+        Assert.That(GripGateVersionPolicy.Describe(true, false, true), Is.EqualTo("curl+coverage+handoff-v4"));
         Assert.That(GripGateVersionPolicy.Describe(true, true, false),
             Is.EqualTo(GripGateVersionPolicy.Full),
             "The two-argument overload's meaning must not drift when handoff is off.");
