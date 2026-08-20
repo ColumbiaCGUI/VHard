@@ -631,6 +631,21 @@ public class SceneConfiguror : MonoBehaviour
         ghostHoldController?.SetPanelInputSuppressed(suppressed);
     }
 
+    /// <summary>The engagement that must stand the palm-up console summon down, or None while
+    /// the participant's hands are free. Evaluated by the summon detector every frame, so a
+    /// dwell can never complete - and an armed summon cancels, lifting its input suppression -
+    /// while a hand is latched, locomoting, hovering a hold, or holding a ghost proxy.</summary>
+    public SummonBlockReason GetSummonBlockReason()
+    {
+        return SummonGatePolicy.GetBlockReason(
+            Grip.GetLatchedHold(Hand.Left) != null,
+            Grip.GetLatchedHold(Hand.Right) != null,
+            isGripLocomotionActive,
+            leftHandInteractingClimbingHold != null,
+            rightHandInteractingClimbingHold != null,
+            ghostHoldController != null && ghostHoldController.IsAnyProxyHeld);
+    }
+
     public RouteCuePresentation BaselineRouteCuePresentation => baselineRouteCuePresentation;
     public RouteCuePresentation CurrentRouteCuePresentation { get; private set; } =
         RouteCuePresentation.Hidden;

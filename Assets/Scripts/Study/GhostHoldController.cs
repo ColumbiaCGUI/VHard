@@ -231,6 +231,10 @@ public sealed class GhostHoldController : MonoBehaviour
         ApplyGhostGrabEnabled(modeActive && !suppressed);
     }
 
+    /// <summary>True while either hand pinch-holds a proxy - the manipulation an armed summon's
+    /// input suppression would otherwise silently release, so the summon gate stands down.</summary>
+    public bool IsAnyProxyHeld => left?.Manipulated != null || right?.Manipulated != null;
+
     public bool IsGhostHold(GameObject candidate)
     {
         return FindGhost(candidate) != null;

@@ -251,7 +251,10 @@ public sealed class StudyManager : MonoBehaviour
             state,
             controlPanel,
             () => summonDwellSeconds,
-            () => summonCooldownSeconds);
+            () => summonCooldownSeconds,
+            () => sceneConfiguror != null
+                ? sceneConfiguror.GetSummonBlockReason()
+                : SummonBlockReason.None);
         controlPanel.AttachSummonDetector(summonGesture);
         headsetPresence = new HeadsetPresenceTracker(state, actionRecorder);
         estimation = new EstimationController(

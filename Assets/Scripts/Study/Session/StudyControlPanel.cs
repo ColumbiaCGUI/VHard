@@ -153,6 +153,7 @@ public sealed class StudyControlPanel
     private int confirmationArmedFrame = -1;
     private int lastPanelPressFrame = -1;
     private float panelPressableAt;
+    private bool? lastRecordedPanelVisible;
     private bool leftWasPinching;
     private bool rightWasPinching;
     private bool leftPinchArmed;
@@ -1032,6 +1033,15 @@ public sealed class StudyControlPanel
     public void SetPanelVisible(bool visible)
     {
         panelRoot?.SetActive(visible);
+        if (panelRoot != null && lastRecordedPanelVisible != visible)
+        {
+            lastRecordedPanelVisible = visible;
+            sceneConfiguror?.actionRecorder?.Record(
+                "PanelVisibility",
+                "",
+                null,
+                "visible=" + (visible ? "true" : "false"));
+        }
         SetGameplayInputSuppressed(visible);
         if (!visible)
         {
@@ -1050,6 +1060,14 @@ public sealed class StudyControlPanel
     public void SetSummonArmed(bool armed)
     {
         sceneConfiguror?.SetPanelSummonArmed(armed);
+    }
+
+    /// <summary>One PanelSummon row per gesture milestone (armed / opened / blocked), so
+    /// accidental console opens are excisable by timestamp instead of inferred from grip
+    /// flags, and the gate's residual false-positive rate is countable per session.</summary>
+    public void RecordSummonEvent(string details)
+    {
+        sceneConfiguror?.actionRecorder?.Record("PanelSummon", "Left", null, details);
     }
 
     public void HandlePanelInput(
