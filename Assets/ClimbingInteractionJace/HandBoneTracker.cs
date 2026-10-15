@@ -103,7 +103,8 @@ public class HandBoneTracker : MonoBehaviour
         int contactMask = hand == Hand.Left
             ? sceneConfiguror.leftFingerContactMask
             : sceneConfiguror.rightFingerContactMask;
-        return GripFingerCuePolicy.ResolveFingertipColor(contactMask, finger);
+        return GripFingerCuePolicy.ResolveFingertipColor(
+            contactMask, finger, sceneConfiguror.GetFingerPatchColor(finger));
     }
 
     private bool IsHandLatched()

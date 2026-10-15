@@ -1124,12 +1124,7 @@ public class SceneConfiguror : MonoBehaviour
             return;
         }
 
-        gripScoreConfig ??= Resources.Load<GripScoreConfig>("GripScoreConfig");
-        if (gripScoreConfig == null)
-        {
-            gripScoreConfig = ScriptableObject.CreateInstance<GripScoreConfig>();
-            Debug.LogWarning("GripScoreConfig asset was not found; using runtime defaults.");
-        }
+        EnsureGripScoreConfig();
         gripContactPipeline = new GripContactPipeline(
             this,
             distanceToClosestBoneComputeShader,
@@ -1138,6 +1133,30 @@ public class SceneConfiguror : MonoBehaviour
         gripContactPipeline.SetFeedbackVisible(
             StudyEnvironment.IsStudyFeedbackVisible && !IsGripFeedbackDegraded);
         gripContactPipeline.DebugSetReadbackFailures(debugForceGripReadbackFailures);
+    }
+
+    /// <summary>The contact-patch hue for one finger, for markers that must match the patches the
+    /// hold draws. Ensures the config itself: the fingertip cues render before the grip pipeline
+    /// exists, and must not go colourless when it never will (degraded feedback).</summary>
+    public Color GetFingerPatchColor(int finger)
+    {
+        EnsureGripScoreConfig();
+        return gripScoreConfig.GetPatchColor(finger);
+    }
+
+    private void EnsureGripScoreConfig()
+    {
+        if (gripScoreConfig != null)
+        {
+            return;
+        }
+
+        gripScoreConfig = Resources.Load<GripScoreConfig>("GripScoreConfig");
+        if (gripScoreConfig == null)
+        {
+            gripScoreConfig = ScriptableObject.CreateInstance<GripScoreConfig>();
+            Debug.LogWarning("GripScoreConfig asset was not found; using runtime defaults.");
+        }
     }
 
     private void HandleGripPipelineHealth()
